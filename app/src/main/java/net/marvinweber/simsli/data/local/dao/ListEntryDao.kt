@@ -1,0 +1,89 @@
+package net.marvinweber.simsli.data.local.dao
+
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import androidx.room.Transaction
+import net.marvinweber.simsli.data.local.entity.DbListEntry
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface ListEntryDao {
+    @Query("""
+        SELECT * FROM list_entries
+        WHERE householdId = :householdId
+        ORDER BY done ASC, createdAt ASC
+    """)
+    fun getListEntriesByHousehold(householdId: String): Flow<List<DbListEntry>>
+
+    @Query("""
+        SELECT le.* FROM list_entries le
+        INNER JOIN items i ON le.itemId = i.id
+        WHERE le.householdId = :householdId
+        AND i.deletedAt IS NULL
+        AND (:storeId IS NULL OR EXISTS (
+            SELECT 1 FROM item_stores ist
+            WHERE ist.itemId = le.itemId AND ist.storeId = :storeId
+        ))
+        ORDER BY le.done ASC, i.sortOrder ASC
+    """)
+    fun getListEntriesByHouseholdAndStore(householdId: String, storeId: String?): Flow<List<DbListEntry>>
+
+    @Query("SELECT * FROM list_entries WHERE id = :id")
+    fun getListEntryById(id: String): Flow<DbListEntry?>
+
+    @Query("SELECT * FROM list_entries WHERE id = :id")
+    suspend fun getListEntryOnce(id: String): DbListEntry?
+
+    @Query("SELECT * FROM list_entries WHERE householdId = :householdId")
+    suspend fun getAllByHousehold(householdId: String): List<DbListEntry>
+
+    @Query("""
+        UPDATE list_entries
+        SET householdId = :newHouseholdId, updatedAt = :updatedAt
+        WHERE householdId = :oldHouseholdId
+    """)
+    suspend fun reassignHousehold(oldHouseholdId: String, newHouseholdId: String, updatedAt: java.time.Instant)
+
+    @Query("SELECT * FROM list_entries WHERE householdId = :householdId AND itemId = :itemId")
+    fun getListEntryByHouseholdAndItem(householdId: String, itemId: String): Flow<DbListEntry?>
+
+    @Query("SELECT * FROM list_entries WHERE householdId = :householdId AND itemId = :itemId LIMIT 1")
+    suspend fun getEntryByHouseholdAndItemOnce(householdId: String, itemId: String): DbListEntry?
+
+    /** Checked-off entries past the "Recently checked" TTL — garbage collection removes them everywhere. */
+    @Query("""
+        SELECT * FROM list_entries
+        WHERE done = 1 AND completedAt IS NOT NULL AND completedAt < :cutoff
+    """)
+    suspend fun getExpiredDoneEntries(cutoff: java.time.Instant): List<DbListEntry>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(listEntry: DbListEntry)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(listEntries: List<DbListEntry>)
+
+    @Query("""
+        UPDATE list_entries
+        SET done = :done, completedAt = :completedAt, updatedAt = :updatedAt
+        WHERE id = :id
+    """)
+    suspend fun updateDoneStatus(id: String, done: Boolean, completedAt: java.time.Instant?, updatedAt: java.time.Instant)
+
+    @Query("""
+        UPDATE list_entries
+        SET quantity = :quantity, unit = :unit, comment = :comment, updatedAt = :updatedAt
+        WHERE id = :id
+    """)
+    suspend fun updateDetails(id: String, quantity: Double?, unit: String?, comment: String?, updatedAt: java.time.Instant)
+
+    @Query("DELETE FROM list_entries WHERE id = :id")
+    suspend fun delete(id: String)
+
+    @Transaction
+    suspend fun markAllDone(householdId: String, done: Boolean, completedAt: java.time.Instant?, updatedAt: java.time.Instant) {
+        // This would need to be implemented with proper transaction support
+    }
+}

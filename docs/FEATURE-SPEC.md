@@ -1,0 +1,158 @@
+# Simsli — Feature Spec
+
+Single source of truth for **what Simsli does** (behavior). Technical *why* lives in `docs/adr/`, project setup in `CLAUDE.md`.
+Changes to this file are changes to product behavior — discuss before editing.
+
+**Status legend**
+- ✅ implemented (works today)
+- 🚧 partial (exists with a known gap, noted)
+- 📋 **v0.1** — working test build (core list, sync, sharing)
+- 📋 **v1** — public release (limits, server switch, export, polish)
+- 📋 **v1.5** — Simsli Pro subscriptions + admin role
+- 🔭 **v2+** — later milestones
+- ❌ out of scope (deliberately not planned)
+
+Milestone tags are assignments, not promises — moving a feature between milestones is a one-line edit.
+
+Last updated: 2026-09-26
+
+---
+
+## 1. Product definition
+
+Simsli is a shared shopping list for households of 2+ people. Items live in a per-household catalog, get assigned to stores, and the store-filtered list is grouped by category in each store's aisle order — the app answers "what do I need *here*, in which order".
+
+Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits, per-household **Simsli Pro** subscription lifts them (§3.11).
+
+## 2. Concepts
+
+- **Household** — the sharing boundary. All data belongs to one household. Server-side a user *could* be in many; the app binds to exactly one (HH-8).
+- **Owner** — exactly one per household, immutable until transfer exists (v2+). The only person who can subscribe the household or delete it. Cannot be affected by other members in any way.
+- **Member** — manages all content (items, entries, stores, categories), cannot manage the household itself.
+- **Admin** *(v1.5)* — member-level plus household management (rename, invites, member management) — but can never touch the Owner: no demotion, no removal, no role change against them.
+- **Catalog item** — permanent metadata: name, type, stores, category, default unit, notes. Lives until deleted.
+- **List entry** — ephemeral "on the list right now" row referencing an item. Holds quantity, unit, comment, done state. One per item per household.
+- **Store** — a physical shop. Items can be assigned to several stores.
+- **Category** — per-household grouping (name + emoji). Ordered globally; optionally re-ordered per store.
+- **Invite code** — 8-char single-use code, valid 24h.
+- **Plan** — per-household: `free` or `pro`, plus subscription validity state (BIZ-0). Limits are derived from it.
+- **Backup** — full-fidelity JSON export of a household (DATA-4). Import is future (DATA-5).
+
+## 3. Features
+
+### 3.1 Auth & device (AUTH)
+
+- **AUTH-1 Magic-link sign-in ✅** — email → OTP mail → `simsli://auth` deep link. Session persists and replays at app start, which triggers an initial sync.
+- **AUTH-2 Sign out 🚧 → v0.1** — revokes the session and **wipes all local app data** (Room + outbox), leaving a clean device. Gap: wipe not yet implemented — currently data survives and a different account signing in silently adopts the previous household (must not happen). Unsynced offline writes are lost; that is accepted (DATA-3).
+- **AUTH-3 Offline-first use ✅** — fully usable signed out: local household with a random UUID, everything works, unlimited. Signing in later adopts the offline household server-side (user becomes Owner) — subject to the adoption limit check (BIZ-1).
+- **AUTH-4 Email/password sign-in 📋 v1** — decided as part of auth scope (magic link + email/password), not yet built.
+
+### 3.2 Household & membership (HH)
+
+- **HH-1 Household creation ✅** — implicit: offline create or auto "My household" on first sync; explicit rename ✅ (rename rights: Owner only; Admins v1.5).
+- **HH-2 Roles & guards ✅/📋** — **exactly one Owner per household**, immutable: nobody can demote, remove, or otherwise affect the Owner, and the Owner cannot leave (their exits: delete the household — HH-7 — or ownership transfer, 🔭 v2+). Members manage all content; household management (rename, invite, remove, role changes) is Owner-only. **Admin role 📋 v1.5**: members promoted by the Owner gain household-management rights over all *other* members — never over the Owner. Gaps: invite creation is currently allowed for all members via RLS — policy must become Owner-only (📋 v0.1 backend change); owner-guard RPC checks (📋 v1.5 with admins).
+- **HH-3 Invite 🚧** — Owner generates an 8-char code (A–Z/2–9, no 0/O/1/I/L), single-use, 24h expiry, shown with copy-to-clipboard ✅. Owner-only creation (📋 v0.1 backend change). Expired/used codes fail with a clear error ✅. **Deep link 📋 v0.1** — the code is also shareable as `simsli://invite/<code>`; opening it asks for sign-in first if needed, then jumps straight into the join flow (HH-4).
+- **HH-4 Join by code ✅** — signed-in user enters a code → `accept_invite` → membership created (blocked with a clear message if the household is at its 2-user free limit, BIZ-1) → sync adopts the joined household and merges data (local rows remap onto the joined household, so nothing is lost).
+- **HH-5 Remove member 📋 v0.1** — Owner removes a member (server policy exists; UI in Household screen). The removed member's device wipes household data on next sync detection (DATA-2). Admins gain this right in v1.5 (HH-2).
+- **HH-6 Leave household 📋 v1** — members can leave on their own (new server policy). **The Owner cannot leave** (HH-2). Leaving wipes the device (DATA-2).
+- **HH-7 Delete household 📋 v1** — **only the Owner** may delete, and **never while the household has an active subscription** (cancel first, BIZ-3). Requires typing the household name to confirm. Server-side: **soft delete with 30-day retention** — household and data (memberships included) become invisible to all queries; the Owner can restore within 30 days (no restore UI in v1 — manual via SQL/support; restore UI v2 🔭). After 30 days a deterministic GC hard-deletes everything (mechanism open, OQ-4). The deleting device wipes immediately; other members' devices wipe on next sync detection (DATA-2).
+- **HH-8 Single-household app ❌→🔭 v2** — the app binds to the user's first membership; no household switcher in v1 (the v2 bottom bar will need one somewhere). The server schema/RPCs stay multi-household-general so v2 can add switching without backend rework (sync watermarks are per-table — re-keying per household is part of that v2 work).
+
+### 3.3 Catalog items (ITEM)
+
+- **ITEM-1 Create/edit ✅** — name, notes, type, store assignments, (📋 v0.1: category CAT-2, default unit ITEM-5).
+- **ITEM-2 Item types ✅** — `PERMANENT` (normal case, lives in catalog forever) and `ONE_TIME` (retired together with its checked-off entry at GC). Legacy `CHECKLIST` stays hidden in UI/DB.
+- **ITEM-3 Duplicate-name warning 📋 v0.1** — creating (or renaming to) a name that already exists in the household (case-insensitive) asks "already exists — add anyway?".
+- **ITEM-4 Delete item 🚧 → 📋 v0.1** — soft delete exists in the repository but has **no UI entry point**, and active list entries of the item would linger invisibly. Rule: deleting an item also removes its active entries and store assignments; UI entry in item detail with confirmation.
+- **ITEM-5 Default unit 📋 v0.1** — optional unit preset on the item, preselected when adding to the list, changeable per entry.
+
+### 3.4 Shopping list (LIST)
+
+- **LIST-1 Add to list ✅** — one entry per item per household (UNIQUE). Adding an item that is in "Recently checked" moves it back to active.
+- **LIST-2 Fast-add ✅** — sheet with catalog search, one-tap add, inline "create item from query" (no metadata required).
+- **LIST-3 Check off ✅** — checked entries move to "Recently checked" (flat section at the bottom, undo-able). After **24h** (deterministic TTL, no coordination) any device's GC deletes the entry locally and on the server; ONE_TIME items retire with it.
+- **LIST-4 Entry editor ✅** — quantity (optional number), unit (preset list: pcs/Stk., g, kg, ml, l + free-text custom; defaults from item per ITEM-5 📋 v0.1), comment; remove from list ✅.
+- **LIST-5 Store filter ✅/📋 v0.1** — filter chips per store; **items without any store assignment show in every store view** (📋 gap: currently hidden — SQL change).
+- **LIST-6 Category grouping 📋 v0.1** — the list is always grouped by category (v1 has exactly one view): store-filtered → that store's category order, unordered categories appended in global order (STORE-4); unfiltered → global order. Uncategorized items form an implicit group at the end. "Recently checked" stays a flat section after all groups.
+- **LIST-7 Ordering ✅** — within a group, items follow the catalog's global `sortOrder`. No drag & drop for items.
+- **LIST-8 Shopping mode 📋 v1** — full-screen focused check-off view, available when a store filter is active: large touch targets, one tap to check, checked items collapse immediately (no "Recently checked" section here). Exit via back or "Done shopping" — exiting changes nothing (the TTL GC is the cleanup, LIST-3).
+
+### 3.5 Stores (STORE)
+
+- **STORE-1 Store management ✅/📋** — create, rename, delete ✅; managed in the Catalog tab's **Stores** tab (SCREENS-2, 📋 v0.1 move). Reorder: repository support ✅, drag & drop UI 📋 v1.
+- **STORE-2 Item↔store assignment ✅** — many-to-many, edited in item detail.
+- **STORE-3 Delete store ✅** — its item assignments are removed (cascade; local reconcile follows); **items are preserved** (unassigned for that store).
+- **STORE-4 Per-store category order 📋 v0.1** — store edit has a checklist of the household's categories; checked categories can be ordered (drag) → `store_categories` rows. Unchecked categories fall back to global order, appended after the explicit ones (LIST-6).
+
+### 3.6 Categories (CAT)
+
+- **CAT-1 Category entity 📋 v0.1** — per household: name + emoji icon (free emoji input, no icon picker) + global `sortOrder`. Global order is user-draggable.
+- **CAT-2 Item assignment 📋 v0.1** — an item has **zero or one** category; null = "Uncategorized" (implicit group, always last, not a real category).
+- **CAT-3 Management 📋 v0.1** — the Catalog tab's **Categories** tab (SCREENS-2): create, rename, icon, delete, drag global order. Deleting a category sets its items to uncategorized (nothing else breaks).
+- **CAT-4 Setup presets 📋 v0.1** — offered during household setup (SCREENS-5) to apply wholesale: Obst & Gemüse/Produce 🍎, Backwaren/Bakery 🥖, Milchprodukte/Dairy 🥛, Fleisch & Fisch/Meat & Fish 🥩, Grundnahrungsmittel/Pantry 🍝, Tiefkühl/Frozen ❄️, Getränke/Drinks 🧃, Snacks/Snacks 🍫, Haushalt/Household 🧻, Drogerie/Personal Care 🧴, Sonstiges/Other 📦. Editable afterwards like any category.
+
+### 3.7 Sync (SYNC)
+
+- **SYNC-1 Triggers ✅** — sign-in/session restore; debounced (500 ms) requests after every local write; Supabase Realtime events on `list_entries` + `items` (📋 v0.1: add `stores`, `categories`, `store_categories`); manual "Sync now".
+- **SYNC-2 Pipeline ✅** — resolveHousehold → flushOutbox (push current row state) → watermark delta pulls (`updated_at`, microsecond precision) → GC. Join tables without `updated_at` (`item_stores` ✅, `store_categories` 📋 v0.1) reconcile by full set comparison.
+- **SYNC-3 Conflict resolution ✅** — last write wins per row (no payloads; the current local row state is pushed).
+- **SYNC-4 Realtime-as-trigger ✅** — realtime events only request a sync; the watermark pull is transport and backstop.
+- **SYNC-5 Offline/pending indicator 📋 v1** — subtle, honest indicator when the device is offline or has unsynced writes (outbox pending); clears when sync completes. No modal nagging.
+
+### 3.8 Device data & backups (DATA)
+
+- **DATA-1 Sign-out wipe 🚧 → v0.1** — see AUTH-2.
+- **DATA-2 Membership-end wipe 📋** — leaving (HH-6, v1), being removed (HH-5, v0.1), the household being deleted (HH-7, v1), or losing RLS access any other way wipes household data on that device. Each path ships with its trigger.
+- **DATA-3 Unsynced writes are lost on any wipe ✅ (accepted)** — documented consequence of the wipe policy; sync runs continuously (debounced + realtime), so the realistic loss window is small.
+- **DATA-4 Export (JSON backup) 📋 v1** — any member can export the complete household data at any time — online or offline, signed in or not. Format: one **version-tagged JSON file** with full fidelity (items, stores, categories, list entries incl. state, all relations intact) — the format a future import (DATA-5) consumes. Shared via the Android share sheet.
+- **DATA-5 Import 🔭 v2** — if built, it **always creates a new household** (never merges) and must **re-generate every UUID** (server PKs are global; the original household still holds the exported rows) and strip membership/user references. Requires v2 multi-household (HH-8) or a refined replace-in-place rule — semantics open until then (OQ-4).
+
+### 3.9 Navigation & screens (SCREENS)
+
+- **SCREENS-1 Bottom navigation 📋 v0.1** — bottom app bar with three tabs: **Shopping List · Catalog · Settings**. Settings is promoted from a pushed screen to a tab.
+- **SCREENS-2 Catalog tabs 📋 v0.1** — the Catalog tab is a tabbed view: **Items | Categories | Stores**. Stores management moves here from its own pushed screen; Categories gets the third tab (CAT-3).
+- **SCREENS-3 Household screen 📋 v0.1 (minimal) / v1 (full)** — reached from Settings: member list with roles, invite (HH-3), remove (HH-5) in v0.1; leave (HH-6), delete household (HH-7) added in v1. Household name + rename moves here.
+- **SCREENS-4 Settings tab 📋 v0.1 (structure) / v1 (complete)** — Account (sign-in/out), Sync ("Sync now", status), Data (export, DATA-4, v1), Server (BIZ-5, v1).
+- **SCREENS-5 Onboarding 📋 v0.1** — minimal first-launch flow: welcome → sign-in (**skippable** — offline stays first-class) → household setup: name + apply category presets (CAT-4). Fine-tuning (stores, per-store order) happens in the management screens afterwards.
+- **SCREENS-6 Existing screens ✅** — List tab (active entries, recently checked, fast-add sheet, entry editor, store filter chips), Item detail (create/edit metadata), onboarding placeholder (replaced by SCREENS-5).
+- **SCREENS-7 Appearance 🔭 v2** — manual theme override (Light/Dark/System) in Settings. Until then the app follows the system (✅ current behavior, M3 dynamic color).
+
+### 3.10 Localization (I18N)
+
+- **I18N-1 EN default + DE overlay 📋 v0.1** — all UI strings live in string resources: `values/` (English, default/fallback) + `values-de/` (German). No hardcoded UI strings. User-entered content (item names, category names, custom units) is never translated; built-in content (unit presets, category presets, messages) ships in both languages. Numbers and dates render locale-aware.
+
+### 3.11 Business model: limits, subscriptions, hosting (BIZ)
+
+**Model overview** — offline use: free, unlimited, forever. Self-hosted: free, unlimited, forever (point the app at your own Supabase). Hosted (simsli.app): free tier with limits; a per-household **Simsli Pro** subscription lifts all limits. One Supabase instance serves all households; each household carries `plan` (`free`/`pro`) plus subscription validity (`status`, `current_period_end`), written by the billing webhook — entitlement = plan `pro` **and** valid period (BIZ-3). Operations: start on Supabase Cloud free tier for testing; move to the paid tier the day real load or the first paying subscription exists (backups, no pause risk — see OQ-6); migrating the whole service to self-hosted Supabase later is an option if cloud costs outgrow the userbase.
+
+- **BIZ-1 Free-tier limits 📋 v1** — a free hosted household: max **2 users**, **3 stores**, **20 catalog items**, **25 live list entries** (active + recently-checked combined; the 24h GC frees space). Enforced **server-side** (RPC/constraint checks reading a server config; a self-hosted instance defaults to unlimited) **and pre-checked client-side** for friendly errors and to show the upsell. Offline households are never limited; adoption of an over-limit offline household on sign-in is **refused** with a clear message (trim and retry, or self-host) — local data is untouched. Joining at the 2-user cap is refused (HH-4).
+- **BIZ-2 Lapse / fits-or-readonly 📋 v1.5** — when a subscription ends, the household reverts to `free`. If it fits the free limits, it keeps working as a free household. If it exceeds them: **read-only** — everything visible, no edits/adds/invites until trimmed below the limits or resubscribed. No data is deleted, ever.
+- **BIZ-3 Subscribe (Simsli Pro) 📋 v1.5** — the **Owner** subscribes *their household* (per-household subscription, not per-user). Active subscription: all limits lifted. The Owner cannot delete the household while subscribed (cancel first, HH-7). Cancellation runs to period end, then BIZ-2 applies.
+- **BIZ-4 Payment stack — open (OQ-1)** — provider-agnostic until subscriptions are built. Note: distributing via Google Play forces Play Billing for in-app subscriptions. Billing webhooks will be the first Edge Functions (amends the "no functions" stance of ADR-0001/0007 — new ADR at that time).
+- **BIZ-5 Server switch 📋 v1** — Settings → custom server URL + anon key. Switching warns that local data is wiped and sign-in starts fresh on the new server (AUTH-2 wipe). The Supabase URL/key move from build-time config to local runtime settings; one base URL + key covers REST, auth, and realtime (derived by supabase-kt).
+- **BIZ-6 Self-host promise ✅ (policy)** — a self-hosted instance is unlimited by default, requires no account with simsli.app, and phones home to nothing. The OSS guarantee: AGPL, migrations public, full feature set self-hosted.
+
+## 4. Data model delta (what this spec adds)
+
+Server (new migrations):
+- `categories` (id, household_id, name, emoji, sort_order, timestamps) — watermark-pulled
+- `store_categories` (store_id, category_id, sort_order) — full-reconcile, like `item_stores`
+- `items.category_id` (nullable), `items.default_unit` (nullable)
+- RLS/RPC: invite insert policy → Owner-only (v0.1); `leave_household` policy (member deletes own membership, v1); household deletion = soft delete via `deleted_at` + 30-day retention GC (v1, mechanism open OQ-4); owner-guard checks for admin role changes (v1.5)
+- Plan & entitlements (v1/v1.5): `households.plan`, subscription state (status, period end), server config table (limits; self-host default unlimited), limit checks in RPCs
+- Billing webhook (v1.5): first Edge Function writing plan/validity
+
+Local (Room): mirror tables/entities for the above (watermarks + reconcile unchanged in shape); runtime server settings (URL/key) in local storage (BIZ-5).
+
+## 5. Out of scope (deliberately not planned)
+
+❌ Item photos · tags (categories cover the need) · unit **conversions** · GPS/store reminders · barcode scanning · iOS/web · **push notifications** 🔭 v2/v3 (FCM + Edge Function is the path) · customizable list views 🔭 (one good view first) · item drag & drop reordering · **ownership transfer** 🔭 v2/v3 (until then the Owner's only exits are HH-7 deletion or staying) · household switcher UI 🔭 v2 (HH-8) · import 🔭 v2 (DATA-5) · restore-household UI 🔭 v2 (retention ships v1, HH-7).
+
+## 6. Open questions
+
+1. **Payment stack & distribution** — Play Billing vs Stripe; decides BIZ-4 and whether Play Store distribution happens at all.
+2. **Limits-before-subscriptions window** — if v1 launches before v1.5, early hosted households hit limits with no purchase path. Acceptable for a short window; otherwise move BIZ-1 to v1.5 (launch unlimited-free as a promo).
+3. **Import semantics** — v2: new-household-plus-switcher (needs HH-8 v2) vs replace-in-place; decided when multi-household is designed.
+4. **Retention GC mechanism** — how the 30-day household hard-delete runs server-side (pg_cron vs lazy-on-access vs scheduled function).
+5. **Supabase tier trigger** — confirmed intent: free tier for testing, paid tier at first real load/paying user (BIZ-0); revisit costs when the userbase exists.
+6. **App name & icon** — "Simsli" is a placeholder.
