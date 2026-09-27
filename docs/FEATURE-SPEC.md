@@ -14,6 +14,24 @@ Changes to this file are changes to product behavior — discuss before editing.
 
 Milestone tags are assignments, not promises — moving a feature between milestones is a one-line edit.
 
+## Progress overview
+
+| Area                     | ✅ done                 | 🚧 partial           | 📋 v0.1              | 📋 v1        | 📋 v1.5      | 🔭 v2+    |
+|:-------------------------|:-----------------------|:---------------------|:---------------------|:-------------|:-------------|:----------|
+| 3.1 Auth (AUTH)          | AUTH-1, AUTH-2, AUTH-3 | —                    | —                    | AUTH-4       | —            | —         |
+| 3.2 Household (HH)       | HH-1, HH-2, HH-4       | HH-3                 | HH-5                 | HH-6, HH-7   | —            | HH-8      |
+| 3.3 Catalog items (ITEM) | ITEM-1, ITEM-2         | ITEM-4               | ITEM-3, ITEM-5       | —            | —            | —         |
+| 3.4 Shopping list (LIST) | LIST-1–5, LIST-7       | —                    | LIST-6               | LIST-8       | —            | —         |
+| 3.5 Stores (STORE)       | STORE-1–3              | —                    | STORE-4              | —            | —            | —         |
+| 3.6 Categories (CAT)     | —                      | —                    | CAT-1–4              | —            | —            | —         |
+| 3.7 Sync (SYNC)          | SYNC-1–4               | —                    | —                    | SYNC-5       | —            | —         |
+| 3.8 Device data (DATA)   | DATA-1, DATA-3         | —                    | DATA-2               | DATA-4       | —            | DATA-5    |
+| 3.9 Screens (SCREENS)    | SCREENS-1, SCREENS-6   | SCREENS-2, SCREENS-4 | SCREENS-3, SCREENS-5 | —            | —            | SCREENS-7 |
+| 3.10 Localization (I18N) | —                      | —                    | I18N-1               | —            | —            | —         |
+| 3.11 Business (BIZ)      | BIZ-6                  | —                    | —                    | BIZ-1, BIZ-5 | BIZ-2, BIZ-3 | —         |
+
+Each feature appears once, under its current status; extensions tagged to later milestones (e.g. HH-2 admin role → v1.5, STORE-1 drag & drop → v1) stay tracked in the §3 entry. DATA-2 ships per path (removal with HH-5 in v0.1, leave/delete with HH-6/7 in v1). BIZ-4 is unlisted — its decision is open (OQ-1).
+
 Last updated: 2026-09-27
 
 ---
@@ -43,7 +61,7 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 ### 3.1 Auth & device (AUTH)
 
 - **AUTH-1 Magic-link sign-in ✅** — email → OTP mail → `simsli://auth` deep link. Session persists and replays at app start, which triggers an initial sync.
-- **AUTH-2 Sign out 🚧 → v0.1** — revokes the session and **wipes all local app data** (Room + outbox), leaving a clean device. Gap: wipe not yet implemented — currently data survives and a different account signing in silently adopts the previous household (must not happen). Unsynced offline writes are lost; that is accepted (DATA-3).
+- **AUTH-2 Sign out ✅** — revokes the session and **wipes all local app data** (Room + outbox), leaving a clean device. The wipe is serialized against sync runs (an in-flight pull can't repopulate the wiped data), and happens even when the server revoke fails (e.g. offline): the device is signed out regardless, only the refresh-token revocation is then left to expire server-side. Unsynced offline writes are lost; that is accepted (DATA-3).
 - **AUTH-3 Offline-first use ✅** — fully usable signed out: local household with a random UUID, everything works, unlimited. Signing in later adopts the offline household server-side (user becomes Owner) — subject to the adoption limit check (BIZ-1).
 - **AUTH-4 Email/password sign-in 📋 v1** — decided as part of auth scope (magic link + email/password), not yet built.
 
@@ -72,7 +90,7 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 - **LIST-2 Fast-add ✅** — the list FAB (sits in the bottom filter bar, LIST-5) opens the quick-add sheet directly. **Search state**: auto-focused search field; with text entered, up to **5 catalog suggestions** (prefix matches first) plus a permanent **NEW "‹query›"** row at the top (distinct icon) that creates from the query — always available, even alongside an exact match. **Selected state**: tapping any suggestion dismisses the keyboard and shows a compact form (quantity, unit, comment) under the selection, which stays as a header with ✕ back to search. Suggestions whose item already has an entry (active or recently checked) open that entry's editor instead. New items get a **"Save ‹name› to Catalog" checkbox, default off**: off = `ONE_TIME` (removed together with its checked-off entry at GC), checked = `PERMANENT`; an (i) explains both in plain words. Buttons: **Add** (add + reset to search state, sheet stays open for rapid-fire adds) and **Add & Close**.
 - **LIST-3 Check off ✅** — checked entries move to "Recently checked" (flat section at the bottom, undo-able). After **24h** (deterministic TTL, no coordination) any device's GC deletes the entry locally and on the server; ONE_TIME items retire with it.
 - **LIST-4 Entry editor ✅** — shared bottom sheet: quantity (optional number), unit (preset list: pcs/Stk., g, kg, ml, l + free-text custom; defaults from item per ITEM-5 📋 v0.1), comment. On the list it edits an existing entry (**Save** / **Remove from list**); the same sheet opens from the Items tab's per-row **+** to add a catalog item to the list with details (**Save** / **Cancel**). Rows show the item name on line 1 and quantity/unit + comment combined on line 2 ("100g ‧ spicy") in the secondary style; either line may be absent (a row with no details is just the name).
-- **LIST-5 Store filter ✅/📋 v0.1** — filter chips per store in a bar pinned above the bottom navigation: chips scroll horizontally against a divider, the list FAB sits to the divider's right. **Items without any store assignment show in every store view** (📋 gap: currently hidden — SQL change).
+- **LIST-5 Store filter ✅** — single-select filter chips in a bar pinned above the bottom navigation: chips scroll horizontally against a divider, the list FAB sits to the divider's right. Chips: **All**, one per store, and **No Store**. A store view shows only items assigned to that store — items without any store assignment are excluded from store views; **No Store** shows only items without any assignment; All shows everything.
 - **LIST-6 Category grouping 📋 v0.1** — the list is always grouped by category (v1 has exactly one view): store-filtered → that store's category order, unordered categories appended in global order (STORE-4); unfiltered → global order. Uncategorized items form an implicit group at the end. "Recently checked" stays a flat section after all groups.
 - **LIST-7 Ordering ✅** — within a group, items follow the catalog's global `sortOrder`. No drag & drop for items.
 - **LIST-8 Shopping mode 📋 v1** — full-screen focused check-off view, available when a store filter is active: large touch targets, one tap to check, checked items collapse immediately (no "Recently checked" section here). Exit via back or "Done shopping" — exiting changes nothing (the TTL GC is the cleanup, LIST-3).
@@ -81,7 +99,7 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 
 - **STORE-1 Store management ✅/📋** — create, rename, delete ✅; managed in the Catalog tab's **Stores** tab (SCREENS-2, 📋 v0.1 move). Reorder: repository support ✅, drag & drop UI 📋 v1.
 - **STORE-2 Item↔store assignment ✅** — many-to-many, edited in item detail.
-- **STORE-3 Delete store ✅** — its item assignments are removed (cascade; local reconcile follows); **items are preserved** (unassigned for that store).
+- **STORE-3 Delete store ✅** — its item assignments are removed (cascade; local reconcile follows); **items are preserved** (unassigned for that store — visible under All and the "No Store" filter, LIST-5).
 - **STORE-4 Per-store category order 📋 v0.1** — store edit has a checklist of the household's categories; checked categories can be ordered (drag) → `store_categories` rows. Unchecked categories fall back to global order, appended after the explicit ones (LIST-6).
 
 ### 3.6 Categories (CAT)
@@ -101,7 +119,7 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 
 ### 3.8 Device data & backups (DATA)
 
-- **DATA-1 Sign-out wipe 🚧 → v0.1** — see AUTH-2.
+- **DATA-1 Sign-out wipe ✅** — see AUTH-2.
 - **DATA-2 Membership-end wipe 📋** — leaving (HH-6, v1), being removed (HH-5, v0.1), the household being deleted (HH-7, v1), or losing RLS access any other way wipes household data on that device. Each path ships with its trigger.
 - **DATA-3 Unsynced writes are lost on any wipe ✅ (accepted)** — documented consequence of the wipe policy; sync runs continuously (debounced + realtime), so the realistic loss window is small.
 - **DATA-4 Export (JSON backup) 📋 v1** — any member can export the complete household data at any time — online or offline, signed in or not. Format: one **version-tagged JSON file** with full fidelity (items, stores, categories, list entries incl. state, all relations intact) — the format a future import (DATA-5) consumes. Shared via the Android share sheet.

@@ -11,9 +11,11 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface ListEntryDao {
     @Query("""
-        SELECT * FROM list_entries
-        WHERE householdId = :householdId
-        ORDER BY done ASC, createdAt ASC
+        SELECT le.* FROM list_entries le
+        INNER JOIN items i ON le.itemId = i.id
+        WHERE le.householdId = :householdId
+        AND i.deletedAt IS NULL
+        ORDER BY le.done ASC, i.sortOrder ASC
     """)
     fun getListEntriesByHousehold(householdId: String): Flow<List<DbListEntry>>
 
@@ -22,13 +24,26 @@ interface ListEntryDao {
         INNER JOIN items i ON le.itemId = i.id
         WHERE le.householdId = :householdId
         AND i.deletedAt IS NULL
-        AND (:storeId IS NULL OR EXISTS (
+        AND EXISTS (
             SELECT 1 FROM item_stores ist
             WHERE ist.itemId = le.itemId AND ist.storeId = :storeId
-        ))
+        )
         ORDER BY le.done ASC, i.sortOrder ASC
     """)
-    fun getListEntriesByHouseholdAndStore(householdId: String, storeId: String?): Flow<List<DbListEntry>>
+    fun getListEntriesByHouseholdAndStore(householdId: String, storeId: String): Flow<List<DbListEntry>>
+
+    /** Entries whose item has no store assignment at all — the "No Store" filter view. */
+    @Query("""
+        SELECT le.* FROM list_entries le
+        INNER JOIN items i ON le.itemId = i.id
+        WHERE le.householdId = :householdId
+        AND i.deletedAt IS NULL
+        AND NOT EXISTS (
+            SELECT 1 FROM item_stores ist WHERE ist.itemId = le.itemId
+        )
+        ORDER BY le.done ASC, i.sortOrder ASC
+    """)
+    fun getListEntriesByHouseholdWithoutStore(householdId: String): Flow<List<DbListEntry>>
 
     @Query("SELECT * FROM list_entries WHERE id = :id")
     fun getListEntryById(id: String): Flow<DbListEntry?>

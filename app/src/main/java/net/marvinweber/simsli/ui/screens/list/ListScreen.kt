@@ -86,7 +86,7 @@ fun ListTabContent(
     viewModel: ListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val selectedStoreId by viewModel.selectedStoreId.collectAsState()
+    val storeFilter by viewModel.storeFilter.collectAsState()
     val events by viewModel.events.collectAsState()
 
     events?.let { event ->
@@ -108,8 +108,8 @@ fun ListTabContent(
         bottomBar = {
             StoreFilterBar(
                 stores = uiState.stores,
-                selectedStoreId = selectedStoreId,
-                onStoreSelected = viewModel::selectStore,
+                selectedFilter = storeFilter,
+                onFilterSelected = viewModel::selectFilter,
                 onAddClick = viewModel::onAddClick
             )
         }
@@ -191,13 +191,14 @@ fun ListTabContent(
 /**
  * The store filter line pinned above the navigation bar: horizontally
  * scrollable chips that run against a divider, with the add FAB to the
- * right of it — one continuous bottom area.
+ * right of it — one continuous bottom area. Chips: All, one per store,
+ * and "No Store" for items without any store assignment (LIST-5).
  */
 @Composable
 private fun StoreFilterBar(
     stores: List<Store>,
-    selectedStoreId: String?,
-    onStoreSelected: (String?) -> Unit,
+    selectedFilter: StoreFilter,
+    onFilterSelected: (StoreFilter) -> Unit,
     onAddClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -222,17 +223,24 @@ private fun StoreFilterBar(
             ) {
                 StoreFilterChip(
                     text = "All",
-                    selected = selectedStoreId == null,
-                    onClick = { onStoreSelected(null) }
+                    selected = selectedFilter is StoreFilter.All,
+                    onClick = { onFilterSelected(StoreFilter.All) }
                 )
 
                 stores.forEach { store ->
                     StoreFilterChip(
                         text = store.name,
-                        selected = selectedStoreId == store.id,
-                        onClick = { onStoreSelected(store.id) }
+                        selected = selectedFilter is StoreFilter.ByStore &&
+                            selectedFilter.storeId == store.id,
+                        onClick = { onFilterSelected(StoreFilter.ByStore(store.id)) }
                     )
                 }
+
+                StoreFilterChip(
+                    text = "No Store",
+                    selected = selectedFilter is StoreFilter.NoStore,
+                    onClick = { onFilterSelected(StoreFilter.NoStore) }
+                )
             }
 
             VerticalDivider()

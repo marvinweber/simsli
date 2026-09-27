@@ -14,6 +14,7 @@ import net.marvinweber.simsli.data.debug.DemoDataSeeder
 import net.marvinweber.simsli.data.repository.AuthRepository
 import net.marvinweber.simsli.data.repository.AuthState
 import net.marvinweber.simsli.data.repository.HouseholdRepository
+import net.marvinweber.simsli.data.repository.SignOutResult
 import net.marvinweber.simsli.data.sync.SyncManager
 import javax.inject.Inject
 
@@ -114,7 +115,17 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             isBusy.value = true
             authRepository.signOut()
-                .onSuccess { statusMessage.value = "Signed out" }
+                .onSuccess { result ->
+                    // The session is gone now, so pending syncs bail out on the missing
+                    // user id; the wipe itself waits on the sync mutex (DATA-1 — any
+                    // unsynced writes are lost, accepted by spec).
+                    syncManager.wipeLocalData()
+                    statusMessage.value = when (result) {
+                        is SignOutResult.Complete -> "Signed out — local data wiped"
+                        is SignOutResult.LocalOnly ->
+                            "Signed out — the server couldn't be reached to revoke the session"
+                    }
+                }
                 .onFailure { statusMessage.value = "Sign out failed: ${it.message}" }
             isBusy.value = false
         }

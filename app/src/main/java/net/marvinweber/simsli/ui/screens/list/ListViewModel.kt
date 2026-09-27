@@ -47,6 +47,18 @@ sealed interface AddSelection {
     data class New(val name: String) : AddSelection
 }
 
+/** What the shopping list is filtered to (LIST-5). */
+sealed interface StoreFilter {
+    /** Everything. */
+    data object All : StoreFilter
+
+    /** Only items assigned to this store. */
+    data class ByStore(val storeId: String) : StoreFilter
+
+    /** Only items without any store assignment. */
+    data object NoStore : StoreFilter
+}
+
 data class ListUiState(
     val household: Household? = null,
     val stores: List<Store> = emptyList(),
@@ -76,8 +88,8 @@ class ListViewModel @Inject constructor(
     private val listEntryRepository: ListEntryRepository
 ) : ViewModel() {
 
-    private val _selectedStoreId = MutableStateFlow<String?>(null)
-    val selectedStoreId: StateFlow<String?> = _selectedStoreId.asStateFlow()
+    private val _storeFilter = MutableStateFlow<StoreFilter>(StoreFilter.All)
+    val storeFilter: StateFlow<StoreFilter> = _storeFilter.asStateFlow()
 
     /** Sheet/dialog state kept apart from data state so the data pipeline stays small. */
     private data class SheetUi(
@@ -92,17 +104,23 @@ class ListViewModel @Inject constructor(
 
     val uiState: StateFlow<ListUiState> = combine(
         householdRepository.getHousehold(),
-        _selectedStoreId,
+        _storeFilter,
         sheetUi
-    ) { household, selectedStoreId, sheet ->
-        Triple(household, selectedStoreId, sheet)
-    }.flatMapLatest { (household, selectedStoreId, sheet) ->
+    ) { household, storeFilter, sheet ->
+        Triple(household, storeFilter, sheet)
+    }.flatMapLatest { (household, storeFilter, sheet) ->
         if (household == null) {
             flowOf(ListUiState(isLoading = false))
         } else {
+            val entriesFlow = when (storeFilter) {
+                is StoreFilter.All -> listEntryRepository.getListEntriesByHousehold(household.id)
+                is StoreFilter.ByStore ->
+                    listEntryRepository.getListEntriesByHouseholdAndStore(household.id, storeFilter.storeId)
+                is StoreFilter.NoStore -> listEntryRepository.getListEntriesByHouseholdWithoutStore(household.id)
+            }
             combine(
                 storeRepository.getStoresByHousehold(household.id),
-                listEntryRepository.getListEntriesByHouseholdAndStore(household.id, selectedStoreId),
+                entriesFlow,
                 itemRepository.getItemsByHousehold(household.id)
             ) { stores, listEntries, items ->
                 val itemMap = items.associateBy { it.id }
@@ -158,8 +176,8 @@ class ListViewModel @Inject constructor(
         }
     }
 
-    fun selectStore(storeId: String?) {
-        _selectedStoreId.value = storeId
+    fun selectFilter(filter: StoreFilter) {
+        _storeFilter.value = filter
     }
 
     fun onEventConsumed() {

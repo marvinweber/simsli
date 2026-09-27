@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import net.marvinweber.simsli.data.local.SimsliDatabase
 import net.marvinweber.simsli.data.local.dao.HouseholdDao
 import net.marvinweber.simsli.data.local.dao.ItemDao
 import net.marvinweber.simsli.data.local.dao.ItemStoreDao
@@ -56,6 +57,7 @@ import javax.inject.Singleton
 class SyncManager @Inject constructor(
     private val authRepository: AuthRepository,
     private val remoteDataSource: SupabaseRemoteDataSource,
+    private val db: SimsliDatabase,
     private val householdDao: HouseholdDao,
     private val storeDao: StoreDao,
     private val itemDao: ItemDao,
@@ -125,6 +127,22 @@ class SyncManager @Inject constructor(
             }
         } finally {
             pendingSyncs.update { (it - 1).coerceAtLeast(0) }
+        }
+    }
+
+    /**
+     * Wipes all local app data — every Room table, including outbox and watermarks
+     * (AUTH-2 / DATA-1). Runs under the sync mutex so a pull that was already in
+     * flight can't repopulate the database after the wipe; runs queued behind the
+     * wipe bail out on the missing user id once the session is gone.
+     */
+    suspend fun wipeLocalData() {
+        mutex.withLock {
+            withContext(ioDispatcher) {
+                Log.d(TAG, "Wiping all local data (sign-out)")
+                // Blocking; like DemoDataSeeder, must not run inside a transaction.
+                db.clearAllTables()
+            }
         }
     }
 

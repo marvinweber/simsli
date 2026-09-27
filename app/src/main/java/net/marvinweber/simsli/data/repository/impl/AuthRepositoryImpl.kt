@@ -7,12 +7,14 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.handleDeeplinks
 import io.github.jan.supabase.auth.providers.builtin.OTP
 import io.github.jan.supabase.auth.status.SessionStatus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import net.marvinweber.simsli.data.repository.AuthRepository
 import net.marvinweber.simsli.data.repository.AuthState
+import net.marvinweber.simsli.data.repository.SignOutResult
 import net.marvinweber.simsli.di.IoDispatcher
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -58,14 +60,29 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun signOut(): Result<Unit> {
+    override suspend fun signOut(): Result<SignOutResult> {
         return withContext(ioDispatcher) {
-            try {
+            // auth.signOut() revokes the refresh token server-side, then clears the
+            // stored session — but it throws before the clear when the logout call
+            // fails (e.g. offline). Signing out must leave a clean device regardless
+            // (AUTH-2), so the local session is cleared explicitly in that case.
+            val revoked = try {
                 supabaseClient.auth.signOut()
-                Result.success(Unit)
+                true
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                Result.failure(e)
+                Log.w(TAG, "Server-side sign-out failed, clearing local session anyway: ${e.message}")
+                false
             }
+            if (!revoked) {
+                try {
+                    supabaseClient.auth.clearSession()
+                } catch (e: Exception) {
+                    return@withContext Result.failure(e)
+                }
+            }
+            Result.success(if (revoked) SignOutResult.Complete else SignOutResult.LocalOnly)
         }
     }
 

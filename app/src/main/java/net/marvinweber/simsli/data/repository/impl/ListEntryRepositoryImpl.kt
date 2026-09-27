@@ -33,8 +33,14 @@ class ListEntryRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getListEntriesByHouseholdAndStore(householdId: String, storeId: String?): Flow<List<ListEntry>> {
+    override fun getListEntriesByHouseholdAndStore(householdId: String, storeId: String): Flow<List<ListEntry>> {
         return listEntryDao.getListEntriesByHouseholdAndStore(householdId, storeId).map { entries ->
+            entries.map { it.toDomain() }
+        }
+    }
+
+    override fun getListEntriesByHouseholdWithoutStore(householdId: String): Flow<List<ListEntry>> {
+        return listEntryDao.getListEntriesByHouseholdWithoutStore(householdId).map { entries ->
             entries.map { it.toDomain() }
         }
     }

@@ -6,7 +6,11 @@ import net.marvinweber.simsli.domain.model.ListEntry
 interface ListEntryRepository {
     fun getListEntriesByHousehold(householdId: String): Flow<List<ListEntry>>
 
-    fun getListEntriesByHouseholdAndStore(householdId: String, storeId: String?): Flow<List<ListEntry>>
+    /** Entries whose item is assigned to the given store. */
+    fun getListEntriesByHouseholdAndStore(householdId: String, storeId: String): Flow<List<ListEntry>>
+
+    /** Entries whose item has no store assignment at all (the "No Store" filter view). */
+    fun getListEntriesByHouseholdWithoutStore(householdId: String): Flow<List<ListEntry>>
 
     suspend fun createListEntry(listEntry: ListEntry): Result<ListEntry>
 
