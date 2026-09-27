@@ -62,11 +62,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.SoftwareKeyboardController
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -342,43 +339,38 @@ private fun ListEntryCard(
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-                // "1 Stk Käse" on one line: the quantity/unit prefix in the
-                // secondary color and a size smaller, flowing inline so the
-                // row height adapts to the actual line count.
+                // Two lines: name, then quantity/unit + comment combined in the
+                // secondary style ("100g ‧ spicy").
+                Text(
+                    text = displayName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    textDecoration = if (listEntry.done)
+                        TextDecoration.LineThrough else null,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
                 val meta = buildString {
                     listEntry.quantity?.let { append(formatQuantity(it)) }
                     listEntry.unit?.let {
                         if (isNotEmpty()) append(' ')
                         append(it)
                     }
+                    val comment = listEntry.comment?.trim()
+                    if (!comment.isNullOrBlank()) {
+                        if (isNotEmpty()) append(" ‧ ")
+                        append(comment)
+                    }
                 }
-                Text(
-                    text = buildAnnotatedString {
-                        if (meta.isNotEmpty()) {
-                            withStyle(
-                                SpanStyle(
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = MaterialTheme.typography.bodyMedium.fontSize
-                                )
-                            ) {
-                                append(meta)
-                                append(' ')
-                            }
-                        }
-                        append(displayName)
-                    },
-                    style = MaterialTheme.typography.bodyLarge,
-                    textDecoration = if (listEntry.done)
-                        TextDecoration.LineThrough else null,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                if (!listEntry.comment.isNullOrBlank()) {
+                if (meta.isNotEmpty()) {
                     Text(
-                        text = listEntry.comment,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = meta,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textDecoration = if (listEntry.done)
+                            TextDecoration.LineThrough else null,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
