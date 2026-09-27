@@ -8,19 +8,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import net.marvinweber.simsli.ui.screens.home.HomeScreen
 import net.marvinweber.simsli.ui.screens.item.ItemDetailScreen
-import net.marvinweber.simsli.ui.screens.settings.SettingsScreen
-import net.marvinweber.simsli.ui.screens.stores.StoresScreen
 
 sealed class Screen(val route: String) {
     data object Home : Screen("home")
     data object ItemDetail : Screen("item_detail/{itemId}") {
         fun createRoute(itemId: String?) = "item_detail/${itemId.orEmpty()}"
     }
-    data object StoreList : Screen("store_list")
-    data object Settings : Screen("settings")
     data object Onboarding : Screen("onboarding")
 }
 
+/**
+ * Route-level navigation. The three tabs (List · Catalog · Settings) live
+ * inside HomeScreen's bottom bar; only detail-style screens are pushed here.
+ */
 @Composable
 fun SimsliNavHost(
     navController: NavHostController,
@@ -33,12 +33,6 @@ fun SimsliNavHost(
     ) {
         composable(Screen.Home.route) {
             HomeScreen(
-                onNavigateToStores = {
-                    navController.navigate(Screen.StoreList.route)
-                },
-                onNavigateToSettings = {
-                    navController.navigate(Screen.Settings.route)
-                },
                 onNavigateToItemDetail = { itemId ->
                     navController.navigate(Screen.ItemDetail.createRoute(itemId))
                 }
@@ -46,20 +40,6 @@ fun SimsliNavHost(
         }
         composable(Screen.Onboarding.route) {
             Text("Onboarding")
-        }
-        composable(Screen.Settings.route) {
-            SettingsScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
-            )
-        }
-        composable(Screen.StoreList.route) {
-            StoresScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
-            )
         }
         composable(Screen.ItemDetail.route) {
             ItemDetailScreen(

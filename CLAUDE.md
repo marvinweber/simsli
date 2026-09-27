@@ -94,7 +94,7 @@ Domain models (`domain/model/`) are plain Kotlin data classes with no Android or
 
 ## Screens
 
-Target structure: bottom app bar with three tabs — **Shopping List · Catalog · Settings** — with the Catalog tab containing **Items | Categories | Stores**, and household/member management in a Household screen reached from Settings. Full screen map with statuses: FEATURE-SPEC §3.9. Exists today: List tab (active entries, "Recently checked", fast-add sheet, entry editor, store filter chips), Catalog tab (items only so far — Categories/Stores tabs planned), Item detail (name, stores, type, notes), Settings as a pushed screen (household rename, invite/join by code, magic-link sign-in, "Sync now").
+Target structure: bottom app bar with three tabs — **Shopping List · Catalog · Settings** — with the Catalog tab containing **Items | Categories | Stores**, and household/member management in a Household screen reached from Settings. Full screen map with statuses: FEATURE-SPEC §3.9. Exists today: the three-tab bottom bar; List tab (active entries, "Recently checked", fast-add sheet, entry editor, store filter chips), Catalog tab (tabbed Items | Categories | Stores — Categories is still an honest placeholder until CAT-*), Item detail as a pushed screen (name, stores, type, notes), Settings tab (household rename, invite/join by code, magic-link sign-in, "Sync now"). Household screen still pending.
 
 ---
 
@@ -115,9 +115,12 @@ Offline-first delta sync between Room and Supabase (`data/sync/SyncManager`), on
 
 All backend logic lives in `supabase/`:
 - `migrations/` — versioned SQL files, applied in order. Includes the RPCs `create_household_with_owner` and `accept_invite` (invite redemption); invite codes are generated client-side and inserted into `invite_tokens` via PostgREST
+- `seed.sql` — local test data, applied automatically by `supabase db reset`. Seeds the magic-link accounts `test1@simsli.de` (owner) + `test2@simsli.de` (member) and a populated household ("Testhaushalt": 3 stores, 15 items, 11 entries incl. 3 recently checked). Their magic-link mails land in the local mail UI
 - `config.toml` — Supabase project config
 
 Row Level Security (RLS) enforces that users only see data belonging to their household. No custom API server needed — the Android app talks directly to Supabase.
+
+**On-device test data:** debug builds get a Settings → Debug → "Seed demo data" action (`data/debug/DemoDataSeeder`) that wipes the local DB and inserts the same dataset via DAOs, deliberately bypassing the outbox — for the offline / signed-out use case. Signing in afterwards still adopts the demo household and uploads it (offline-adoption path); seeding while signed in merges the demo rows into the server household. Release builds don't contain it (`BuildConfig.DEBUG` gate). The two datasets mirror each other — change them together.
 
 ---
 
@@ -131,6 +134,19 @@ Row Level Security (RLS) enforces that users only see data belonging to their ho
 - No business logic in Composables or ViewModels — use UseCases
 - Room entities prefixed with `Db` (e.g. `DbItem`), Supabase DTOs suffixed with `Dto` (e.g. `ItemDto`), domain models unprefixed (e.g. `Item`)
 - All database and network calls on `Dispatchers.IO`, injected via Hilt
+
+---
+
+## Emulator debugging & verification
+
+The working recipe for verifying app behavior end-to-end without hand-testing:
+
+- **Build/install**: `./gradlew :app:assembleDebug` (if `java` isn't on the PATH, point `JAVA_HOME` at a JDK — Android Studio's bundled JBR works), then `adb install -r app/build/outputs/apk/debug/app-debug.apk`. Clean slate: `adb shell pm clear net.marvinweber.simsli`.
+- **Drive the UI via adb**: `adb shell uiautomator dump /sdcard/ui.xml`, parse the dump for `text`/`bounds`, tap element centers with `input tap`. Layouts shift (keyboard, status messages, dialogs) — **always re-dump before tapping; never reuse coordinates from an earlier dump**. Browser/webview content may not expose text nodes at all.
+- **adb IME quirks**: `input text` can drop or reorder characters. Dump the field to see what actually landed — a dropped char is a tooling artifact, not an app bug; **reordered or interleaved text is a real bug**.
+- **App logs**: `adb logcat -d -s SimsliSync:V SimsliAuth:V` — sync runs, pulls, household resolution, deep-link sign-in results.
+- **Backend inspection**: `docker exec supabase_db_simsli psql -U postgres -d postgres -c "<sql>"` (container names get the `<project-dir>` suffix, so they hold for any checkout as `simsli`). Colima is the Docker runtime on this machine (`colima start` if the daemon is down), then `supabase start`. Mailpit's REST API (`http://127.0.0.1:54324/api/v1/messages`, then `/api/v1/message/{ID}`) reads magic-link mails without a browser — the mail body needs un-escaping (`=\r\n`, `=3D`) before extracting URLs.
+- **Sign-in without the browser**: POST `/auth/v1/otp` (`apikey` header, `{"email": ..., "create_user": false}`) for a seeded account → fetch the verify URL from Mailpit's API → follow it with redirects disabled → take the `Location` (`simsli://auth#access_token=...`) and `adb shell am start -a android.intent.action.VIEW -d "<that uri>"`. Chrome tends to swallow the `simsli://` redirect; firing the deep link directly exercises the app's `handleDeepLink` path deterministically.
 
 ---
 

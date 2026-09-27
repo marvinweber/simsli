@@ -28,7 +28,6 @@ data class StoresUiState(
 )
 
 sealed class StoresUiEvent {
-    data object NavigateBack : StoresUiEvent()
     data class ShowError(val message: String) : StoresUiEvent()
     data class ConfirmDeleteStore(val storeId: String, val storeName: String) : StoresUiEvent()
 }
@@ -113,10 +112,6 @@ class StoresViewModel @Inject constructor(
                     _events.value = StoresUiEvent.ShowError("Failed to delete store: ${error.message}")
                 }
         }
-    }
-
-    fun onBack() {
-        _events.value = StoresUiEvent.NavigateBack
     }
 
     fun onEventConsumed() {

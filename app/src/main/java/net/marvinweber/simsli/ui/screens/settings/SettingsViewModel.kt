@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import net.marvinweber.simsli.data.debug.DemoDataSeeder
 import net.marvinweber.simsli.data.repository.AuthRepository
 import net.marvinweber.simsli.data.repository.AuthState
 import net.marvinweber.simsli.data.repository.HouseholdRepository
@@ -25,14 +26,16 @@ data class SettingsUiState(
     val statusMessage: String? = null,
     val renameInput: String? = null,  // non-null → rename dialog open, holds the field content
     val inviteCode: String? = null,   // non-null → invite dialog open, shows the generated code
-    val joinInput: String? = null     // non-null → join dialog open, holds the field content
+    val joinInput: String? = null,    // non-null → join dialog open, holds the field content
+    val showSeedConfirm: Boolean = false  // debug only: confirm before wiping + seeding
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val householdRepository: HouseholdRepository,
-    private val syncManager: SyncManager
+    private val syncManager: SyncManager,
+    private val demoDataSeeder: DemoDataSeeder
 ) : ViewModel() {
 
     private val emailInput = MutableStateFlow("")
@@ -41,11 +44,13 @@ class SettingsViewModel @Inject constructor(
     private val renameInput = MutableStateFlow<String?>(null)
     private val inviteCode = MutableStateFlow<String?>(null)
     private val joinInput = MutableStateFlow<String?>(null)
+    private val seedConfirmOpen = MutableStateFlow(false)
 
     /** Dialog visibility + content, bundled to keep every combine on a typed overload. */
     private data class DialogInputs(
         val inviteCode: String?,
-        val joinInput: String?
+        val joinInput: String?,
+        val seedConfirmOpen: Boolean
     )
 
     /** Local-only inputs bundled so the outer combine stays within its arity limit. */
@@ -60,7 +65,10 @@ class SettingsViewModel @Inject constructor(
     val uiState: StateFlow<SettingsUiState> = combine(
         authRepository.authState,
         householdRepository.getHousehold(),
-        combine(emailInput, isBusy, statusMessage, renameInput, combine(inviteCode, joinInput, ::DialogInputs), ::Inputs)
+        combine(
+            emailInput, isBusy, statusMessage, renameInput,
+            combine(inviteCode, joinInput, seedConfirmOpen, ::DialogInputs), ::Inputs
+        )
     ) { authState, household, inputs ->
         SettingsUiState(
             isSignedIn = authState is AuthState.SignedIn,
@@ -70,6 +78,7 @@ class SettingsViewModel @Inject constructor(
             isBusy = inputs.isBusy,
             statusMessage = inputs.statusMessage,
             renameInput = inputs.renameInput,
+            showSeedConfirm = inputs.dialog.seedConfirmOpen,
             inviteCode = inputs.dialog.inviteCode,
             joinInput = inputs.dialog.joinInput
         )
@@ -187,6 +196,27 @@ class SettingsViewModel @Inject constructor(
 
     fun startJoin() {
         joinInput.value = ""
+    }
+
+    // --- Debug: demo data (debug builds only; the row is gated in the screen) -------------------
+
+    fun startSeedDemo() {
+        seedConfirmOpen.value = true
+    }
+
+    fun dismissSeedDemo() {
+        seedConfirmOpen.value = false
+    }
+
+    fun confirmSeedDemo() {
+        viewModelScope.launch {
+            isBusy.value = true
+            seedConfirmOpen.value = false   // close dialog before async work
+            demoDataSeeder.seed()
+                .onSuccess { statusMessage.value = "Demo data seeded — local data was reset" }
+                .onFailure { statusMessage.value = "Seeding failed: ${it.message}" }
+            isBusy.value = false
+        }
     }
 
     fun onJoinChange(code: String) {

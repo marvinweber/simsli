@@ -12,9 +12,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -24,26 +27,28 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import net.marvinweber.simsli.ui.screens.catalog.CatalogScreen
 import net.marvinweber.simsli.ui.screens.list.ListTabContent
+import net.marvinweber.simsli.ui.screens.settings.SettingsTabContent
 
 enum class HomeTab(val label: String) {
-    LIST("List"),
-    CATALOG("Catalog")
+    LIST("Shopping List"),
+    CATALOG("Catalog"),
+    SETTINGS("Settings")
 }
 
 /**
- * Main screen: bottom tabs for the shopping list and the item catalog.
- * Settings / stores / item detail open as full-screen routes above it.
- * A thin progress bar at the top shows when a sync run is in progress.
+ * Main screen: bottom tabs for the shopping list, the catalog
+ * (Items | Categories | Stores), and settings. Item detail opens as a
+ * full-screen route above it. A thin progress bar at the top shows when a
+ * sync run is in progress.
  */
 @Composable
 fun HomeScreen(
-    onNavigateToStores: () -> Unit,
-    onNavigateToSettings: () -> Unit,
     onNavigateToItemDetail: (String?) -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -52,6 +57,10 @@ fun HomeScreen(
     val isSyncing by viewModel.isSyncing.collectAsState()
 
     Scaffold(
+        // Tab scaffolds own their insets: the top-most app bar per column handles
+        // the status bar, the NavigationBar here handles the nav bar. Nothing
+        // double-applies.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             NavigationBar {
                 HomeTab.entries.forEach { tab ->
@@ -60,7 +69,11 @@ fun HomeScreen(
                         onClick = { selectedTabName = tab.name },
                         icon = {
                             Icon(
-                                imageVector = if (tab == HomeTab.LIST) Icons.Default.ShoppingCart else Icons.Default.Inventory2,
+                                imageVector = when (tab) {
+                                    HomeTab.LIST -> Icons.Default.ShoppingCart
+                                    HomeTab.CATALOG -> Icons.Default.Inventory2
+                                    HomeTab.SETTINGS -> Icons.Default.Settings
+                                },
                                 contentDescription = null
                             )
                         },
@@ -80,20 +93,29 @@ fun HomeScreen(
                 enter = fadeIn() + expandVertically(),
                 exit = fadeOut() + shrinkVertically()
             ) {
-                LinearProgressIndicator(
-                    modifier = Modifier.fillMaxWidth()
+                LinearWavyProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
                 )
             }
 
             Box(modifier = Modifier.fillMaxSize()) {
+                val tabStateHolder = rememberSaveableStateHolder()
                 when (selectedTab) {
-                    HomeTab.LIST -> ListTabContent(
-                        onNavigateToSettings = onNavigateToSettings
-                    )
-                    HomeTab.CATALOG -> CatalogScreen(
-                        onNavigateToStores = onNavigateToStores,
-                        onNavigateToItemDetail = onNavigateToItemDetail
-                    )
+                    HomeTab.LIST -> tabStateHolder.SaveableStateProvider(HomeTab.LIST.name) {
+                        ListTabContent(
+                            onNavigateToItemDetail = onNavigateToItemDetail
+                        )
+                    }
+                    HomeTab.CATALOG -> tabStateHolder.SaveableStateProvider(HomeTab.CATALOG.name) {
+                        CatalogScreen(
+                            onNavigateToItemDetail = onNavigateToItemDetail
+                        )
+                    }
+                    HomeTab.SETTINGS -> tabStateHolder.SaveableStateProvider(HomeTab.SETTINGS.name) {
+                        SettingsTabContent()
+                    }
                 }
             }
         }

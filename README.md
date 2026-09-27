@@ -44,6 +44,7 @@ simsli/
 │   └── adr/                        # Architecture decision records (why)
 ├── supabase/
 │   ├── migrations/                 # SQL schema, RLS policies, RPCs
+│   ├── seed.sql                    # local test data (auto-applied by `supabase db reset`)
 │   └── config.toml
 ├── LICENSE                         # AGPL v3
 └── README.md
@@ -109,6 +110,19 @@ adb reverse tcp:54324 tcp:54324   # Mailpit inbox at http://127.0.0.1:54324
 (No `adb` on your PATH? It comes with Android Studio: `~/Library/Android/sdk/platform-tools/adb`.)
 
 With the reverse in place: request a magic link in the app (Settings), open the mail from Mailpit in the emulator's browser, click the link — it redirects back into the app via `simsli://auth` and sync starts.
+
+### Test data
+
+`supabase/seed.sql` is applied automatically on `supabase db reset` and gives you a ready-to-debug setup:
+
+- **Accounts** `test1@simsli.de` (household owner) and `test2@simsli.de` (second member) — magic-link sign-in only; their mails land in Mailpit like any other
+- **Household "Testhaushalt"** — stores REWE/Aldi/DM, 15 catalog items (incl. 2 one-time), 11 list entries (8 active, 3 recently checked)
+
+`supabase db reset` always brings the database back to this state.
+
+For the **offline / signed-out** use case, debug builds have Settings → Debug → **Seed demo data**: it wipes the local database and inserts the same dataset directly into Room, deliberately bypassing the sync outbox — the data stays on device until something real triggers a sync. Signing in afterwards adopts the demo household server-side and uploads it (the offline-adoption path); seeding while signed in merges the demo rows into the server household. Release builds don't contain this action.
+
+**Keeping the seeds current:** these are two hand-maintained twins of one dataset — `supabase/seed.sql` (server) and `DemoDataSeeder.kt` (`app/src/main/java/net/marvinweber/simsli/data/debug/DemoDataSeeder.kt`, device). Every change to the data model — a new migration, a Room entity, a domain model field, a sync-contract addition — is the trigger to ask: *do the seeds need the same change?* If they drift, the demo setup breaks silently: rows that no longer apply cleanly, or test scenarios that no longer cover what the schema now does.
 
 ---
 

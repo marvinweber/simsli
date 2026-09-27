@@ -18,7 +18,8 @@ val localProperties = Properties().apply {
 
 android {
     namespace = "net.marvinweber.simsli"
-    compileSdk = 36
+    // 37 required by material3 1.5.0-alpha29 (material3-ripple); see docs/adr/0013
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "net.marvinweber.simsli"

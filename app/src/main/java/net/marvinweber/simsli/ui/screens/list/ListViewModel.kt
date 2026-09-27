@@ -33,11 +33,19 @@ data class ListEntryItem(
     val item: Item?
 )
 
-/** A catalog item as offered in the add-items sheet. */
+/** A catalog item as offered in the quick-add sheet. */
 data class CatalogItemUi(
     val item: Item,
-    val isOnActiveList: Boolean
+    val isOnActiveList: Boolean,
+    /** The item's list entry, if any (active or recently checked) — such suggestions open the entry editor. */
+    val entryId: String? = null
 )
+
+/** What the quick-add sheet has selected from the suggestions, if anything. */
+sealed interface AddSelection {
+    data class Existing(val item: Item) : AddSelection
+    data class New(val name: String) : AddSelection
+}
 
 data class ListUiState(
     val household: Household? = null,
@@ -48,12 +56,13 @@ data class ListUiState(
     val isLoading: Boolean = true,
     val isAddSheetOpen: Boolean = false,
     val addQuery: String = "",
+    val addSelection: AddSelection? = null,
+    val isAddInProgress: Boolean = false,
     val editingEntry: ListEntryItem? = null,
     val error: String? = null
 )
 
 sealed class ListUiEvent {
-    data object NavigateToSettings : ListUiEvent()
     data class ShowError(val message: String) : ListUiEvent()
 }
 
@@ -74,6 +83,8 @@ class ListViewModel @Inject constructor(
     private data class SheetUi(
         val addSheetOpen: Boolean = false,
         val addQuery: String = "",
+        val addSelection: AddSelection? = null,
+        val isAddInProgress: Boolean = false,
         val editingEntryId: String? = null
     )
 
@@ -99,15 +110,20 @@ class ListViewModel @Inject constructor(
                     ListEntryItem(entry, itemMap[entry.itemId])
                 }
                 val activeItemIds = listEntries.filter { !it.done }.map { it.itemId }.toSet()
+                val entryIdByItemId = listEntries.associate { it.itemId to it.id }
                 ListUiState(
                     household = household,
                     stores = stores,
                     activeEntries = entryItems.filter { !it.listEntry.done },
                     recentlyChecked = entryItems.filter { it.listEntry.done },
-                    catalog = items.map { CatalogItemUi(it, it.id in activeItemIds) },
+                    catalog = items.map {
+                        CatalogItemUi(it, it.id in activeItemIds, entryIdByItemId[it.id])
+                    },
                     isLoading = false,
                     isAddSheetOpen = sheet.addSheetOpen,
                     addQuery = sheet.addQuery,
+                    addSelection = sheet.addSelection,
+                    isAddInProgress = sheet.isAddInProgress,
                     editingEntry = entryItems.firstOrNull { it.listEntry.id == sheet.editingEntryId },
                     error = null
                 )
@@ -146,10 +162,6 @@ class ListViewModel @Inject constructor(
         _selectedStoreId.value = storeId
     }
 
-    fun onSettingsClick() {
-        _events.value = ListUiEvent.NavigateToSettings
-    }
-
     fun onEventConsumed() {
         _events.value = null
     }
@@ -170,59 +182,108 @@ class ListViewModel @Inject constructor(
         }
     }
 
-    // --- Add-items sheet ------------------------------------------------------------
+    // --- Quick-add sheet (LIST-2) -----------------------------------------------------
 
     fun onAddClick() {
-        sheetUi.update { it.copy(addSheetOpen = true) }
+        sheetUi.update { it.copy(addSheetOpen = true, addSelection = null) }
     }
 
     fun dismissAddSheet() {
-        sheetUi.update { it.copy(addSheetOpen = false, addQuery = "") }
+        sheetUi.update { it.copy(addSheetOpen = false, addQuery = "", addSelection = null) }
     }
 
     fun onAddQueryChange(query: String) {
         sheetUi.update { it.copy(addQuery = query) }
     }
 
-    fun addCatalogItemToList(itemId: String) {
-        viewModelScope.launch {
-            val household = uiState.value.household ?: return@launch
-            listEntryRepository.addToList(household.id, itemId)
-                .onFailure { error ->
-                    _events.value = ListUiEvent.ShowError("Failed to add item: ${error.message}")
-                }
+    /** A suggestion whose item already has an entry opens that entry's editor; one without goes into the quick form. */
+    fun onSuggestionClick(catalogItem: CatalogItemUi) {
+        val entryId = catalogItem.entryId
+        if (entryId != null) {
+            sheetUi.update {
+                it.copy(
+                    addSheetOpen = false,
+                    addQuery = "",
+                    addSelection = null,
+                    editingEntryId = entryId
+                )
+            }
+        } else {
+            sheetUi.update { it.copy(addSelection = AddSelection.Existing(catalogItem.item)) }
         }
     }
 
-    /** Fast path: create a catalog item from the query text and put it on the list. */
-    fun createAndAddItem() {
-        val name = uiState.value.addQuery.trim()
-        if (name.isEmpty()) return
+    fun onSelectNew() {
+        val name = sheetUi.value.addQuery.trim()
+        if (name.isNotEmpty()) {
+            sheetUi.update { it.copy(addSelection = AddSelection.New(name)) }
+        }
+    }
+
+    fun backToSearch() {
+        sheetUi.update { it.copy(addSelection = null) }
+    }
+
+    /**
+     * Adds the current selection to the list with the entered details. New items become
+     * ONE_TIME unless [saveToCatalog] (PERMANENT). Resets to the search state unless
+     * [closeAfter] closes the sheet.
+     */
+    fun addSelected(
+        saveToCatalog: Boolean,
+        quantityText: String,
+        unit: String,
+        comment: String,
+        closeAfter: Boolean
+    ) {
+        val selection = sheetUi.value.addSelection ?: return
+        if (sheetUi.value.isAddInProgress) return
         viewModelScope.launch {
             val household = uiState.value.household ?: return@launch
-            val item = Item(
-                id = "",
-                householdId = household.id,
-                name = name,
-                notes = null,
-                type = ItemType.PERMANENT,
-                sortOrder = itemRepository.getMaxItemSortOrder(household.id) + 1f,
-                createdAt = Instant.EPOCH,
-                updatedAt = Instant.EPOCH
-            )
-            itemRepository.createItem(item)
-                .onSuccess { created ->
-                    listEntryRepository.addToList(household.id, created.id)
-                        .onSuccess {
-                            sheetUi.update { it.copy(addQuery = "") }
-                        }
-                        .onFailure { error ->
-                            _events.value = ListUiEvent.ShowError("Failed to add item: ${error.message}")
-                        }
+            sheetUi.update { it.copy(isAddInProgress = true) }
+            when (selection) {
+                is AddSelection.Existing -> listEntryRepository.addToList(
+                    householdId = household.id,
+                    itemId = selection.item.id,
+                    quantity = quantityText.toDoubleOrNull(),
+                    unit = unit.ifBlank { null },
+                    comment = comment.ifBlank { null }
+                )
+                is AddSelection.New -> itemRepository.createItem(
+                    Item(
+                        id = "",
+                        householdId = household.id,
+                        name = selection.name,
+                        notes = null,
+                        type = if (saveToCatalog) ItemType.PERMANENT else ItemType.ONE_TIME,
+                        sortOrder = itemRepository.getMaxItemSortOrder(household.id) + 1f,
+                        createdAt = Instant.EPOCH,
+                        updatedAt = Instant.EPOCH
+                    )
+                ).fold(
+                    onSuccess = { created ->
+                        listEntryRepository.addToList(
+                            householdId = household.id,
+                            itemId = created.id,
+                            quantity = quantityText.toDoubleOrNull(),
+                            unit = unit.ifBlank { null },
+                            comment = comment.ifBlank { null }
+                        )
+                    },
+                    onFailure = { error -> Result.failure(error) }
+                )
+            }.onSuccess {
+                if (closeAfter) {
+                    dismissAddSheet()
+                } else {
+                    sheetUi.update {
+                        it.copy(addSelection = null, addQuery = "", isAddInProgress = false)
+                    }
                 }
-                .onFailure { error ->
-                    _events.value = ListUiEvent.ShowError("Failed to create item: ${error.message}")
-                }
+            }.onFailure { error ->
+                _events.value = ListUiEvent.ShowError("Failed to add item: ${error.message}")
+                sheetUi.update { it.copy(isAddInProgress = false) }
+            }
         }
     }
 

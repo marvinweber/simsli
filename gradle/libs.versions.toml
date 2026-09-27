@@ -4,6 +4,9 @@ agp = "9.1.1"
 ksp = "2.3.7"
 
 composeBom = "2026.03.00"
+# Material 3 Expressive lives on the 1.5 alpha line — not yet in stable 1.4.0.
+# Pinned explicitly (overrides the BOM) until 1.5 stabilizes; see docs/adr/0013.
+material3 = "1.5.0-alpha29"
 hilt = "2.59.2"
 hiltNavigationCompose = "1.2.0"
 room = "2.7.1"
@@ -30,7 +33,7 @@ compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = 
 compose-ui = { group = "androidx.compose.ui", name = "ui" }
 compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+compose-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 

@@ -118,8 +118,19 @@ class ListEntryRepositoryImpl @Inject constructor(
                 if (existing != null) {
                     // Unique (household, item): re-adding a recently checked entry just
                     // moves it back to the active list; an active entry stays untouched.
+                    // Details entered with the re-add are applied; blank ones keep the
+                    // entry's previous values.
                     if (existing.done) {
-                        listEntryDao.updateDoneStatus(existing.id, false, null, now)
+                        listEntryDao.insert(
+                            existing.copy(
+                                done = false,
+                                completedAt = null,
+                                quantity = quantity ?: existing.quantity,
+                                unit = unit?.trim()?.ifBlank { null } ?: existing.unit,
+                                comment = comment?.trim()?.ifBlank { null } ?: existing.comment,
+                                updatedAt = now
+                            )
+                        )
                         enqueue(existing.id, SyncContract.OP_UPSERT)
                     }
                 } else {

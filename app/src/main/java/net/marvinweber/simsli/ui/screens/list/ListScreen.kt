@@ -1,37 +1,56 @@
 package net.marvinweber.simsli.ui.screens.list
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,21 +58,34 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.SoftwareKeyboardController
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import net.marvinweber.simsli.domain.model.Store
+import net.marvinweber.simsli.ui.components.EntryDetailsSheet
+import net.marvinweber.simsli.ui.components.formatQuantity
+
+/** Catalog suggestions shown per query in the quick-add sheet. */
+private const val MAX_SUGGESTIONS = 5
 
 /**
  * The shopping list tab: active entries on top, "Recently checked" below.
  * Entries checked off stay here (undo-able) until garbage collection removes
  * them everywhere after the TTL.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ListTabContent(
-    onNavigateToSettings: () -> Unit,
+    onNavigateToItemDetail: (String?) -> Unit,
     viewModel: ListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -62,10 +94,6 @@ fun ListTabContent(
 
     events?.let { event ->
         when (event) {
-            is ListUiEvent.NavigateToSettings -> {
-                onNavigateToSettings()
-                viewModel.onEventConsumed()
-            }
             is ListUiEvent.ShowError -> {
                 // TODO: Show error snackbar
                 viewModel.onEventConsumed()
@@ -74,20 +102,19 @@ fun ListTabContent(
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Simsli") },
-                navigationIcon = {
-                    IconButton(onClick = viewModel::onSettingsClick) {
-                        Icon(Icons.Default.Menu, contentDescription = "Settings")
-                    }
-                }
+                title = { Text("Simsli") }
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(onClick = viewModel::onAddClick) {
-                Icon(Icons.Default.Add, contentDescription = "Add items")
-            }
+        bottomBar = {
+            StoreFilterBar(
+                stores = uiState.stores,
+                selectedStoreId = selectedStoreId,
+                onStoreSelected = viewModel::selectStore,
+                onAddClick = viewModel::onAddClick
+            )
         }
     ) { paddingValues ->
         Column(
@@ -95,14 +122,6 @@ fun ListTabContent(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            StoreFilterRow(
-                stores = uiState.stores,
-                selectedStoreId = selectedStoreId,
-                onStoreSelected = viewModel::selectStore
-            )
-
-            Spacer(modifier = Modifier.size(16.dp))
-
             if (uiState.isLoading) {
                 LoadingView()
             } else if (uiState.activeEntries.isEmpty() && uiState.recentlyChecked.isEmpty()) {
@@ -145,15 +164,23 @@ fun ListTabContent(
             AddItemsSheet(
                 uiState = uiState,
                 onQueryChange = viewModel::onAddQueryChange,
-                onAddExisting = viewModel::addCatalogItemToList,
-                onCreateAndAdd = viewModel::createAndAddItem,
+                onSuggestionClick = viewModel::onSuggestionClick,
+                onSelectNew = viewModel::onSelectNew,
+                onBackToSearch = viewModel::backToSearch,
+                onAdd = { saveToCatalog, quantity, unit, comment, closeAfter ->
+                    viewModel.addSelected(saveToCatalog, quantity, unit, comment, closeAfter)
+                },
                 onDismiss = viewModel::dismissAddSheet
             )
         }
 
         uiState.editingEntry?.let { entryItem ->
-            EntryEditorSheet(
-                entryItem = entryItem,
+            EntryDetailsSheet(
+                title = entryItem.item?.name ?: "Unknown item",
+                stateKey = entryItem.listEntry.id,
+                quantity = entryItem.listEntry.quantity,
+                unit = entryItem.listEntry.unit,
+                comment = entryItem.listEntry.comment,
                 onSave = { quantity, unit, comment ->
                     viewModel.saveEntryDetails(entryItem.listEntry.id, quantity, unit, comment)
                 },
@@ -164,52 +191,97 @@ fun ListTabContent(
     }
 }
 
+/**
+ * The store filter line pinned above the navigation bar: horizontally
+ * scrollable chips that run against a divider, with the add FAB to the
+ * right of it — one continuous bottom area.
+ */
 @Composable
-private fun StoreFilterRow(
+private fun StoreFilterBar(
     stores: List<Store>,
     selectedStoreId: String?,
     onStoreSelected: (String?) -> Unit,
+    onAddClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceContainer
     ) {
-        AssistChip(
-            onClick = { onStoreSelected(null) },
-            label = { Text("All") },
-            colors = AssistChipDefaults.assistChipColors(
-                containerColor = if (selectedStoreId == null)
-                    MaterialTheme.colorScheme.primaryContainer
-                else
-                    MaterialTheme.colorScheme.surface
-            )
-        )
-
-        stores.forEach { store ->
-            AssistChip(
-                onClick = { onStoreSelected(store.id) },
-                label = { Text(store.name) },
-                colors = AssistChipDefaults.assistChipColors(
-                    containerColor = if (selectedStoreId == store.id)
-                        MaterialTheme.colorScheme.primaryContainer
-                    else
-                        MaterialTheme.colorScheme.surface
+        // IntrinsicSize.Min: the VerticalDivider wants all available height, so
+        // the Row's height must come from its tallest child (the FAB) instead.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                StoreFilterChip(
+                    text = "All",
+                    selected = selectedStoreId == null,
+                    onClick = { onStoreSelected(null) }
                 )
-            )
+
+                stores.forEach { store ->
+                    StoreFilterChip(
+                        text = store.name,
+                        selected = selectedStoreId == store.id,
+                        onClick = { onStoreSelected(store.id) }
+                    )
+                }
+            }
+
+            VerticalDivider()
+
+            FloatingActionButton(
+                onClick = onAddClick,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add items")
+            }
         }
     }
 }
 
+@Composable
+private fun StoreFilterChip(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(text) },
+        leadingIcon = if (selected) {
+            {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        } else {
+            null
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun LoadingView() {
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        Text("Loading...")
+        LoadingIndicator()
     }
 }
 
@@ -270,28 +342,37 @@ private fun ListEntryCard(
             Column(
                 modifier = Modifier.weight(1f)
             ) {
+                // "1 Stk Käse" on one line: the quantity/unit prefix in the
+                // secondary color and a size smaller, flowing inline so the
+                // row height adapts to the actual line count.
+                val meta = buildString {
+                    listEntry.quantity?.let { append(formatQuantity(it)) }
+                    listEntry.unit?.let {
+                        if (isNotEmpty()) append(' ')
+                        append(it)
+                    }
+                }
                 Text(
-                    text = displayName,
+                    text = buildAnnotatedString {
+                        if (meta.isNotEmpty()) {
+                            withStyle(
+                                SpanStyle(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = MaterialTheme.typography.bodyMedium.fontSize
+                                )
+                            ) {
+                                append(meta)
+                                append(' ')
+                            }
+                        }
+                        append(displayName)
+                    },
                     style = MaterialTheme.typography.bodyLarge,
                     textDecoration = if (listEntry.done)
                         TextDecoration.LineThrough else null,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-
-                if (listEntry.quantity != null || listEntry.unit != null) {
-                    Text(
-                        text = buildString {
-                            listEntry.quantity?.let { append(it) }
-                            listEntry.unit?.let {
-                                if (listEntry.quantity != null) append(" ")
-                                append(it)
-                            }
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
 
                 if (!listEntry.comment.isNullOrBlank()) {
                     Text(
@@ -305,161 +386,299 @@ private fun ListEntryCard(
     }
 }
 
-/** Search the catalog and add items — or create a new one from the query inline. */
+/**
+ * Quick-add flow (LIST-2): search state with up to [MAX_SUGGESTIONS] catalog
+ * suggestions plus a permanent NEW row; selecting either moves to a compact
+ * form with Add / Add & Close.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddItemsSheet(
     uiState: ListUiState,
     onQueryChange: (String) -> Unit,
-    onAddExisting: (String) -> Unit,
-    onCreateAndAdd: () -> Unit,
+    onSuggestionClick: (CatalogItemUi) -> Unit,
+    onSelectNew: () -> Unit,
+    onBackToSearch: () -> Unit,
+    onAdd: (
+        saveToCatalog: Boolean,
+        quantity: String,
+        unit: String,
+        comment: String,
+        closeAfter: Boolean
+    ) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val query = uiState.addQuery.trim()
-    val matches = uiState.catalog.filter {
-        query.isEmpty() || it.item.name.contains(query, ignoreCase = true)
-    }
-    val exactMatchExists = matches.any { it.item.name.equals(query, ignoreCase = true) }
-
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-        ) {
+        val selection = uiState.addSelection
+        if (selection == null) {
+            AddItemsSearchContent(
+                uiState = uiState,
+                onQueryChange = onQueryChange,
+                onSuggestionClick = onSuggestionClick,
+                onSelectNew = onSelectNew
+            )
+        } else {
+            AddItemsSelectedContent(
+                selection = selection,
+                isAddInProgress = uiState.isAddInProgress,
+                onBackToSearch = onBackToSearch,
+                onAdd = onAdd
+            )
+        }
+    }
+}
+
+@Composable
+private fun AddItemsSearchContent(
+    uiState: ListUiState,
+    onQueryChange: (String) -> Unit,
+    onSuggestionClick: (CatalogItemUi) -> Unit,
+    onSelectNew: () -> Unit
+) {
+    // Keystrokes land in local state first: routing the field value through the
+    // ViewModel round-trip (combine chain) lags a frame, so fast typing applied
+    // against the stale value jumps the cursor backwards. The ViewModel copy is
+    // kept in sync only for its reset paths (after "Add", on suggestion→editor).
+    // The search content re-initializes from it whenever it (re-)enters
+    // composition — backToSearch keeps the query, "Add" clears it.
+    var queryText by remember { mutableStateOf(uiState.addQuery) }
+    val query = queryText.trim()
+    val focusRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+
+    // Runs on open, after "Add" resets back here, and on back-to-search —
+    // the search content re-enters composition each time.
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+        keyboard?.show()
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp)
+    ) {
+        item(key = "search") {
             OutlinedTextField(
-                value = uiState.addQuery,
-                onValueChange = onQueryChange,
+                value = queryText,
+                onValueChange = { queryText = it; onQueryChange(it) },
                 label = { Text("Search or add item") },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester)
             )
+        }
 
-            Spacer(modifier = Modifier.size(8.dp))
-
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                items(matches, key = { it.item.id }) { catalogItem ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = catalogItem.item.name,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.weight(1f),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        if (catalogItem.isOnActiveList) {
-                            Text(
-                                text = "On list",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        } else {
-                            TextButton(onClick = { onAddExisting(catalogItem.item.id) }) {
-                                Text("Add")
-                            }
-                        }
-                    }
+        if (query.isNotEmpty()) {
+            item(key = "create_new") {
+                ListItem(
+                    onClick = {
+                        keyboard?.hide()
+                        onSelectNew()
+                    },
+                    leadingContent = { NewItemBadge() },
+                    supportingContent = { Text("New — not in catalog") }
+                ) {
+                    Text("\"$query\"")
                 }
+            }
 
-                if (query.isNotEmpty() && !exactMatchExists) {
-                    item(key = "create_new") {
-                        OutlinedButton(
-                            onClick = onCreateAndAdd,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Add \"$query\"")
+            val suggestions = uiState.catalog
+                .filter { it.item.name.contains(query, ignoreCase = true) }
+                .sortedWith(
+                    compareBy(
+                        { !it.item.name.startsWith(query, ignoreCase = true) },
+                        { it.item.name.lowercase() }
+                    )
+                )
+                .take(MAX_SUGGESTIONS)
+
+            items(suggestions, key = { it.item.id }) { catalogItem ->
+                ListItem(
+                    onClick = {
+                        keyboard?.hide()
+                        onSuggestionClick(catalogItem)
+                    },
+                    trailingContent = {
+                        if (catalogItem.isOnActiveList) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = "On list",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
+                ) {
+                    Text(
+                        text = catalogItem.item.name,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }
     }
 }
 
-/** Edit the entry-level data (quantity, unit, comment) or remove the item from the list. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EntryEditorSheet(
-    entryItem: ListEntryItem,
-    onSave: (quantity: String, unit: String, comment: String) -> Unit,
-    onRemove: () -> Unit,
-    onDismiss: () -> Unit
+private fun AddItemsSelectedContent(
+    selection: AddSelection,
+    isAddInProgress: Boolean,
+    onBackToSearch: () -> Unit,
+    onAdd: (
+        saveToCatalog: Boolean,
+        quantity: String,
+        unit: String,
+        comment: String,
+        closeAfter: Boolean
+    ) -> Unit
 ) {
-    val entry = entryItem.listEntry
+    var quantityText by remember { mutableStateOf("") }
+    var unitText by remember { mutableStateOf("") }
+    var commentText by remember { mutableStateOf("") }
+    var saveToCatalog by remember { mutableStateOf(false) }
+    var showTypeHelp by remember { mutableStateOf(false) }
 
-    fun quantityToText(quantity: Double?): String = when {
-        quantity == null -> ""
-        quantity % 1.0 == 0.0 -> quantity.toInt().toString()
-        else -> quantity.toString()
+    val name = when (selection) {
+        is AddSelection.Existing -> selection.item.name
+        is AddSelection.New -> selection.name
     }
 
-    var quantityText by remember(entry.id) { mutableStateOf(quantityToText(entry.quantity)) }
-    var unitText by remember(entry.id) { mutableStateOf(entry.unit.orEmpty()) }
-    var commentText by remember(entry.id) { mutableStateOf(entry.comment.orEmpty()) }
-
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .imePadding()
+            .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        ListItem(
+            onClick = onBackToSearch,
+            leadingContent = if (selection is AddSelection.New) {
+                { NewItemBadge() }
+            } else {
+                null
+            },
+            supportingContent = if (selection is AddSelection.New) {
+                { Text("New — not in catalog") }
+            } else {
+                null
+            },
+            trailingContent = {
+                IconButton(onClick = onBackToSearch) {
+                    Icon(Icons.Default.Close, contentDescription = "Back to search")
+                }
+            }
         ) {
             Text(
-                text = entryItem.item?.name ?: "Unknown item",
-                style = MaterialTheme.typography.titleMedium
+                text = name,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
+        }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedTextField(
-                    value = quantityText,
-                    onValueChange = { quantityText = it },
-                    label = { Text("Quantity") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
-                )
-                OutlinedTextField(
-                    value = unitText,
-                    onValueChange = { unitText = it },
-                    label = { Text("Unit") },
-                    placeholder = { Text("kg, pack …") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             OutlinedTextField(
-                value = commentText,
-                onValueChange = { commentText = it },
-                label = { Text("Comment (optional)") },
-                placeholder = { Text("e.g., get the organic one") },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 2,
-                maxLines = 4
+                value = quantityText,
+                onValueChange = { quantityText = it },
+                label = { Text("Quantity") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.weight(1f)
             )
+            OutlinedTextField(
+                value = unitText,
+                onValueChange = { unitText = it },
+                label = { Text("Unit") },
+                placeholder = { Text("kg, pack …") },
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+        }
 
+        OutlinedTextField(
+            value = commentText,
+            onValueChange = { commentText = it },
+            label = { Text("Comment (optional)") },
+            placeholder = { Text("e.g., get the organic one") },
+            modifier = Modifier.fillMaxWidth(),
+            maxLines = 3
+        )
+
+        if (selection is AddSelection.New) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = onRemove) {
-                    Text("Remove from list")
+                Checkbox(
+                    checked = saveToCatalog,
+                    onCheckedChange = { saveToCatalog = it }
+                )
+                Text(
+                    text = "Save \"$name\" to Catalog",
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = { showTypeHelp = !showTypeHelp }) {
+                    Icon(
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription = "Explain this option"
+                    )
                 }
-                OutlinedButton(
-                    onClick = { onSave(quantityText, unitText, commentText) }
-                ) {
-                    Text("Save")
-                }
+            }
+            AnimatedVisibility(visible = showTypeHelp) {
+                Text(
+                    text = if (saveToCatalog) {
+                        "The item stays in your catalog — it shows up in search next time."
+                    } else {
+                        "The item is only on the list for this trip: after you check it off, " +
+                            "it is removed with the daily cleanup (24 h) — right for one-time things."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            FilledTonalButton(
+                onClick = { onAdd(saveToCatalog, quantityText, unitText, commentText, false) },
+                enabled = !isAddInProgress,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Add")
+            }
+            Button(
+                onClick = { onAdd(saveToCatalog, quantityText, unitText, commentText, true) },
+                enabled = !isAddInProgress,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Add & Close")
+            }
+        }
+    }
+}
+
+/** Leading badge marking the NEW row: an Add icon in a tonal circle, distinct from catalog hits. */
+@Composable
+private fun NewItemBadge() {
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.secondaryContainer
+    ) {
+        Icon(
+            imageVector = Icons.Default.Add,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier
+                .padding(6.dp)
+                .size(18.dp)
+        )
     }
 }

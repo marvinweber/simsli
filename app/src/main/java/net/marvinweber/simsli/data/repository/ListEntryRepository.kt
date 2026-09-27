@@ -19,7 +19,8 @@ interface ListEntryRepository {
     /**
      * Adds an item to the list with the given entry details (all optional — fast add).
      * If the item already has an active entry this is a no-op; if its entry is in
-     * "Recently checked", it is moved back to the active list instead.
+     * "Recently checked", it is moved back to the active list instead — entered
+     * details are applied, blank ones keep the entry's previous values.
      */
     suspend fun addToList(
         householdId: String,

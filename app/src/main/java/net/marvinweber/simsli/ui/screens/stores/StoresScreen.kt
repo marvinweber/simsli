@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -12,15 +13,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,10 +41,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * The Stores sub-tab of the Catalog tab. Owns its own Scaffold so the add
+ * FAB and dialogs stay self-contained; the title lives in the Catalog
+ * tab row, not here.
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun StoresScreen(
-    onNavigateBack: () -> Unit,
+fun StoresTabContent(
     modifier: Modifier = Modifier,
     viewModel: StoresViewModel = hiltViewModel()
 ) {
@@ -56,10 +60,6 @@ fun StoresScreen(
 
     events?.let { event ->
         when (event) {
-            is StoresUiEvent.NavigateBack -> {
-                onNavigateBack()
-                viewModel.onEventConsumed()
-            }
             is StoresUiEvent.ShowError -> {
                 // TODO: Show error snackbar
                 viewModel.onEventConsumed()
@@ -93,16 +93,7 @@ fun StoresScreen(
     }
 
     Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Stores") },
-                navigationIcon = {
-                    IconButton(onClick = viewModel::onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
-            )
-        },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddDialog = true }) {
                 Icon(Icons.Default.Add, contentDescription = "Add Store")
@@ -117,7 +108,7 @@ fun StoresScreen(
         ) {
             when {
                 uiState.isLoading -> {
-                    CircularProgressIndicator(
+                    ContainedLoadingIndicator(
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }

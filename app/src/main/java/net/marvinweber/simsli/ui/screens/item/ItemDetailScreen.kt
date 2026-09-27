@@ -23,8 +23,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -156,25 +158,33 @@ fun ItemDetailScreen(
                             text = "Item type",
                             style = MaterialTheme.typography.titleSmall
                         )
-                        listOf(ItemType.PERMANENT, ItemType.ONE_TIME).forEach { type ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
+                        SingleChoiceSegmentedButtonRow(
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            SegmentedButton(
+                                selected = itemType == ItemType.PERMANENT,
+                                onClick = { itemType = ItemType.PERMANENT },
+                                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
                             ) {
-                                RadioButton(
-                                    selected = itemType == type,
-                                    onClick = { itemType = type }
-                                )
-                                Spacer(modifier = Modifier.size(8.dp))
-                                Text(
-                                    text = when (type) {
-                                        ItemType.PERMANENT -> "Permanent (kept in the catalog)"
-                                        ItemType.ONE_TIME -> "One-time (removed from the catalog after purchase)"
-                                        ItemType.CHECKLIST -> "Checklist"
-                                    }
-                                )
+                                Text("Permanent")
+                            }
+                            SegmentedButton(
+                                selected = itemType == ItemType.ONE_TIME,
+                                onClick = { itemType = ItemType.ONE_TIME },
+                                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                            ) {
+                                Text("One-time")
                             }
                         }
+                        Text(
+                            text = when (itemType) {
+                                ItemType.PERMANENT -> "Stays in the catalog — add it to the list again any time."
+                                ItemType.ONE_TIME -> "Removed together with its checked-off entry after 24 h — for one-time things."
+                                ItemType.CHECKLIST -> "Legacy type, treated as permanent."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
 
                         // Notes
                         OutlinedTextField(

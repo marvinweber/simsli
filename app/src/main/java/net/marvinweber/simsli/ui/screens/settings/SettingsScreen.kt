@@ -3,28 +3,25 @@ package net.marvinweber.simsli.ui.screens.settings
 import android.content.ClipData
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -35,24 +32,24 @@ import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
+import net.marvinweber.simsli.BuildConfig
 
+/**
+ * The Settings tab. Household/account/sync management; the household screen
+ * (members, SCREENS-3) will be reached from here as a pushed route.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(
-    onNavigateBack: () -> Unit,
+fun SettingsTabContent(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                title = { Text("Settings") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
+            CenterAlignedTopAppBar(
+                title = { Text("Settings") }
             )
         }
     ) { padding ->
@@ -149,6 +146,29 @@ fun SettingsScreen(
                 }
             )
         }
+        if (uiState.showSeedConfirm) {
+            AlertDialog(
+                onDismissRequest = viewModel::dismissSeedDemo,
+                title = { Text("Seed demo data") },
+                text = {
+                    Text(
+                        "This resets all local data and inserts a demo household with " +
+                            "stores, items and entries. If you are signed in, the next sync " +
+                            "uploads the demo household to the server."
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = viewModel::confirmSeedDemo) {
+                        Text("Reset & seed")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = viewModel::dismissSeedDemo) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -230,6 +250,18 @@ fun SettingsScreen(
             }
             uiState.statusMessage?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall)
+            }
+
+            if (BuildConfig.DEBUG) {
+                HorizontalDivider()
+
+                Text("Debug", style = MaterialTheme.typography.titleMedium)
+                OutlinedButton(
+                    onClick = viewModel::startSeedDemo,
+                    enabled = !uiState.isBusy
+                ) {
+                    Text("Seed demo data")
+                }
             }
         }
     }
