@@ -33,7 +33,7 @@ spec-defined behavior).
 
 - Category picker in item detail (zero or one category; null = Uncategorized)
 
-## Slice 4 — LIST-6 list grouping
+## Slice 4 — LIST-6 list grouping ✅ shipped 2026-10-01
 
 - Store-filtered → that store's category order (fallback: global order),
   unfiltered → global order; Uncategorized implicit group last; "Recently

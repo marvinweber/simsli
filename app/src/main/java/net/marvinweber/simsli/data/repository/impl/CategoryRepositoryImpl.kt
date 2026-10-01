@@ -16,6 +16,7 @@ import net.marvinweber.simsli.data.sync.SyncContract
 import net.marvinweber.simsli.data.sync.SyncScheduler
 import net.marvinweber.simsli.di.IoDispatcher
 import net.marvinweber.simsli.domain.model.Category
+import net.marvinweber.simsli.domain.model.StoreCategory
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -34,6 +35,12 @@ class CategoryRepositoryImpl @Inject constructor(
     override fun getCategoriesByHousehold(householdId: String): Flow<List<Category>> {
         return categoryDao.getCategoriesByHousehold(householdId).map { categories ->
             categories.map { it.toDomain() }
+        }
+    }
+
+    override fun getStoreCategories(storeId: String): Flow<List<StoreCategory>> {
+        return storeCategoryDao.getStoreCategories(storeId).map { list ->
+            list.map { it.toDomain() }
         }
     }
 

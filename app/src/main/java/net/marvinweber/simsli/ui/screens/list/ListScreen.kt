@@ -126,14 +126,24 @@ fun ListTabContent(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(uiState.activeEntries, key = { it.listEntry.id }) { entryItem ->
-                        ListEntryCard(
-                            listEntryItem = entryItem,
-                            onToggleDone = { viewModel.onToggleItemDone(entryItem.listEntry.id) },
-                            onClick = { viewModel.onEntryClick(entryItem.listEntry.id) }
-                        )
+                    uiState.activeGroups.forEach { group ->
+                        item(key = "category_header_${group.key}") {
+                            CategorySectionHeader(
+                                title = group.title,
+                                emoji = group.emoji,
+                                isImplicit = group.key == "uncategorized"
+                            )
+                        }
+                        items(group.entries, key = { it.listEntry.id }) { entryItem ->
+                            ListEntryCard(
+                                listEntryItem = entryItem,
+                                onToggleDone = { viewModel.onToggleItemDone(entryItem.listEntry.id) },
+                                onClick = { viewModel.onEntryClick(entryItem.listEntry.id) }
+                            )
+                        }
                     }
 
                     if (uiState.recentlyChecked.isNotEmpty()) {
@@ -142,7 +152,7 @@ fun ListTabContent(
                                 text = "Recently checked",
                                 style = MaterialTheme.typography.titleSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 16.dp)
+                                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)
                             )
                         }
                         items(uiState.recentlyChecked, key = { it.listEntry.id }) { entryItem ->
@@ -311,6 +321,34 @@ private fun EmptyListView() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+@Composable
+private fun CategorySectionHeader(
+    title: String,
+    emoji: String?,
+    isImplicit: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (!emoji.isNullOrBlank()) {
+            Text(
+                text = emoji,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(end = 8.dp)
+            )
+        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = if (isImplicit) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
+        )
     }
 }
 

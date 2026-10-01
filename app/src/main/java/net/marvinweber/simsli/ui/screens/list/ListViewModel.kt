@@ -16,21 +16,32 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.marvinweber.simsli.data.repository.AuthRepository
 import net.marvinweber.simsli.data.repository.AuthState
+import net.marvinweber.simsli.data.repository.CategoryRepository
 import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.data.repository.ItemRepository
 import net.marvinweber.simsli.data.repository.ListEntryRepository
 import net.marvinweber.simsli.data.repository.StoreRepository
+import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.Household
 import net.marvinweber.simsli.domain.model.Item
 import net.marvinweber.simsli.domain.model.ItemType
 import net.marvinweber.simsli.domain.model.ListEntry
 import net.marvinweber.simsli.domain.model.Store
+import net.marvinweber.simsli.domain.model.StoreCategory
 import java.time.Instant
 import javax.inject.Inject
 
 data class ListEntryItem(
     val listEntry: ListEntry,
     val item: Item?
+)
+
+/** A group of active list entries belonging to a category (LIST-6). */
+data class CategoryGroupUi(
+    val key: String,
+    val title: String,
+    val emoji: String? = null,
+    val entries: List<ListEntryItem>
 )
 
 /** A catalog item as offered in the quick-add sheet. */
@@ -62,6 +73,7 @@ sealed interface StoreFilter {
 data class ListUiState(
     val household: Household? = null,
     val stores: List<Store> = emptyList(),
+    val activeGroups: List<CategoryGroupUi> = emptyList(),
     val activeEntries: List<ListEntryItem> = emptyList(),
     val recentlyChecked: List<ListEntryItem> = emptyList(),
     val catalog: List<CatalogItemUi> = emptyList(),
@@ -85,7 +97,8 @@ class ListViewModel @Inject constructor(
     private val householdRepository: HouseholdRepository,
     private val storeRepository: StoreRepository,
     private val itemRepository: ItemRepository,
-    private val listEntryRepository: ListEntryRepository
+    private val listEntryRepository: ListEntryRepository,
+    private val categoryRepository: CategoryRepository
 ) : ViewModel() {
 
     private val _storeFilter = MutableStateFlow<StoreFilter>(StoreFilter.All)
@@ -118,22 +131,77 @@ class ListViewModel @Inject constructor(
                     listEntryRepository.getListEntriesByHouseholdAndStore(household.id, storeFilter.storeId)
                 is StoreFilter.NoStore -> listEntryRepository.getListEntriesByHouseholdWithoutStore(household.id)
             }
+            val storeCategoriesFlow = when (storeFilter) {
+                is StoreFilter.ByStore -> categoryRepository.getStoreCategories(storeFilter.storeId)
+                else -> flowOf(emptyList<StoreCategory>())
+            }
             combine(
                 storeRepository.getStoresByHousehold(household.id),
+                categoryRepository.getCategoriesByHousehold(household.id),
+                storeCategoriesFlow,
                 entriesFlow,
                 itemRepository.getItemsByHousehold(household.id)
-            ) { stores, listEntries, items ->
+            ) { stores, categories, storeCategories, listEntries, items ->
                 val itemMap = items.associateBy { it.id }
                 val entryItems = listEntries.map { entry ->
                     ListEntryItem(entry, itemMap[entry.itemId])
                 }
                 val activeItemIds = listEntries.filter { !it.done }.map { it.itemId }.toSet()
                 val entryIdByItemId = listEntries.associate { it.itemId to it.id }
+
+                val activeEntryItems = entryItems.filter { !it.listEntry.done }
+                val recentlyChecked = entryItems.filter { it.listEntry.done }
+
+                val categoryById = categories.associateBy { it.id }
+                val (categorizedEntries, uncategorizedEntries) = activeEntryItems.partition { entry ->
+                    val catId = entry.item?.categoryId
+                    catId != null && categoryById.containsKey(catId)
+                }
+
+                val orderedCategories = when (storeFilter) {
+                    is StoreFilter.ByStore -> {
+                        val explicitCategoryIds = storeCategories.map { it.categoryId }.filter { it in categoryById }
+                        val explicitSet = explicitCategoryIds.toSet()
+                        val remaining = categories.filter { it.id !in explicitSet }
+                        explicitCategoryIds.mapNotNull { categoryById[it] } + remaining
+                    }
+                    else -> categories
+                }
+
+                val entriesByCategoryId = categorizedEntries.groupBy { it.item!!.categoryId!! }
+                val activeGroups = mutableListOf<CategoryGroupUi>()
+
+                for (cat in orderedCategories) {
+                    val groupEntries = entriesByCategoryId[cat.id]
+                    if (!groupEntries.isNullOrEmpty()) {
+                        activeGroups.add(
+                            CategoryGroupUi(
+                                key = cat.id,
+                                title = cat.name,
+                                emoji = cat.emoji,
+                                entries = groupEntries.sortedBy { it.item?.sortOrder ?: 0f }
+                            )
+                        )
+                    }
+                }
+
+                if (uncategorizedEntries.isNotEmpty()) {
+                    activeGroups.add(
+                        CategoryGroupUi(
+                            key = "uncategorized",
+                            title = "Uncategorized",
+                            emoji = null,
+                            entries = uncategorizedEntries.sortedBy { it.item?.sortOrder ?: 0f }
+                        )
+                    )
+                }
+
                 ListUiState(
                     household = household,
                     stores = stores,
-                    activeEntries = entryItems.filter { !it.listEntry.done },
-                    recentlyChecked = entryItems.filter { it.listEntry.done },
+                    activeGroups = activeGroups,
+                    activeEntries = activeEntryItems,
+                    recentlyChecked = recentlyChecked,
                     catalog = items.map {
                         CatalogItemUi(it, it.id in activeItemIds, entryIdByItemId[it.id])
                     },
