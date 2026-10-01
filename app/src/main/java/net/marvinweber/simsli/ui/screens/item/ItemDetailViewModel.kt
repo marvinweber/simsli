@@ -15,10 +15,12 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import net.marvinweber.simsli.data.repository.CategoryRepository
 import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.data.repository.ItemRepository
 import net.marvinweber.simsli.data.repository.ItemStoreRepository
 import net.marvinweber.simsli.data.repository.StoreRepository
+import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.Household
 import net.marvinweber.simsli.domain.model.Item
 import net.marvinweber.simsli.domain.model.ItemType
@@ -31,6 +33,7 @@ data class ItemDetailUiState(
     val existingItem: Item? = null,
     val existingStoreIds: Set<String> = emptySet(),
     val stores: List<Store> = emptyList(),
+    val categories: List<Category> = emptyList(),
     /** True while an existing item is being loaded for editing. */
     val isWaitingForItem: Boolean = false,
     val isLoading: Boolean = true,
@@ -49,6 +52,7 @@ class ItemDetailViewModel @Inject constructor(
     private val storeRepository: StoreRepository,
     private val itemRepository: ItemRepository,
     private val itemStoreRepository: ItemStoreRepository,
+    private val categoryRepository: CategoryRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -78,12 +82,16 @@ class ItemDetailViewModel @Inject constructor(
         if (household == null) {
             flowOf(ItemDetailUiState(isLoading = false))
         } else {
-            storeRepository.getStoresByHousehold(household.id).map { stores ->
+            combine(
+                storeRepository.getStoresByHousehold(household.id),
+                categoryRepository.getCategoriesByHousehold(household.id)
+            ) { stores, categories ->
                 ItemDetailUiState(
                     household = household,
                     existingItem = loaded?.item,
                     existingStoreIds = loaded?.storeIds ?: emptySet(),
                     stores = stores,
+                    categories = categories,
                     isWaitingForItem = waitingForItem,
                     isLoading = false,
                     error = null
@@ -104,7 +112,8 @@ class ItemDetailViewModel @Inject constructor(
         name: String,
         notes: String,
         type: ItemType,
-        selectedStoreIds: List<String>
+        selectedStoreIds: List<String>,
+        selectedCategoryId: String? = null
     ) {
         viewModelScope.launch {
             val household = uiState.value.household
@@ -125,6 +134,7 @@ class ItemDetailViewModel @Inject constructor(
                     name = name.trim(),
                     notes = notes.trim().ifBlank { null },
                     type = type,
+                    categoryId = selectedCategoryId,
                     sortOrder = itemRepository.getMaxItemSortOrder(household.id) + 1f,
                     createdAt = Instant.EPOCH,
                     updatedAt = Instant.EPOCH
@@ -144,7 +154,8 @@ class ItemDetailViewModel @Inject constructor(
                     existing.copy(
                         name = name.trim(),
                         notes = notes.trim().ifBlank { null },
-                        type = type
+                        type = type,
+                        categoryId = selectedCategoryId
                     )
                 ).onSuccess {
                     val selected = selectedStoreIds.toSet()

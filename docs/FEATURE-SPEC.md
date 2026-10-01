@@ -23,7 +23,7 @@ Milestone tags are assignments, not promises — moving a feature between milest
 | 3.3 Catalog items (ITEM) | ITEM-1, ITEM-2         | ITEM-4               | ITEM-3, ITEM-5       | —            | —            | —         |
 | 3.4 Shopping list (LIST) | LIST-1–5, LIST-7       | —                    | LIST-6               | LIST-8       | —            | —         |
 | 3.5 Stores (STORE)       | STORE-1–3              | —                    | STORE-4              | —            | —            | —         |
-| 3.6 Categories (CAT)     | CAT-1, CAT-3           | —                    | CAT-2, CAT-4         | —            | —            | —         |
+| 3.6 Categories (CAT)     | CAT-1, CAT-2, CAT-3   | —                    | CAT-4                | —            | —            | —         |
 | 3.7 Sync (SYNC)          | SYNC-1–4               | —                    | —                    | SYNC-5       | —            | —         |
 | 3.8 Device data (DATA)   | DATA-1, DATA-3         | —                    | DATA-2               | DATA-4       | —            | DATA-5    |
 | 3.9 Screens (SCREENS)    | SCREENS-1, SCREENS-6   | SCREENS-2, SCREENS-4 | SCREENS-3, SCREENS-5 | —            | —            | SCREENS-7 |
@@ -78,7 +78,7 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 
 ### 3.3 Catalog items (ITEM)
 
-- **ITEM-1 Create/edit ✅** — name, notes, type, store assignments, (📋 v0.1: category CAT-2, default unit ITEM-5).
+- **ITEM-1 Create/edit ✅** — name, notes, type, category (CAT-2 ✅), store assignments, (📋 v0.1: default unit ITEM-5).
 - **ITEM-2 Item types ✅** — `PERMANENT` (normal case, lives in catalog forever) and `ONE_TIME` (retired together with its checked-off entry at GC). Legacy `CHECKLIST` stays hidden in UI/DB.
 - **ITEM-3 Duplicate-name warning 📋 v0.1** — creating (or renaming to) a name that already exists in the household (case-insensitive) asks "already exists — add anyway?".
 - **ITEM-4 Delete item 🚧 → 📋 v0.1** — soft delete exists in the repository but has **no UI entry point**, and active list entries of the item would linger invisibly. Rule: deleting an item also removes its active entries and store assignments; UI entry in item detail with confirmation.
@@ -105,7 +105,7 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 ### 3.6 Categories (CAT)
 
 - **CAT-1 Category entity ✅** — per household: name + emoji icon (selected via AndroidX EmojiPickerView, ADR-0014) + global `sortOrder`. Global order is user-draggable.
-- **CAT-2 Item assignment 📋 v0.1** — an item has **zero or one** category; null = "Uncategorized" (implicit group, always last, not a real category).
+- **CAT-2 Item assignment ✅** — an item has **zero or one** category; selected via single-choice filter chips in the item detail screen; null = "Uncategorized" (implicit group, always last, not a real category).
 - **CAT-3 Management ✅** — the Catalog tab's **Categories** tab (SCREENS-2): create, rename, icon, delete, drag global order. Deleting a category sets its items to uncategorized (nothing else breaks).
 - **CAT-4 Setup presets 📋 v0.1** — offered during household setup (SCREENS-5) to apply wholesale: Obst & Gemüse/Produce 🍎, Backwaren/Bakery 🥖, Milchprodukte/Dairy 🥛, Fleisch & Fisch/Meat & Fish 🥩, Grundnahrungsmittel/Pantry 🍝, Tiefkühl/Frozen ❄️, Getränke/Drinks 🧃, Snacks/Snacks 🍫, Haushalt/Household 🧻, Drogerie/Personal Care 🧴, Sonstiges/Other 📦. Editable afterwards like any category.
 

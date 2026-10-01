@@ -29,7 +29,7 @@ spec-defined behavior).
   create / rename / emoji / delete / drag global order
 - Delete sets affected items to uncategorized
 
-## Slice 3 — CAT-2 item assignment UI
+## Slice 3 — CAT-2 item assignment UI ✅ shipped 2026-10-01
 
 - Category picker in item detail (zero or one category; null = Uncategorized)
 
