@@ -4,9 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -88,8 +91,9 @@ data class ListUiState(
     val error: String? = null
 )
 
-sealed class ListUiEvent {
-    data class ShowError(val message: String) : ListUiEvent()
+sealed interface ListUiEvent {
+    data class ShowError(val message: String) : ListUiEvent
+    data class ItemCompleted(val entryId: String, val itemName: String) : ListUiEvent
 }
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -255,8 +259,8 @@ class ListViewModel @Inject constructor(
         initialValue = ListUiState(isLoading = true)
     )
 
-    private val _events = MutableStateFlow<ListUiEvent?>(null)
-    val events: StateFlow<ListUiEvent?> = _events.asStateFlow()
+    private val _events = MutableSharedFlow<ListUiEvent>(extraBufferCapacity = 64)
+    val events: SharedFlow<ListUiEvent> = _events.asSharedFlow()
 
     init {
         ensureHouseholdExists()
@@ -272,7 +276,7 @@ class ListViewModel @Inject constructor(
             if (householdRepository.getHousehold().first() == null) {
                 householdRepository.createHousehold("My household")
                     .onFailure { error ->
-                        _events.value = ListUiEvent.ShowError("Failed to create household: ${error.message}")
+                        _events.emit(ListUiEvent.ShowError("Failed to create household: ${error.message}"))
                     }
             }
         }
@@ -282,36 +286,46 @@ class ListViewModel @Inject constructor(
         _storeFilter.value = filter
     }
 
-    fun onEventConsumed() {
-        _events.value = null
-    }
-
     // --- Check off / undo ---------------------------------------------------------
 
     fun onToggleItemDone(listEntryId: String) {
         viewModelScope.launch {
-            val current = uiState.value.let { state ->
+            val currentEntryItem = uiState.value.let { state ->
                 (state.activeEntries + state.recentlyChecked)
-                    .find { it.listEntry.id == listEntryId }?.listEntry
+                    .find { it.listEntry.id == listEntryId }
             } ?: return@launch
+            val current = currentEntryItem.listEntry
 
             if (!current.done) {
                 // Active -> Done: show tick immediately, pause briefly for completion feedback, then commit
                 if (listEntryId in completingEntryIds.value) return@launch
                 completingEntryIds.update { it + listEntryId }
+                val itemName = currentEntryItem.item?.name ?: "Item"
                 delay(400)
                 listEntryRepository.updateListEntryDoneStatus(listEntryId, true)
+                    .onSuccess {
+                        _events.emit(ListUiEvent.ItemCompleted(listEntryId, itemName))
+                    }
                     .onFailure { error ->
-                        _events.value = ListUiEvent.ShowError("Failed to update item: ${error.message}")
+                        _events.emit(ListUiEvent.ShowError("Failed to update item: ${error.message}"))
                     }
                 completingEntryIds.update { it - listEntryId }
             } else {
                 // Done -> Active: immediately uncheck
                 listEntryRepository.updateListEntryDoneStatus(listEntryId, false)
                     .onFailure { error ->
-                        _events.value = ListUiEvent.ShowError("Failed to update item: ${error.message}")
+                        _events.emit(ListUiEvent.ShowError("Failed to update item: ${error.message}"))
                     }
             }
+        }
+    }
+
+    fun revertItemDone(listEntryId: String) {
+        viewModelScope.launch {
+            listEntryRepository.updateListEntryDoneStatus(listEntryId, false)
+                .onFailure { error ->
+                    _events.emit(ListUiEvent.ShowError("Failed to revert item: ${error.message}"))
+                }
         }
     }
 
@@ -414,7 +428,7 @@ class ListViewModel @Inject constructor(
                     }
                 }
             }.onFailure { error ->
-                _events.value = ListUiEvent.ShowError("Failed to add item: ${error.message}")
+                _events.emit(ListUiEvent.ShowError("Failed to add item: ${error.message}"))
                 sheetUi.update { it.copy(isAddInProgress = false) }
             }
         }
@@ -438,7 +452,7 @@ class ListViewModel @Inject constructor(
                 unit = unit,
                 comment = comment
             ).onFailure { error ->
-                _events.value = ListUiEvent.ShowError("Failed to save: ${error.message}")
+                _events.emit(ListUiEvent.ShowError("Failed to save: ${error.message}"))
             }
             dismissEntryEditor()
         }
@@ -448,7 +462,7 @@ class ListViewModel @Inject constructor(
         viewModelScope.launch {
             listEntryRepository.deleteListEntry(listEntryId)
                 .onFailure { error ->
-                    _events.value = ListUiEvent.ShowError("Failed to remove item: ${error.message}")
+                    _events.emit(ListUiEvent.ShowError("Failed to remove item: ${error.message}"))
                 }
             dismissEntryEditor()
         }

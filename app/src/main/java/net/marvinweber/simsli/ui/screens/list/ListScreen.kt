@@ -48,9 +48,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -90,13 +96,35 @@ fun ListTabContent(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val storeFilter by viewModel.storeFilter.collectAsState()
-    val events by viewModel.events.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    events?.let { event ->
-        when (event) {
-            is ListUiEvent.ShowError -> {
-                // TODO: Show error snackbar
-                viewModel.onEventConsumed()
+    LaunchedEffect(Unit) {
+        var snackbarJob: Job? = null
+        viewModel.events.collect { event ->
+            when (event) {
+                is ListUiEvent.ShowError -> {
+                    snackbarJob?.cancel()
+                    snackbarJob = launch {
+                        snackbarHostState.showSnackbar(
+                            message = event.message,
+                            duration = SnackbarDuration.Short
+                        )
+                    }
+                }
+                is ListUiEvent.ItemCompleted -> {
+                    snackbarJob?.cancel()
+                    snackbarJob = launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        val result = snackbarHostState.showSnackbar(
+                            message = "${event.itemName} completed",
+                            actionLabel = "Revert",
+                            duration = SnackbarDuration.Long
+                        )
+                        if (result == SnackbarResult.ActionPerformed) {
+                            viewModel.revertItemDone(event.entryId)
+                        }
+                    }
+                }
             }
         }
     }
@@ -114,6 +142,12 @@ fun ListTabContent(
                 selectedFilter = storeFilter,
                 onFilterSelected = viewModel::selectFilter,
                 onAddClick = viewModel::onAddClick
+            )
+        },
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.padding(bottom = 8.dp)
             )
         }
     ) { paddingValues ->
