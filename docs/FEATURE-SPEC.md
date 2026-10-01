@@ -111,8 +111,8 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 
 ### 3.7 Sync (SYNC)
 
-- **SYNC-1 Triggers ✅** — sign-in/session restore; debounced (500 ms) requests after every local write; Supabase Realtime events on `list_entries` + `items` (📋 v0.1: add `stores`, `categories`, `store_categories`); manual "Sync now".
-- **SYNC-2 Pipeline ✅** — resolveHousehold → flushOutbox (push current row state) → watermark delta pulls (`updated_at`, microsecond precision) → GC. Join tables without `updated_at` (`item_stores` ✅, `store_categories` 📋 v0.1) reconcile by full set comparison.
+- **SYNC-1 Triggers ✅** — sign-in/session restore; debounced (500 ms) requests after every local write; Supabase Realtime events on `list_entries`, `items`, `stores`, `categories`, `store_categories` ✅; manual "Sync now".
+- **SYNC-2 Pipeline ✅** — resolveHousehold → flushOutbox (push current row state) → watermark delta pulls (`updated_at`, microsecond precision) → GC. Join tables without `updated_at` (`item_stores` ✅, `store_categories` ✅) reconcile by full set comparison.
 - **SYNC-3 Conflict resolution ✅** — last write wins per row (no payloads; the current local row state is pushed).
 - **SYNC-4 Realtime-as-trigger ✅** — realtime events only request a sync; the watermark pull is transport and backstop.
 - **SYNC-5 Offline/pending indicator 📋 v1** — subtle, honest indicator when the device is offline or has unsynced writes (outbox pending); clears when sync completes. No modal nagging.

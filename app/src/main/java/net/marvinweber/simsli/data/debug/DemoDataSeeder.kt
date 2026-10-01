@@ -4,16 +4,20 @@ import androidx.room.withTransaction
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.marvinweber.simsli.data.local.SimsliDatabase
+import net.marvinweber.simsli.data.local.dao.CategoryDao
 import net.marvinweber.simsli.data.local.dao.HouseholdDao
 import net.marvinweber.simsli.data.local.dao.ItemDao
 import net.marvinweber.simsli.data.local.dao.ItemStoreDao
 import net.marvinweber.simsli.data.local.dao.ListEntryDao
+import net.marvinweber.simsli.data.local.dao.StoreCategoryDao
 import net.marvinweber.simsli.data.local.dao.StoreDao
+import net.marvinweber.simsli.data.local.entity.DbCategory
 import net.marvinweber.simsli.data.local.entity.DbHousehold
 import net.marvinweber.simsli.data.local.entity.DbItem
 import net.marvinweber.simsli.data.local.entity.DbItemStore
 import net.marvinweber.simsli.data.local.entity.DbListEntry
 import net.marvinweber.simsli.data.local.entity.DbStore
+import net.marvinweber.simsli.data.local.entity.DbStoreCategory
 import net.marvinweber.simsli.di.IoDispatcher
 import net.marvinweber.simsli.domain.model.ItemType
 import java.time.Duration
@@ -42,6 +46,8 @@ class DemoDataSeeder @Inject constructor(
     private val itemDao: ItemDao,
     private val itemStoreDao: ItemStoreDao,
     private val listEntryDao: ListEntryDao,
+    private val categoryDao: CategoryDao,
+    private val storeCategoryDao: StoreCategoryDao,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) {
 
@@ -63,23 +69,33 @@ class DemoDataSeeder @Inject constructor(
             val aldi = id(3)
             val dm = id(4)
 
-            // (id index, name, notes, type, store ids) — indices into id() keep the UUIDs fixed.
+            // Categories — global order; mirrors the seed.sql set. Entry ids go up
+            // to 30, so the category indices start at 31.
+            val obst = id(31)
+            val milchprodukte = id(32)
+            val backwaren = id(33)
+            val grundnahrung = id(34)
+            val haushalt = id(35)
+            val sonstiges = id(36)
+
+            // (id index, name, notes, type, category id, store ids) — indices into id() keep the UUIDs fixed.
             val itemDefs = listOf(
-                ItemDef(1, "Milch", null, ItemType.PERMANENT, listOf(rewe, aldi)),
-                ItemDef(2, "Brot", null, ItemType.PERMANENT, listOf(rewe, aldi)),
-                ItemDef(3, "Butter", null, ItemType.PERMANENT, listOf(rewe, aldi)),
-                ItemDef(4, "Haferdrink", "Barista-Edition", ItemType.PERMANENT, listOf(rewe)),
-                ItemDef(5, "Käse", null, ItemType.PERMANENT, listOf(rewe, aldi)),
-                ItemDef(6, "Eier", "Freilandhaltung", ItemType.PERMANENT, listOf(rewe, aldi)),
-                ItemDef(7, "Äpfel", null, ItemType.PERMANENT, listOf(rewe, aldi)),
-                ItemDef(8, "Bananen", null, ItemType.PERMANENT, listOf(aldi)),
-                ItemDef(9, "Kaffee", "Bohnen, dunkle Röstung", ItemType.PERMANENT, listOf(rewe, aldi)),
-                ItemDef(10, "Nudeln", null, ItemType.PERMANENT, listOf(aldi)),
-                ItemDef(11, "Tomatenpassata", null, ItemType.PERMANENT, listOf(rewe, aldi)),
-                ItemDef(12, "Spülmittel", null, ItemType.PERMANENT, listOf(rewe, dm)),
-                ItemDef(13, "Toilettenpapier", "dreilagig", ItemType.PERMANENT, listOf(aldi, dm)),
-                ItemDef(14, "Geburtstagskerzen", null, ItemType.ONE_TIME, listOf(dm)),
-                ItemDef(15, "Geschenkpapier", null, ItemType.ONE_TIME, listOf(dm))
+                ItemDef(1, "Milch", null, ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi)),
+                ItemDef(2, "Brot", null, ItemType.PERMANENT, backwaren, listOf(rewe, aldi)),
+                ItemDef(3, "Butter", null, ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi)),
+                ItemDef(4, "Haferdrink", "Barista-Edition", ItemType.PERMANENT, milchprodukte, listOf(rewe)),
+                ItemDef(5, "Käse", null, ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi)),
+                ItemDef(6, "Eier", "Freilandhaltung", ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi)),
+                ItemDef(7, "Äpfel", null, ItemType.PERMANENT, obst, listOf(rewe, aldi)),
+                ItemDef(8, "Bananen", null, ItemType.PERMANENT, obst, listOf(aldi)),
+                ItemDef(9, "Kaffee", "Bohnen, dunkle Röstung", ItemType.PERMANENT, grundnahrung, listOf(rewe, aldi)),
+                ItemDef(10, "Nudeln", null, ItemType.PERMANENT, grundnahrung, listOf(aldi)),
+                ItemDef(11, "Tomatenpassata", null, ItemType.PERMANENT, grundnahrung, listOf(rewe, aldi)),
+                ItemDef(12, "Spülmittel", null, ItemType.PERMANENT, haushalt, listOf(rewe, dm)),
+                ItemDef(13, "Toilettenpapier", "dreilagig", ItemType.PERMANENT, haushalt, listOf(aldi, dm)),
+                ItemDef(14, "Geburtstagskerzen", null, ItemType.ONE_TIME, sonstiges, listOf(dm)),
+                // Uncategorized on purpose — exercises the implicit "Uncategorized" group (LIST-6).
+                ItemDef(15, "Geschenkpapier", null, ItemType.ONE_TIME, null, listOf(dm))
             )
 
             db.withTransaction {
@@ -100,6 +116,17 @@ class DemoDataSeeder @Inject constructor(
                     )
                 )
 
+                categoryDao.insertAll(
+                    listOf(
+                        DbCategory(obst, householdId, "Obst & Gemüse", "🍎", 1f, daysAgo(11), daysAgo(6)),
+                        DbCategory(milchprodukte, householdId, "Milchprodukte", "🥛", 2f, daysAgo(11), daysAgo(6)),
+                        DbCategory(backwaren, householdId, "Backwaren", "🥖", 3f, daysAgo(11), daysAgo(6)),
+                        DbCategory(grundnahrung, householdId, "Grundnahrungsmittel", "🍝", 4f, daysAgo(11), daysAgo(6)),
+                        DbCategory(haushalt, householdId, "Haushalt", "🧻", 5f, daysAgo(11), daysAgo(6)),
+                        DbCategory(sonstiges, householdId, "Sonstiges", "📦", 6f, daysAgo(11), daysAgo(6))
+                    )
+                )
+
                 itemDao.insertAll(
                     itemDefs.mapIndexed { index, def ->
                         DbItem(
@@ -108,6 +135,7 @@ class DemoDataSeeder @Inject constructor(
                             name = def.name,
                             notes = def.notes,
                             type = def.type,
+                            categoryId = def.categoryId,
                             // Staggered like real usage: earlier catalog entries updated longer ago.
                             sortOrder = def.idIndex.toFloat(),
                             createdAt = daysAgo((20 - index).toLong()),
@@ -122,6 +150,20 @@ class DemoDataSeeder @Inject constructor(
                             DbItemStore(itemId = id(def.idIndex), storeId = storeId, createdAt = daysAgo(12))
                         }
                     }
+                )
+
+                // Per-store aisle order: REWE full explicit (differs from global),
+                // Aldi partial (rest falls back), DM none (pure fallback) — like seed.sql.
+                storeCategoryDao.insertAll(
+                    listOf(
+                        DbStoreCategory(rewe, milchprodukte, 1f, daysAgo(11)),
+                        DbStoreCategory(rewe, backwaren, 2f, daysAgo(11)),
+                        DbStoreCategory(rewe, obst, 3f, daysAgo(11)),
+                        DbStoreCategory(rewe, grundnahrung, 4f, daysAgo(11)),
+                        DbStoreCategory(rewe, haushalt, 5f, daysAgo(11)),
+                        DbStoreCategory(aldi, obst, 1f, daysAgo(11)),
+                        DbStoreCategory(aldi, milchprodukte, 2f, daysAgo(11))
+                    )
                 )
 
                 // Active entries (done = false) …
@@ -181,6 +223,7 @@ class DemoDataSeeder @Inject constructor(
         val name: String,
         val notes: String?,
         val type: ItemType,
+        val categoryId: String?,
         val storeIds: List<String>
     )
 

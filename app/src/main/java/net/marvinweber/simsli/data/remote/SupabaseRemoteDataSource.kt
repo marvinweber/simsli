@@ -11,9 +11,11 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import net.marvinweber.simsli.data.remote.dto.HouseholdDto
 import net.marvinweber.simsli.data.remote.dto.HouseholdMemberDto
+import net.marvinweber.simsli.data.remote.dto.CategoryDto
 import net.marvinweber.simsli.data.remote.dto.ItemDto
 import net.marvinweber.simsli.data.remote.dto.ItemStoreDto
 import net.marvinweber.simsli.data.remote.dto.ListEntryDto
+import net.marvinweber.simsli.data.remote.dto.StoreCategoryDto
 import net.marvinweber.simsli.data.remote.dto.StoreDto
 import net.marvinweber.simsli.di.IoDispatcher
 import java.time.Instant
@@ -136,6 +138,27 @@ class SupabaseRemoteDataSource @Inject constructor(
         }
     }
 
+    suspend fun fetchCategoriesSince(householdId: String, since: Instant): List<CategoryDto> = withContext(ioDispatcher) {
+        supabaseClient.postgrest.from("categories").select {
+            filter {
+                eq("household_id", householdId)
+                gt("updated_at", since.toString())
+            }
+            order("updated_at", Order.ASCENDING)
+        }.decodeList()
+    }
+
+    /** store_categories has no updated_at, so sync reconciles the full ordering set per sync. */
+    suspend fun fetchStoreCategories(categoryIds: List<String>): List<StoreCategoryDto> = withContext(ioDispatcher) {
+        if (categoryIds.isEmpty()) {
+            emptyList()
+        } else {
+            supabaseClient.postgrest.from("store_categories")
+                .select { filter { isIn("category_id", categoryIds) } }
+                .decodeList()
+        }
+    }
+
     // --- Pushes -----------------------------------------------------------------
 
     suspend fun upsertHousehold(dto: HouseholdDto): Unit = withContext(ioDispatcher) {
@@ -160,6 +183,16 @@ class SupabaseRemoteDataSource @Inject constructor(
         }
     }
 
+    suspend fun upsertCategory(dto: CategoryDto): Unit = withContext(ioDispatcher) {
+        supabaseClient.postgrest.from("categories").upsert(dto)
+    }
+
+    suspend fun upsertStoreCategories(dtos: List<StoreCategoryDto>): Unit = withContext(ioDispatcher) {
+        if (dtos.isNotEmpty()) {
+            supabaseClient.postgrest.from("store_categories").upsert(dtos)
+        }
+    }
+
     suspend fun deleteListEntry(id: String): Unit = withContext(ioDispatcher) {
         supabaseClient.postgrest.from("list_entries").delete {
             filter { eq("id", id) }
@@ -171,6 +204,15 @@ class SupabaseRemoteDataSource @Inject constructor(
             filter {
                 eq("item_id", itemId)
                 eq("store_id", storeId)
+            }
+        }
+    }
+
+    suspend fun deleteStoreCategory(storeId: String, categoryId: String): Unit = withContext(ioDispatcher) {
+        supabaseClient.postgrest.from("store_categories").delete {
+            filter {
+                eq("store_id", storeId)
+                eq("category_id", categoryId)
             }
         }
     }

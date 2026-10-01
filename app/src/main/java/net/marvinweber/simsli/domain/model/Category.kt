@@ -2,14 +2,11 @@ package net.marvinweber.simsli.domain.model
 
 import java.time.Instant
 
-data class Item(
+data class Category(
     val id: String,
     val householdId: String,
     val name: String,
-    val notes: String? = null,
-    val type: ItemType = ItemType.PERMANENT,
-    /** Zero or one category (CAT-2); null = uncategorized. */
-    val categoryId: String? = null,
+    val emoji: String? = null,
     val sortOrder: Float = 0f,
     val createdAt: Instant,
     val updatedAt: Instant
