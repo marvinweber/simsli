@@ -1,6 +1,8 @@
 package net.marvinweber.simsli.ui.screens.list
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -59,6 +61,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.SoftwareKeyboardController
@@ -134,14 +137,17 @@ fun ListTabContent(
                             CategorySectionHeader(
                                 title = group.title,
                                 emoji = group.emoji,
-                                isImplicit = group.key == "uncategorized"
+                                isImplicit = group.key == "uncategorized",
+                                modifier = Modifier.animateItem()
                             )
                         }
                         items(group.entries, key = { it.listEntry.id }) { entryItem ->
                             ListEntryCard(
                                 listEntryItem = entryItem,
+                                isCompleting = entryItem.listEntry.id in uiState.completingEntryIds,
                                 onToggleDone = { viewModel.onToggleItemDone(entryItem.listEntry.id) },
-                                onClick = { viewModel.onEntryClick(entryItem.listEntry.id) }
+                                onClick = { viewModel.onEntryClick(entryItem.listEntry.id) },
+                                modifier = Modifier.animateItem()
                             )
                         }
                     }
@@ -152,14 +158,18 @@ fun ListTabContent(
                                 text = "Recently checked",
                                 style = MaterialTheme.typography.titleSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)
+                                modifier = Modifier
+                                    .animateItem()
+                                    .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)
                             )
                         }
                         items(uiState.recentlyChecked, key = { it.listEntry.id }) { entryItem ->
                             ListEntryCard(
                                 listEntryItem = entryItem,
+                                isCompleting = false,
                                 onToggleDone = { viewModel.onToggleItemDone(entryItem.listEntry.id) },
-                                onClick = { viewModel.onEntryClick(entryItem.listEntry.id) }
+                                onClick = { viewModel.onEntryClick(entryItem.listEntry.id) },
+                                modifier = Modifier.animateItem()
                             )
                         }
                     }
@@ -355,19 +365,29 @@ private fun CategorySectionHeader(
 @Composable
 private fun ListEntryCard(
     listEntryItem: ListEntryItem,
+    isCompleting: Boolean = false,
     onToggleDone: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val listEntry = listEntryItem.listEntry
     val item = listEntryItem.item
 
     val displayName = item?.name ?: "Unknown item"
+    val isDone = listEntry.done || isCompleting
+
+    val animatedAlpha by animateFloatAsState(
+        targetValue = if (isDone) 0.5f else 1f,
+        animationSpec = tween(durationMillis = 200),
+        label = "entryAlpha"
+    )
 
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .clickable(onClick = onClick)
+            .graphicsLayer { alpha = animatedAlpha }
+            .clickable(enabled = !isCompleting, onClick = onClick)
     ) {
         Row(
             modifier = Modifier
@@ -376,8 +396,8 @@ private fun ListEntryCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Checkbox(
-                checked = listEntry.done,
-                onCheckedChange = { onToggleDone() }
+                checked = isDone,
+                onCheckedChange = { if (!isCompleting) onToggleDone() }
             )
 
             Spacer(modifier = Modifier.size(16.dp))
@@ -390,7 +410,7 @@ private fun ListEntryCard(
                 Text(
                     text = displayName,
                     style = MaterialTheme.typography.bodyLarge,
-                    textDecoration = if (listEntry.done)
+                    textDecoration = if (isDone)
                         TextDecoration.LineThrough else null,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -413,7 +433,7 @@ private fun ListEntryCard(
                         text = meta,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textDecoration = if (listEntry.done)
+                        textDecoration = if (isDone)
                             TextDecoration.LineThrough else null,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis

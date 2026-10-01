@@ -3,6 +3,7 @@ package net.marvinweber.simsli.ui.screens.list
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -76,6 +77,7 @@ data class ListUiState(
     val activeGroups: List<CategoryGroupUi> = emptyList(),
     val activeEntries: List<ListEntryItem> = emptyList(),
     val recentlyChecked: List<ListEntryItem> = emptyList(),
+    val completingEntryIds: Set<String> = emptySet(),
     val catalog: List<CatalogItemUi> = emptyList(),
     val isLoading: Boolean = true,
     val isAddSheetOpen: Boolean = false,
@@ -104,6 +106,9 @@ class ListViewModel @Inject constructor(
     private val _storeFilter = MutableStateFlow<StoreFilter>(StoreFilter.All)
     val storeFilter: StateFlow<StoreFilter> = _storeFilter.asStateFlow()
 
+    /** IDs of active entries currently showing visual tick before moving to recently checked. */
+    private val completingEntryIds = MutableStateFlow<Set<String>>(emptySet())
+
     /** Sheet/dialog state kept apart from data state so the data pipeline stays small. */
     private data class SheetUi(
         val addSheetOpen: Boolean = false,
@@ -115,15 +120,24 @@ class ListViewModel @Inject constructor(
 
     private val sheetUi = MutableStateFlow(SheetUi())
 
+    private data class ListUiData(
+        val household: Household,
+        val stores: List<Store>,
+        val activeGroups: List<CategoryGroupUi>,
+        val activeEntries: List<ListEntryItem>,
+        val recentlyChecked: List<ListEntryItem>,
+        val catalog: List<CatalogItemUi>,
+        val entryItems: List<ListEntryItem>
+    )
+
     val uiState: StateFlow<ListUiState> = combine(
         householdRepository.getHousehold(),
-        _storeFilter,
-        sheetUi
-    ) { household, storeFilter, sheet ->
-        Triple(household, storeFilter, sheet)
-    }.flatMapLatest { (household, storeFilter, sheet) ->
+        _storeFilter
+    ) { household, storeFilter ->
+        household to storeFilter
+    }.flatMapLatest { (household, storeFilter) ->
         if (household == null) {
-            flowOf(ListUiState(isLoading = false))
+            flowOf(null)
         } else {
             val entriesFlow = when (storeFilter) {
                 is StoreFilter.All -> listEntryRepository.getListEntriesByHousehold(household.id)
@@ -196,7 +210,7 @@ class ListViewModel @Inject constructor(
                     )
                 }
 
-                ListUiState(
+                ListUiData(
                     household = household,
                     stores = stores,
                     activeGroups = activeGroups,
@@ -205,12 +219,32 @@ class ListViewModel @Inject constructor(
                     catalog = items.map {
                         CatalogItemUi(it, it.id in activeItemIds, entryIdByItemId[it.id])
                     },
+                    entryItems = entryItems
+                )
+            }
+        }
+    }.flatMapLatest { data ->
+        if (data == null) {
+            flowOf(ListUiState(isLoading = false))
+        } else {
+            combine(
+                sheetUi,
+                completingEntryIds
+            ) { sheet, completing ->
+                ListUiState(
+                    household = data.household,
+                    stores = data.stores,
+                    activeGroups = data.activeGroups,
+                    activeEntries = data.activeEntries,
+                    recentlyChecked = data.recentlyChecked,
+                    completingEntryIds = completing,
+                    catalog = data.catalog,
                     isLoading = false,
                     isAddSheetOpen = sheet.addSheetOpen,
                     addQuery = sheet.addQuery,
                     addSelection = sheet.addSelection,
                     isAddInProgress = sheet.isAddInProgress,
-                    editingEntry = entryItems.firstOrNull { it.listEntry.id == sheet.editingEntryId },
+                    editingEntry = data.entryItems.firstOrNull { it.listEntry.id == sheet.editingEntryId },
                     error = null
                 )
             }
@@ -261,10 +295,23 @@ class ListViewModel @Inject constructor(
                     .find { it.listEntry.id == listEntryId }?.listEntry
             } ?: return@launch
 
-            listEntryRepository.updateListEntryDoneStatus(listEntryId, !current.done)
-                .onFailure { error ->
-                    _events.value = ListUiEvent.ShowError("Failed to update item: ${error.message}")
-                }
+            if (!current.done) {
+                // Active -> Done: show tick immediately, pause briefly for completion feedback, then commit
+                if (listEntryId in completingEntryIds.value) return@launch
+                completingEntryIds.update { it + listEntryId }
+                delay(400)
+                listEntryRepository.updateListEntryDoneStatus(listEntryId, true)
+                    .onFailure { error ->
+                        _events.value = ListUiEvent.ShowError("Failed to update item: ${error.message}")
+                    }
+                completingEntryIds.update { it - listEntryId }
+            } else {
+                // Done -> Active: immediately uncheck
+                listEntryRepository.updateListEntryDoneStatus(listEntryId, false)
+                    .onFailure { error ->
+                        _events.value = ListUiEvent.ShowError("Failed to update item: ${error.message}")
+                    }
+            }
         }
     }
 
