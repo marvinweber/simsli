@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import net.marvinweber.simsli.ui.components.EntryDetailsSheet
+import net.marvinweber.simsli.ui.screens.categories.CategoriesTabContent
 import net.marvinweber.simsli.ui.screens.stores.StoresTabContent
 
 enum class CatalogTab(val label: String) {
@@ -97,7 +98,7 @@ fun CatalogScreen(
                     )
                 }
                 CatalogTab.CATEGORIES -> tabStateHolder.SaveableStateProvider(CatalogTab.CATEGORIES.name) {
-                    CategoriesPlaceholder()
+                    CategoriesTabContent()
                 }
                 CatalogTab.STORES -> tabStateHolder.SaveableStateProvider(CatalogTab.STORES.name) {
                     StoresTabContent()
@@ -193,20 +194,6 @@ private fun ItemsTabContent(
     }
 }
 
-/** Until the category model (CAT-1..4) lands, the tab shows an honest placeholder. */
-@Composable
-private fun CategoriesPlaceholder() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "Categories — coming soon",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
 
 @Composable
 private fun CatalogItemCard(

@@ -23,7 +23,7 @@ Milestone tags are assignments, not promises — moving a feature between milest
 | 3.3 Catalog items (ITEM) | ITEM-1, ITEM-2         | ITEM-4               | ITEM-3, ITEM-5       | —            | —            | —         |
 | 3.4 Shopping list (LIST) | LIST-1–5, LIST-7       | —                    | LIST-6               | LIST-8       | —            | —         |
 | 3.5 Stores (STORE)       | STORE-1–3              | —                    | STORE-4              | —            | —            | —         |
-| 3.6 Categories (CAT)     | —                      | —                    | CAT-1–4              | —            | —            | —         |
+| 3.6 Categories (CAT)     | CAT-1, CAT-3           | —                    | CAT-2, CAT-4         | —            | —            | —         |
 | 3.7 Sync (SYNC)          | SYNC-1–4               | —                    | —                    | SYNC-5       | —            | —         |
 | 3.8 Device data (DATA)   | DATA-1, DATA-3         | —                    | DATA-2               | DATA-4       | —            | DATA-5    |
 | 3.9 Screens (SCREENS)    | SCREENS-1, SCREENS-6   | SCREENS-2, SCREENS-4 | SCREENS-3, SCREENS-5 | —            | —            | SCREENS-7 |
@@ -32,7 +32,7 @@ Milestone tags are assignments, not promises — moving a feature between milest
 
 Each feature appears once, under its current status; extensions tagged to later milestones (e.g. HH-2 admin role → v1.5, STORE-1 drag & drop → v1) stay tracked in the §3 entry. DATA-2 ships per path (removal with HH-5 in v0.1, leave/delete with HH-6/7 in v1). BIZ-4 is unlisted — its decision is open (OQ-1).
 
-Last updated: 2026-09-27
+Last updated: 2026-10-01
 
 ---
 
@@ -104,9 +104,9 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 
 ### 3.6 Categories (CAT)
 
-- **CAT-1 Category entity 📋 v0.1** — per household: name + emoji icon (free emoji input, no icon picker) + global `sortOrder`. Global order is user-draggable.
+- **CAT-1 Category entity ✅** — per household: name + emoji icon (selected via AndroidX EmojiPickerView, ADR-0014) + global `sortOrder`. Global order is user-draggable.
 - **CAT-2 Item assignment 📋 v0.1** — an item has **zero or one** category; null = "Uncategorized" (implicit group, always last, not a real category).
-- **CAT-3 Management 📋 v0.1** — the Catalog tab's **Categories** tab (SCREENS-2): create, rename, icon, delete, drag global order. Deleting a category sets its items to uncategorized (nothing else breaks).
+- **CAT-3 Management ✅** — the Catalog tab's **Categories** tab (SCREENS-2): create, rename, icon, delete, drag global order. Deleting a category sets its items to uncategorized (nothing else breaks).
 - **CAT-4 Setup presets 📋 v0.1** — offered during household setup (SCREENS-5) to apply wholesale: Obst & Gemüse/Produce 🍎, Backwaren/Bakery 🥖, Milchprodukte/Dairy 🥛, Fleisch & Fisch/Meat & Fish 🥩, Grundnahrungsmittel/Pantry 🍝, Tiefkühl/Frozen ❄️, Getränke/Drinks 🧃, Snacks/Snacks 🍫, Haushalt/Household 🧻, Drogerie/Personal Care 🧴, Sonstiges/Other 📦. Editable afterwards like any category.
 
 ### 3.7 Sync (SYNC)
@@ -128,7 +128,7 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 ### 3.9 Navigation & screens (SCREENS)
 
 - **SCREENS-1 Bottom navigation ✅** — bottom app bar with three tabs: **Shopping List · Catalog · Settings**. Settings is promoted from a pushed screen to a tab. Tab/sub-tab UI state (scroll position, open dialogs) survives tab switches.
-- **SCREENS-2 Catalog tabs 🚧** — the Catalog tab is a tabbed view: **Items | Categories | Stores**. Stores management moved here from its own pushed screen ✅; the Categories tab shows an honest placeholder until CAT-1..4 land. In Items, each row's **+** opens the entry details sheet (LIST-4) to add the item to the list with quantity/unit/comment; items already on the list show a check in the same position.
+- **SCREENS-2 Catalog tabs 🚧** — the Catalog tab is a tabbed view: **Items | Categories | Stores**. Stores management moved here from its own pushed screen ✅; Categories management (CAT-3) with create, rename, emoji, delete, and drag order ✅. In Items, each row's **+** opens the entry details sheet (LIST-4) to add the item to the list with quantity/unit/comment; items already on the list show a check in the same position.
 - **SCREENS-3 Household screen 📋 v0.1 (minimal) / v1 (full)** — reached from Settings: member list with roles, invite (HH-3), remove (HH-5) in v0.1; leave (HH-6), delete household (HH-7) added in v1. Household name + rename moves here.
 - **SCREENS-4 Settings tab 🚧** — tab ✅ with Account (sign-in/out) and Sync ("Sync now", status) sections; Data (DATA-4) and Server (BIZ-5) sections arrive with those v1 features.
 - **SCREENS-5 Onboarding 📋 v0.1** — minimal first-launch flow: welcome → sign-in (**skippable** — offline stays first-class) → household setup: name + apply category presets (CAT-4). Fine-tuning (stores, per-store order) happens in the management screens afterwards.

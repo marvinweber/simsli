@@ -67,6 +67,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.emoji2.emojipicker)
 
     // Compose BOM — import first, then add compose libs without versions
     val composeBom = platform(libs.compose.bom)

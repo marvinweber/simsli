@@ -48,6 +48,12 @@ interface ItemDao {
     @Query("UPDATE items SET deletedAt = :deletedAt WHERE id = :id")
     suspend fun delete(id: String, deletedAt: java.time.Instant)
 
+    @Query("SELECT id FROM items WHERE categoryId = :categoryId AND deletedAt IS NULL")
+    suspend fun getItemIdsByCategoryId(categoryId: String): List<String>
+
+    @Query("UPDATE items SET categoryId = NULL, updatedAt = :updatedAt WHERE categoryId = :categoryId AND deletedAt IS NULL")
+    suspend fun clearCategory(categoryId: String, updatedAt: java.time.Instant)
+
     @Transaction
     suspend fun updateSortOrders(updates: List<Pair<String, Float>>, updatedAt: java.time.Instant) {
         updates.forEach { (id, sortOrder) ->

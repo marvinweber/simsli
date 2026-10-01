@@ -23,7 +23,7 @@ spec-defined behavior).
 - App behavior after this slice: unchanged (category data syncs but nothing
   reads/writes it yet)
 
-## Slice 2 — CAT-3 Categories management tab
+## Slice 2 — CAT-3 Categories management tab ✅ shipped 2026-10-01
 
 - Categories tab replaces the placeholder in the Catalog tab:
   create / rename / emoji / delete / drag global order
