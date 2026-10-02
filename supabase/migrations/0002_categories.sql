@@ -17,7 +17,7 @@
 -- ============================================================
 
 create table public.categories (
-  id            uuid primary key default uuid_generate_v4(),
+  id            uuid primary key default gen_random_uuid(),
   household_id  uuid not null references public.households(id) on delete cascade,
   name          text not null,
   emoji         text,
@@ -60,7 +60,7 @@ comment on table public.store_categories is
 
 create trigger set_updated_at_categories
   before update on public.categories
-  for each row execute function moddatetime(updated_at);
+  for each row execute function extensions.moddatetime(updated_at);
 
 
 -- ============================================================

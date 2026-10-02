@@ -14,8 +14,8 @@
 -- Extensions
 -- ============================================================
 
-create extension if not exists "uuid-ossp";
-create extension if not exists "moddatetime";   -- auto-updates updated_at
+create extension if not exists "uuid-ossp" with schema extensions;
+create extension if not exists "moddatetime" with schema extensions;   -- auto-updates updated_at
 
 
 -- ============================================================
@@ -23,7 +23,7 @@ create extension if not exists "moddatetime";   -- auto-updates updated_at
 -- ============================================================
 
 create table public.households (
-  id           uuid primary key default uuid_generate_v4(),
+  id           uuid primary key default gen_random_uuid(),
   name         text not null default 'My household',
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now(),
@@ -41,7 +41,7 @@ comment on table public.households is
 create type public.member_role as enum ('owner', 'member');
 
 create table public.household_members (
-  id            uuid primary key default uuid_generate_v4(),
+  id            uuid primary key default gen_random_uuid(),
   household_id  uuid not null references public.households(id) on delete cascade,
   user_id       uuid not null references auth.users(id) on delete cascade,
   role          public.member_role not null default 'member',
@@ -78,7 +78,7 @@ comment on table public.invite_tokens is
 -- ============================================================
 
 create table public.stores (
-  id            uuid primary key default uuid_generate_v4(),
+  id            uuid primary key default gen_random_uuid(),
   household_id  uuid not null references public.households(id) on delete cascade,
   name          text not null,
   sort_order    float8 not null default 0,
@@ -103,7 +103,7 @@ create type public.item_type as enum (
 );
 
 create table public.items (
-  id            uuid primary key default uuid_generate_v4(),
+  id            uuid primary key default gen_random_uuid(),
   household_id  uuid not null references public.households(id) on delete cascade,
   name          text not null,
   notes         text,
@@ -141,7 +141,7 @@ comment on table public.item_stores is
 -- ============================================================
 
 create table public.list_entries (
-  id            uuid primary key default uuid_generate_v4(),
+  id            uuid primary key default gen_random_uuid(),
   household_id  uuid not null references public.households(id) on delete cascade,
   item_id       uuid not null references public.items(id) on delete cascade,
   quantity      float8,
@@ -169,23 +169,23 @@ comment on table public.list_entries is
 
 create trigger set_updated_at_households
   before update on public.households
-  for each row execute function moddatetime(updated_at);
+  for each row execute function extensions.moddatetime(updated_at);
 
 create trigger set_updated_at_household_members
   before update on public.household_members
-  for each row execute function moddatetime(updated_at);
+  for each row execute function extensions.moddatetime(updated_at);
 
 create trigger set_updated_at_stores
   before update on public.stores
-  for each row execute function moddatetime(updated_at);
+  for each row execute function extensions.moddatetime(updated_at);
 
 create trigger set_updated_at_items
   before update on public.items
-  for each row execute function moddatetime(updated_at);
+  for each row execute function extensions.moddatetime(updated_at);
 
 create trigger set_updated_at_list_entries
   before update on public.list_entries
-  for each row execute function moddatetime(updated_at);
+  for each row execute function extensions.moddatetime(updated_at);
 
 
 -- ============================================================
