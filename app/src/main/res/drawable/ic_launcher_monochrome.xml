@@ -14,29 +14,25 @@
         <group
             android:translateX="-26"
             android:translateY="-17">
-            <!-- Korb -->
-            <path
-                android:fillColor="#F4F8FD"
-                android:pathData="M180,195H410L370,330H205Z" />
             <!-- Gestell mit kurzem Griff -->
             <path
                 android:fillColor="#00000000"
-                android:strokeColor="#F4F8FD"
+                android:strokeColor="#FFFFFF"
                 android:strokeWidth="26"
                 android:strokeLineCap="round"
                 android:strokeLineJoin="round"
                 android:pathData="M135,150H165L205,330H370L410,195H180" />
             <!-- Räder -->
             <path
-                android:fillColor="#F4F8FD"
+                android:fillColor="#FFFFFF"
                 android:pathData="M204,385a24,24 0 1,0 48,0a24,24 0 1,0 -48,0" />
             <path
-                android:fillColor="#F4F8FD"
+                android:fillColor="#FFFFFF"
                 android:pathData="M326,385a24,24 0 1,0 48,0a24,24 0 1,0 -48,0" />
             <!-- Häkchen -->
             <path
                 android:fillColor="#00000000"
-                android:strokeColor="#3A66A5"
+                android:strokeColor="#FFFFFF"
                 android:strokeWidth="26"
                 android:strokeLineCap="round"
                 android:strokeLineJoin="round"

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+
+    <!-- Gradient Squircle Background -->
+    <path
+        android:pathData="M 112,0 L 400,0 A 112,112 0 0,1 512,112 L 512,400 A 112,112 0 0,1 400,512 L 112,512 A 112,112 0 0,1 0,400 L 0,112 A 112,112 0 0,1 112,0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="256"
+                android:startY="0"
+                android:endX="256"
+                android:endY="512"
+                android:type="linear">
+                <item android:color="#5B8BC9" android:offset="0.0" />
+                <item android:color="#3A66A5" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Shopping Cart & Checkmark -->
+    <group
+        android:translateX="-26"
+        android:translateY="-17">
+        <!-- Korb -->
+        <path
+            android:fillColor="#F4F8FD"
+            android:pathData="M180,195H410L370,330H205Z" />
+        <!-- Gestell mit kurzem Griff -->
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#F4F8FD"
+            android:strokeWidth="26"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M135,150H165L205,330H370L410,195H180" />
+        <!-- Räder -->
+        <path
+            android:fillColor="#F4F8FD"
+            android:pathData="M204,385a24,24 0 1,0 48,0a24,24 0 1,0 -48,0" />
+        <path
+            android:fillColor="#F4F8FD"
+            android:pathData="M326,385a24,24 0 1,0 48,0a24,24 0 1,0 -48,0" />
+        <!-- Häkchen -->
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#3A66A5"
+            android:strokeWidth="26"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M240,262L277,296L345,226" />
+    </group>
+</vector>
