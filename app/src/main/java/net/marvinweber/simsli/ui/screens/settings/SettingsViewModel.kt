@@ -9,14 +9,33 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import net.marvinweber.simsli.BuildConfig
 import net.marvinweber.simsli.data.debug.DemoDataSeeder
 import net.marvinweber.simsli.data.repository.AuthRepository
 import net.marvinweber.simsli.data.repository.AuthState
 import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.data.repository.SignOutResult
 import net.marvinweber.simsli.data.sync.SyncManager
+import net.marvinweber.simsli.di.IoDispatcher
+import java.net.HttpURLConnection
+import java.net.URL
 import javax.inject.Inject
+
+enum class EndpointStatus {
+    CHECKING,
+    ONLINE,
+    OFFLINE,
+    ERROR
+}
+
+data class EndpointHealth(
+    val url: String = BuildConfig.SUPABASE_URL,
+    val status: EndpointStatus = EndpointStatus.CHECKING,
+    val detail: String? = null
+)
 
 data class SettingsUiState(
     val isSignedIn: Boolean = false,
@@ -29,7 +48,8 @@ data class SettingsUiState(
     val inviteCode: String? = null,   // non-null → invite dialog open, shows the generated code
     val joinInput: String? = null,    // non-null → join dialog open, holds the field content
     val showSeedConfirm: Boolean = false, // debug only: confirm before wiping + seeding
-    val showSignOutConfirm: Boolean = false
+    val showSignOutConfirm: Boolean = false,
+    val endpointHealth: EndpointHealth = EndpointHealth()
 )
 
 @HiltViewModel
@@ -37,7 +57,8 @@ class SettingsViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val householdRepository: HouseholdRepository,
     private val syncManager: SyncManager,
-    private val demoDataSeeder: DemoDataSeeder
+    private val demoDataSeeder: DemoDataSeeder,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ViewModel() {
 
     private val emailInput = MutableStateFlow("")
@@ -48,6 +69,7 @@ class SettingsViewModel @Inject constructor(
     private val joinInput = MutableStateFlow<String?>(null)
     private val seedConfirmOpen = MutableStateFlow(false)
     private val signOutConfirmOpen = MutableStateFlow(false)
+    private val endpointHealth = MutableStateFlow(EndpointHealth())
 
     /** Dialog visibility + content, bundled to keep every combine on a typed overload. */
     private data class DialogInputs(
@@ -69,12 +91,13 @@ class SettingsViewModel @Inject constructor(
     val uiState: StateFlow<SettingsUiState> = combine(
         authRepository.authState,
         householdRepository.getHousehold(),
+        endpointHealth,
         combine(
             emailInput, isBusy, statusMessage, renameInput,
             combine(inviteCode, joinInput, seedConfirmOpen, signOutConfirmOpen, ::DialogInputs),
             ::Inputs
         )
-    ) { authState, household, inputs ->
+    ) { authState, household, health, inputs ->
         SettingsUiState(
             isSignedIn = authState is AuthState.SignedIn,
             userEmail = (authState as? AuthState.SignedIn)?.email,
@@ -86,13 +109,81 @@ class SettingsViewModel @Inject constructor(
             showSeedConfirm = inputs.dialog.seedConfirmOpen,
             showSignOutConfirm = inputs.dialog.signOutConfirmOpen,
             inviteCode = inputs.dialog.inviteCode,
-            joinInput = inputs.dialog.joinInput
+            joinInput = inputs.dialog.joinInput,
+            endpointHealth = health
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = SettingsUiState()
     )
+
+    init {
+        checkEndpointHealth()
+    }
+
+    fun checkEndpointHealth() {
+        viewModelScope.launch {
+            endpointHealth.value = endpointHealth.value.copy(
+                status = EndpointStatus.CHECKING,
+                detail = null
+            )
+            val result = withContext(ioDispatcher) {
+                probeEndpoint(BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_ANON_KEY)
+            }
+            endpointHealth.value = result
+        }
+    }
+
+    private fun probeEndpoint(supabaseUrl: String, anonKey: String): EndpointHealth {
+        if (supabaseUrl.isBlank()) {
+            return EndpointHealth(
+                url = "(not configured)",
+                status = EndpointStatus.ERROR,
+                detail = "URL is missing"
+            )
+        }
+        return try {
+            val start = System.currentTimeMillis()
+            val healthUrl = if (supabaseUrl.endsWith("/")) "${supabaseUrl}auth/v1/health" else "$supabaseUrl/auth/v1/health"
+            val conn = (URL(healthUrl).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 4000
+                readTimeout = 4000
+                requestMethod = "GET"
+                instanceFollowRedirects = true
+                if (anonKey.isNotBlank()) {
+                    setRequestProperty("apikey", anonKey)
+                }
+            }
+            val code = conn.responseCode
+            val latency = System.currentTimeMillis() - start
+            if (code in 200..299) {
+                EndpointHealth(
+                    url = supabaseUrl,
+                    status = EndpointStatus.ONLINE,
+                    detail = "Online (${latency}ms)"
+                )
+            } else if (code == 503) {
+                EndpointHealth(
+                    url = supabaseUrl,
+                    status = EndpointStatus.ERROR,
+                    detail = "Paused (HTTP 503)"
+                )
+            } else {
+                EndpointHealth(
+                    url = supabaseUrl,
+                    status = EndpointStatus.ERROR,
+                    detail = "HTTP $code"
+                )
+            }
+        } catch (e: Exception) {
+            EndpointHealth(
+                url = supabaseUrl,
+                status = EndpointStatus.OFFLINE,
+                detail = "Unreachable"
+            )
+        }
+    }
 
     fun onEmailChange(email: String) {
         emailInput.value = email

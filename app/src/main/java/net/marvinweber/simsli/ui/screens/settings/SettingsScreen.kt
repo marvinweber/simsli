@@ -77,7 +77,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -769,42 +771,152 @@ fun SettingsTabContent(
                 shape = RoundedCornerShape(20.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Image(
-                        painter = painterResource(R.drawable.ic_simsli_logo),
-                        contentDescription = "Simsli logo",
-                        modifier = Modifier.size(40.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(
-                        modifier = Modifier.weight(1f)
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Simsli",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                        Image(
+                            painter = painterResource(R.drawable.ic_simsli_logo),
+                            contentDescription = "Simsli logo",
+                            modifier = Modifier.size(40.dp)
                         )
-                        Text(
-                            text = "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = "Simsli",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest
+                        ) {
+                            Text(
+                                text = "Internal Test",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
                     }
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerHighest
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                scope.launch {
+                                    clipboard.setClipEntry(
+                                        ClipData.newPlainText("Backend Endpoint", uiState.endpointHealth.url).toClipEntry()
+                                    )
+                                    snackbarHostState.showSnackbar("Endpoint URL copied to clipboard")
+                                }
+                            }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Internal Test",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "API ENDPOINT",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = uiState.endpointHealth.url,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontFamily = FontFamily.Monospace,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (uiState.endpointHealth.detail != null) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = uiState.endpointHealth.detail ?: "",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = when (uiState.endpointHealth.status) {
+                                        EndpointStatus.ONLINE -> MaterialTheme.colorScheme.primary
+                                        EndpointStatus.OFFLINE, EndpointStatus.ERROR -> MaterialTheme.colorScheme.error
+                                        EndpointStatus.CHECKING -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = when (uiState.endpointHealth.status) {
+                                EndpointStatus.ONLINE -> MaterialTheme.colorScheme.primaryContainer
+                                EndpointStatus.OFFLINE, EndpointStatus.ERROR -> MaterialTheme.colorScheme.errorContainer
+                                EndpointStatus.CHECKING -> MaterialTheme.colorScheme.surfaceContainerHighest
+                            }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            when (uiState.endpointHealth.status) {
+                                                EndpointStatus.ONLINE -> MaterialTheme.colorScheme.primary
+                                                EndpointStatus.OFFLINE, EndpointStatus.ERROR -> MaterialTheme.colorScheme.error
+                                                EndpointStatus.CHECKING -> MaterialTheme.colorScheme.outline
+                                            }
+                                        )
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = when (uiState.endpointHealth.status) {
+                                        EndpointStatus.ONLINE -> "Online"
+                                        EndpointStatus.OFFLINE -> "Offline"
+                                        EndpointStatus.ERROR -> "Error"
+                                        EndpointStatus.CHECKING -> "Checking..."
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = when (uiState.endpointHealth.status) {
+                                        EndpointStatus.ONLINE -> MaterialTheme.colorScheme.onPrimaryContainer
+                                        EndpointStatus.OFFLINE, EndpointStatus.ERROR -> MaterialTheme.colorScheme.onErrorContainer
+                                        EndpointStatus.CHECKING -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+
+                        IconButton(
+                            onClick = viewModel::checkEndpointHealth,
+                            enabled = uiState.endpointHealth.status != EndpointStatus.CHECKING,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Refresh,
+                                contentDescription = "Check API status",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
             }
