@@ -3,6 +3,7 @@ package net.marvinweber.simsli.ui.screens.item
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,7 +41,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import net.marvinweber.simsli.domain.model.ItemType
-import androidx.compose.ui.unit.Dp
 
 /**
  * Create/edit a catalog item: name, store assignments, type, notes.
@@ -60,6 +60,7 @@ fun ItemDetailScreen(
     var itemNotes by rememberSaveable { mutableStateOf("") }
     var itemType by rememberSaveable { mutableStateOf<ItemType>(ItemType.PERMANENT) }
     var selectedStoreIds by rememberSaveable { mutableStateOf<Set<String>>(emptySet()) }
+    var selectedCategoryId by rememberSaveable { mutableStateOf<String?>(null) }
     var prefilled by rememberSaveable { mutableStateOf(false) }
 
     // Prefill the form once when editing an existing item.
@@ -70,6 +71,7 @@ fun ItemDetailScreen(
         itemNotes = item.notes.orEmpty()
         itemType = item.type
         selectedStoreIds = uiState.existingStoreIds
+        selectedCategoryId = item.categoryId
         prefilled = true
     }
 
@@ -127,6 +129,36 @@ fun ItemDetailScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
 
+                        // Category assignment (single-select, optional)
+                        if (uiState.categories.isNotEmpty()) {
+                            Text(
+                                text = "Category (optional)",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                uiState.categories.forEach { category ->
+                                    val isSelected = selectedCategoryId == category.id
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = {
+                                            selectedCategoryId = if (isSelected) null else category.id
+                                        },
+                                        label = {
+                                            val labelText = if (!category.emoji.isNullOrBlank()) {
+                                                "${category.emoji} ${category.name}"
+                                            } else {
+                                                category.name
+                                            }
+                                            Text(labelText)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
                         // Store assignment (multi-select)
                         if (uiState.stores.isNotEmpty()) {
                             Text(
@@ -134,8 +166,8 @@ fun ItemDetailScreen(
                                 style = MaterialTheme.typography.titleSmall
                             )
                             FlowRow(
-                                horizontalGap = 8.dp,
-                                verticalGap = 8.dp
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 uiState.stores.forEach { store ->
                                     FilterChip(
@@ -206,36 +238,18 @@ fun ItemDetailScreen(
                                     name = itemName,
                                     notes = itemNotes,
                                     type = itemType,
-                                    selectedStoreIds = selectedStoreIds.toList()
+                                    selectedStoreIds = selectedStoreIds.toList(),
+                                    selectedCategoryId = selectedCategoryId
                                 )
                             },
                             modifier = Modifier.fillMaxWidth(),
-                            enabled = itemName.isNotBlank()
+                            enabled = itemName.isNotBlank() && !uiState.isSaving
                         ) {
                             Text(if (uiState.existingItem == null) "Add item" else "Save")
                         }
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun FlowRow(
-    horizontalGap: Dp,
-    verticalGap: Dp,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
-) {
-    Column(modifier = modifier) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(horizontalGap)
-        ) {
-            // Simple flow row implementation - all items in one row for now
-            // A proper implementation would measure and wrap
-            content()
         }
     }
 }

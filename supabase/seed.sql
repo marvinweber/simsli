@@ -20,6 +20,7 @@
 --   stores     30000000-0000-0000-0000-0000000000NN
 --   items      40000000-0000-0000-0000-0000000000NN
 --   entries    50000000-0000-0000-0000-0000000000NN
+--   categories 60000000-0000-0000-0000-0000000000NN
 
 -- ============================================================
 -- Auth users (direct GoTrue insert; emails pre-confirmed)
@@ -93,41 +94,63 @@ values
 on conflict (id) do nothing;
 
 -- ============================================================
--- Items (mostly PERMANENT; last two are ONE_TIME)
+-- Categories (global order; items can be uncategorized)
 -- ============================================================
 
-insert into public.items (id, household_id, name, notes, type, sort_order, created_at, updated_at)
+insert into public.categories (id, household_id, name, emoji, sort_order, created_at, updated_at)
+values
+  ('60000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001',
+   'Obst & Gemüse', '🍎', 1.0, now() - interval '11 days', now() - interval '6 days'),
+  ('60000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000001',
+   'Milchprodukte', '🥛', 2.0, now() - interval '11 days', now() - interval '6 days'),
+  ('60000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000001',
+   'Backwaren', '🥖', 3.0, now() - interval '11 days', now() - interval '6 days'),
+  ('60000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000001',
+   'Grundnahrungsmittel', '🍝', 4.0, now() - interval '11 days', now() - interval '6 days'),
+  ('60000000-0000-0000-0000-000000000005', '20000000-0000-0000-0000-000000000001',
+   'Haushalt', '🧻', 5.0, now() - interval '11 days', now() - interval '6 days'),
+  ('60000000-0000-0000-0000-000000000006', '20000000-0000-0000-0000-000000000001',
+   'Sonstiges', '📦', 6.0, now() - interval '11 days', now() - interval '6 days')
+on conflict (id) do nothing;
+
+-- ============================================================
+-- Items (mostly PERMANENT; last two are ONE_TIME).
+-- Geschenkpapier stays uncategorized on purpose — it exercises the implicit
+-- "Uncategorized" group in the category grouping (LIST-6).
+-- ============================================================
+
+insert into public.items (id, household_id, name, notes, type, category_id, sort_order, created_at, updated_at)
 values
   ('40000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001',
-   'Milch',           null,                        'PERMANENT', 1.0, now() - interval '20 days', now() - interval '1 day'),
+   'Milch',           null,                        'PERMANENT', '60000000-0000-0000-0000-000000000002', 1.0, now() - interval '20 days', now() - interval '1 day'),
   ('40000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000001',
-   'Brot',            null,                        'PERMANENT', 2.0, now() - interval '20 days', now() - interval '2 days'),
+   'Brot',            null,                        'PERMANENT', '60000000-0000-0000-0000-000000000003', 2.0, now() - interval '20 days', now() - interval '2 days'),
   ('40000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000001',
-   'Butter',          null,                        'PERMANENT', 3.0, now() - interval '20 days', now() - interval '2 days'),
+   'Butter',          null,                        'PERMANENT', '60000000-0000-0000-0000-000000000002', 3.0, now() - interval '20 days', now() - interval '2 days'),
   ('40000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000001',
-   'Haferdrink',      'Barista-Edition',           'PERMANENT', 4.0, now() - interval '18 days', now() - interval '3 days'),
+   'Haferdrink',      'Barista-Edition',           'PERMANENT', '60000000-0000-0000-0000-000000000002', 4.0, now() - interval '18 days', now() - interval '3 days'),
   ('40000000-0000-0000-0000-000000000005', '20000000-0000-0000-0000-000000000001',
-   'Käse',            null,                        'PERMANENT', 5.0, now() - interval '18 days', now() - interval '3 days'),
+   'Käse',            null,                        'PERMANENT', '60000000-0000-0000-0000-000000000002', 5.0, now() - interval '18 days', now() - interval '3 days'),
   ('40000000-0000-0000-0000-000000000006', '20000000-0000-0000-0000-000000000001',
-   'Eier',            'Freilandhaltung',           'PERMANENT', 6.0, now() - interval '18 days', now() - interval '4 days'),
+   'Eier',            'Freilandhaltung',           'PERMANENT', '60000000-0000-0000-0000-000000000002', 6.0, now() - interval '18 days', now() - interval '4 days'),
   ('40000000-0000-0000-0000-000000000007', '20000000-0000-0000-0000-000000000001',
-   'Äpfel',           null,                        'PERMANENT', 7.0, now() - interval '15 days', now() - interval '4 days'),
+   'Äpfel',           null,                        'PERMANENT', '60000000-0000-0000-0000-000000000001', 7.0, now() - interval '15 days', now() - interval '4 days'),
   ('40000000-0000-0000-0000-000000000008', '20000000-0000-0000-0000-000000000001',
-   'Bananen',         null,                        'PERMANENT', 8.0, now() - interval '15 days', now() - interval '5 days'),
+   'Bananen',         null,                        'PERMANENT', '60000000-0000-0000-0000-000000000001', 8.0, now() - interval '15 days', now() - interval '5 days'),
   ('40000000-0000-0000-0000-000000000009', '20000000-0000-0000-0000-000000000001',
-   'Kaffee',          'Bohnen, dunkle Röstung',    'PERMANENT', 9.0, now() - interval '15 days', now() - interval '5 days'),
+   'Kaffee',          'Bohnen, dunkle Röstung',    'PERMANENT', '60000000-0000-0000-0000-000000000004', 9.0, now() - interval '15 days', now() - interval '5 days'),
   ('40000000-0000-0000-0000-000000000010', '20000000-0000-0000-0000-000000000001',
-   'Nudeln',          null,                        'PERMANENT', 10.0, now() - interval '14 days', now() - interval '6 days'),
+   'Nudeln',          null,                        'PERMANENT', '60000000-0000-0000-0000-000000000004', 10.0, now() - interval '14 days', now() - interval '6 days'),
   ('40000000-0000-0000-0000-000000000011', '20000000-0000-0000-0000-000000000001',
-   'Tomatenpassata',  null,                        'PERMANENT', 11.0, now() - interval '14 days', now() - interval '6 days'),
+   'Tomatenpassata',  null,                        'PERMANENT', '60000000-0000-0000-0000-000000000004', 11.0, now() - interval '14 days', now() - interval '6 days'),
   ('40000000-0000-0000-0000-000000000012', '20000000-0000-0000-0000-000000000001',
-   'Spülmittel',      null,                        'PERMANENT', 12.0, now() - interval '10 days', now() - interval '7 days'),
+   'Spülmittel',      null,                        'PERMANENT', '60000000-0000-0000-0000-000000000005', 12.0, now() - interval '10 days', now() - interval '7 days'),
   ('40000000-0000-0000-0000-000000000013', '20000000-0000-0000-0000-000000000001',
-   'Toilettenpapier', 'dreilagig',                 'PERMANENT', 13.0, now() - interval '10 days', now() - interval '7 days'),
+   'Toilettenpapier', 'dreilagig',                 'PERMANENT', '60000000-0000-0000-0000-000000000005', 13.0, now() - interval '10 days', now() - interval '7 days'),
   ('40000000-0000-0000-0000-000000000014', '20000000-0000-0000-0000-000000000001',
-   'Geburtstagskerzen', null,                      'ONE_TIME',  14.0, now() - interval '8 days',  now() - interval '8 days'),
+   'Geburtstagskerzen', null,                      'ONE_TIME',  '60000000-0000-0000-0000-000000000006', 14.0, now() - interval '8 days',  now() - interval '8 days'),
   ('40000000-0000-0000-0000-000000000015', '20000000-0000-0000-0000-000000000001',
-   'Geschenkpapier',  null,                        'ONE_TIME',  15.0, now() - interval '8 days',  now() - interval '8 days')
+   'Geschenkpapier',  null,                        'ONE_TIME',  null, 15.0, now() - interval '8 days',  now() - interval '8 days')
 on conflict (id) do nothing;
 
 -- ============================================================
@@ -161,6 +184,25 @@ values
   ('40000000-0000-0000-0000-000000000013', '30000000-0000-0000-0000-000000000003', now() - interval '12 days'),  -- Toilettenpapier → DM
   ('40000000-0000-0000-0000-000000000014', '30000000-0000-0000-0000-000000000003', now() - interval '8 days'),   -- Geburtstagskerzen → DM
   ('40000000-0000-0000-0000-000000000015', '30000000-0000-0000-0000-000000000003', now() - interval '8 days')    -- Geschenkpapier → DM
+on conflict do nothing;
+
+-- ============================================================
+-- Store ↔ category aisle order
+-- REWE: full explicit order (differs from the global one). Aldi: partial —
+-- the rest falls back to global order, appended. DM: none — pure fallback.
+-- ============================================================
+
+insert into public.store_categories (store_id, category_id, sort_order, created_at)
+values
+  -- REWE: Milchprodukte, Backwaren, Obst & Gemüse, Grundnahrungsmittel, Haushalt
+  ('30000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000002', 1.0, now() - interval '11 days'),
+  ('30000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000003', 2.0, now() - interval '11 days'),
+  ('30000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000001', 3.0, now() - interval '11 days'),
+  ('30000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000004', 4.0, now() - interval '11 days'),
+  ('30000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000005', 5.0, now() - interval '11 days'),
+  -- Aldi: Obst & Gemüse, Milchprodukte (Rest fällt auf globale Ordnung zurück)
+  ('30000000-0000-0000-0000-000000000002', '60000000-0000-0000-0000-000000000001', 1.0, now() - interval '11 days'),
+  ('30000000-0000-0000-0000-000000000002', '60000000-0000-0000-0000-000000000002', 2.0, now() - interval '11 days')
 on conflict do nothing;
 
 -- ============================================================

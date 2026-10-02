@@ -21,9 +21,9 @@ Milestone tags are assignments, not promises — moving a feature between milest
 | 3.1 Auth (AUTH)          | AUTH-1, AUTH-2, AUTH-3 | —                    | —                    | AUTH-4       | —            | —         |
 | 3.2 Household (HH)       | HH-1, HH-2, HH-4       | HH-3                 | HH-5                 | HH-6, HH-7   | —            | HH-8      |
 | 3.3 Catalog items (ITEM) | ITEM-1, ITEM-2         | ITEM-4               | ITEM-3, ITEM-5       | —            | —            | —         |
-| 3.4 Shopping list (LIST) | LIST-1–5, LIST-7       | —                    | LIST-6               | LIST-8       | —            | —         |
+| 3.4 Shopping list (LIST) | LIST-1–7               | —                    | —                    | LIST-8       | —            | —         |
 | 3.5 Stores (STORE)       | STORE-1–3              | —                    | STORE-4              | —            | —            | —         |
-| 3.6 Categories (CAT)     | —                      | —                    | CAT-1–4              | —            | —            | —         |
+| 3.6 Categories (CAT)     | CAT-1, CAT-2, CAT-3   | —                    | CAT-4                | —            | —            | —         |
 | 3.7 Sync (SYNC)          | SYNC-1–4               | —                    | —                    | SYNC-5       | —            | —         |
 | 3.8 Device data (DATA)   | DATA-1, DATA-3         | —                    | DATA-2               | DATA-4       | —            | DATA-5    |
 | 3.9 Screens (SCREENS)    | SCREENS-1, SCREENS-6   | SCREENS-2, SCREENS-4 | SCREENS-3, SCREENS-5 | —            | —            | SCREENS-7 |
@@ -32,7 +32,7 @@ Milestone tags are assignments, not promises — moving a feature between milest
 
 Each feature appears once, under its current status; extensions tagged to later milestones (e.g. HH-2 admin role → v1.5, STORE-1 drag & drop → v1) stay tracked in the §3 entry. DATA-2 ships per path (removal with HH-5 in v0.1, leave/delete with HH-6/7 in v1). BIZ-4 is unlisted — its decision is open (OQ-1).
 
-Last updated: 2026-09-27
+Last updated: 2026-10-01
 
 ---
 
@@ -78,7 +78,7 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 
 ### 3.3 Catalog items (ITEM)
 
-- **ITEM-1 Create/edit ✅** — name, notes, type, store assignments, (📋 v0.1: category CAT-2, default unit ITEM-5).
+- **ITEM-1 Create/edit ✅** — name, notes, type, category (CAT-2 ✅), store assignments, (📋 v0.1: default unit ITEM-5).
 - **ITEM-2 Item types ✅** — `PERMANENT` (normal case, lives in catalog forever) and `ONE_TIME` (retired together with its checked-off entry at GC). Legacy `CHECKLIST` stays hidden in UI/DB.
 - **ITEM-3 Duplicate-name warning 📋 v0.1** — creating (or renaming to) a name that already exists in the household (case-insensitive) asks "already exists — add anyway?".
 - **ITEM-4 Delete item 🚧 → 📋 v0.1** — soft delete exists in the repository but has **no UI entry point**, and active list entries of the item would linger invisibly. Rule: deleting an item also removes its active entries and store assignments; UI entry in item detail with confirmation.
@@ -88,10 +88,10 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 
 - **LIST-1 Add to list ✅** — one entry per item per household (UNIQUE). Adding an item that is in "Recently checked" moves it back to active; details entered with the add are applied, blank fields keep the entry's previous values.
 - **LIST-2 Fast-add ✅** — the list FAB (sits in the bottom filter bar, LIST-5) opens the quick-add sheet directly. **Search state**: auto-focused search field; with text entered, up to **5 catalog suggestions** (prefix matches first) plus a permanent **NEW "‹query›"** row at the top (distinct icon) that creates from the query — always available, even alongside an exact match. **Selected state**: tapping any suggestion dismisses the keyboard and shows a compact form (quantity, unit, comment) under the selection, which stays as a header with ✕ back to search. Suggestions whose item already has an entry (active or recently checked) open that entry's editor instead. New items get a **"Save ‹name› to Catalog" checkbox, default off**: off = `ONE_TIME` (removed together with its checked-off entry at GC), checked = `PERMANENT`; an (i) explains both in plain words. Buttons: **Add** (add + reset to search state, sheet stays open for rapid-fire adds) and **Add & Close**.
-- **LIST-3 Check off ✅** — checked entries move to "Recently checked" (flat section at the bottom, undo-able). After **24h** (deterministic TTL, no coordination) any device's GC deletes the entry locally and on the server; ONE_TIME items retire with it.
+- **LIST-3 Check off ✅** — ticking or swiping an active item in either direction shows the completion animation before moving to "Recently checked" (flat section at the bottom, undo-able); a 10s snackbar with a "Revert" action allows immediate undo. After **24h** (deterministic TTL, no coordination) any device's GC deletes the entry locally and on the server; ONE_TIME items retire with it.
 - **LIST-4 Entry editor ✅** — shared bottom sheet: quantity (optional number), unit (preset list: pcs/Stk., g, kg, ml, l + free-text custom; defaults from item per ITEM-5 📋 v0.1), comment. On the list it edits an existing entry (**Save** / **Remove from list**); the same sheet opens from the Items tab's per-row **+** to add a catalog item to the list with details (**Save** / **Cancel**). Rows show the item name on line 1 and quantity/unit + comment combined on line 2 ("100g ‧ spicy") in the secondary style; either line may be absent (a row with no details is just the name).
 - **LIST-5 Store filter ✅** — single-select filter chips in a bar pinned above the bottom navigation: chips scroll horizontally against a divider, the list FAB sits to the divider's right. Chips: **All**, one per store, and **No Store**. A store view shows only items assigned to that store — items without any store assignment are excluded from store views; **No Store** shows only items without any assignment; All shows everything.
-- **LIST-6 Category grouping 📋 v0.1** — the list is always grouped by category (v1 has exactly one view): store-filtered → that store's category order, unordered categories appended in global order (STORE-4); unfiltered → global order. Uncategorized items form an implicit group at the end. "Recently checked" stays a flat section after all groups.
+- **LIST-6 Category grouping ✅** — the list is always grouped by category (v1 has exactly one view): store-filtered → that store's category order, unordered categories appended in global order (STORE-4); unfiltered → global order. Uncategorized items form an implicit group at the end. "Recently checked" stays a flat section after all groups.
 - **LIST-7 Ordering ✅** — within a group, items follow the catalog's global `sortOrder`. No drag & drop for items.
 - **LIST-8 Shopping mode 📋 v1** — full-screen focused check-off view, available when a store filter is active: large touch targets, one tap to check, checked items collapse immediately (no "Recently checked" section here). Exit via back or "Done shopping" — exiting changes nothing (the TTL GC is the cleanup, LIST-3).
 
@@ -104,15 +104,15 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 
 ### 3.6 Categories (CAT)
 
-- **CAT-1 Category entity 📋 v0.1** — per household: name + emoji icon (free emoji input, no icon picker) + global `sortOrder`. Global order is user-draggable.
-- **CAT-2 Item assignment 📋 v0.1** — an item has **zero or one** category; null = "Uncategorized" (implicit group, always last, not a real category).
-- **CAT-3 Management 📋 v0.1** — the Catalog tab's **Categories** tab (SCREENS-2): create, rename, icon, delete, drag global order. Deleting a category sets its items to uncategorized (nothing else breaks).
+- **CAT-1 Category entity ✅** — per household: name + emoji icon (selected via AndroidX EmojiPickerView, ADR-0014) + global `sortOrder`. Global order is user-draggable.
+- **CAT-2 Item assignment ✅** — an item has **zero or one** category; selected via single-choice filter chips in the item detail screen; null = "Uncategorized" (implicit group, always last, not a real category).
+- **CAT-3 Management ✅** — the Catalog tab's **Categories** tab (SCREENS-2): create, rename, icon, delete, drag global order. Deleting a category sets its items to uncategorized (nothing else breaks).
 - **CAT-4 Setup presets 📋 v0.1** — offered during household setup (SCREENS-5) to apply wholesale: Obst & Gemüse/Produce 🍎, Backwaren/Bakery 🥖, Milchprodukte/Dairy 🥛, Fleisch & Fisch/Meat & Fish 🥩, Grundnahrungsmittel/Pantry 🍝, Tiefkühl/Frozen ❄️, Getränke/Drinks 🧃, Snacks/Snacks 🍫, Haushalt/Household 🧻, Drogerie/Personal Care 🧴, Sonstiges/Other 📦. Editable afterwards like any category.
 
 ### 3.7 Sync (SYNC)
 
-- **SYNC-1 Triggers ✅** — sign-in/session restore; debounced (500 ms) requests after every local write; Supabase Realtime events on `list_entries` + `items` (📋 v0.1: add `stores`, `categories`, `store_categories`); manual "Sync now".
-- **SYNC-2 Pipeline ✅** — resolveHousehold → flushOutbox (push current row state) → watermark delta pulls (`updated_at`, microsecond precision) → GC. Join tables without `updated_at` (`item_stores` ✅, `store_categories` 📋 v0.1) reconcile by full set comparison.
+- **SYNC-1 Triggers ✅** — sign-in/session restore; debounced (500 ms) requests after every local write; Supabase Realtime events on `list_entries`, `items`, `stores`, `categories`, `store_categories` ✅; manual "Sync now".
+- **SYNC-2 Pipeline ✅** — resolveHousehold → flushOutbox (push current row state) → watermark delta pulls (`updated_at`, microsecond precision) → GC. Join tables without `updated_at` (`item_stores` ✅, `store_categories` ✅) reconcile by full set comparison.
 - **SYNC-3 Conflict resolution ✅** — last write wins per row (no payloads; the current local row state is pushed).
 - **SYNC-4 Realtime-as-trigger ✅** — realtime events only request a sync; the watermark pull is transport and backstop.
 - **SYNC-5 Offline/pending indicator 📋 v1** — subtle, honest indicator when the device is offline or has unsynced writes (outbox pending); clears when sync completes. No modal nagging.
@@ -128,11 +128,11 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 ### 3.9 Navigation & screens (SCREENS)
 
 - **SCREENS-1 Bottom navigation ✅** — bottom app bar with three tabs: **Shopping List · Catalog · Settings**. Settings is promoted from a pushed screen to a tab. Tab/sub-tab UI state (scroll position, open dialogs) survives tab switches.
-- **SCREENS-2 Catalog tabs 🚧** — the Catalog tab is a tabbed view: **Items | Categories | Stores**. Stores management moved here from its own pushed screen ✅; the Categories tab shows an honest placeholder until CAT-1..4 land. In Items, each row's **+** opens the entry details sheet (LIST-4) to add the item to the list with quantity/unit/comment; items already on the list show a check in the same position.
+- **SCREENS-2 Catalog tabs 🚧** — the Catalog tab is a tabbed view: **Items | Categories | Stores**. Stores management moved here from its own pushed screen ✅; Categories management (CAT-3) with create, rename, emoji, delete, and drag order ✅. In Items, each row's **+** opens the entry details sheet (LIST-4) to add the item to the list with quantity/unit/comment; items already on the list show a check in the same position.
 - **SCREENS-3 Household screen 📋 v0.1 (minimal) / v1 (full)** — reached from Settings: member list with roles, invite (HH-3), remove (HH-5) in v0.1; leave (HH-6), delete household (HH-7) added in v1. Household name + rename moves here.
 - **SCREENS-4 Settings tab 🚧** — tab ✅ with Account (sign-in/out) and Sync ("Sync now", status) sections; Data (DATA-4) and Server (BIZ-5) sections arrive with those v1 features.
 - **SCREENS-5 Onboarding 📋 v0.1** — minimal first-launch flow: welcome → sign-in (**skippable** — offline stays first-class) → household setup: name + apply category presets (CAT-4). Fine-tuning (stores, per-store order) happens in the management screens afterwards.
-- **SCREENS-6 Existing screens ✅** — List tab (active entries, recently checked, fast-add sheet, entry editor, store filter bar pinned above the bottom nav with the add FAB), Item detail (create/edit metadata), onboarding placeholder (replaced by SCREENS-5).
+- **SCREENS-6 Existing screens ✅** — List tab (active entries in compact modern rows with indented dividers and swipe-to-complete, recently checked, fast-add sheet, entry editor, store filter bar pinned above the bottom nav with the add FAB), Item detail (create/edit metadata with double-tap protection), onboarding placeholder (replaced by SCREENS-5).
 - **SCREENS-7 Appearance 🔭 v2** — manual theme override (Light/Dark/System) in Settings. Until then the app follows the system (✅ current behavior, M3 dynamic color).
 
 ### 3.10 Localization (I18N)

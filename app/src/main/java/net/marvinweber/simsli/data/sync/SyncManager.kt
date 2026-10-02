@@ -17,11 +17,13 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import net.marvinweber.simsli.data.local.SimsliDatabase
+import net.marvinweber.simsli.data.local.dao.CategoryDao
 import net.marvinweber.simsli.data.local.dao.HouseholdDao
 import net.marvinweber.simsli.data.local.dao.ItemDao
 import net.marvinweber.simsli.data.local.dao.ItemStoreDao
 import net.marvinweber.simsli.data.local.dao.ListEntryDao
 import net.marvinweber.simsli.data.local.dao.OutboxDao
+import net.marvinweber.simsli.data.local.dao.StoreCategoryDao
 import net.marvinweber.simsli.data.local.dao.StoreDao
 import net.marvinweber.simsli.data.local.dao.SyncStateDao
 import net.marvinweber.simsli.data.local.entity.DbHousehold
@@ -63,6 +65,8 @@ class SyncManager @Inject constructor(
     private val itemDao: ItemDao,
     private val itemStoreDao: ItemStoreDao,
     private val listEntryDao: ListEntryDao,
+    private val categoryDao: CategoryDao,
+    private val storeCategoryDao: StoreCategoryDao,
     private val syncStateDao: SyncStateDao,
     private val outboxDao: OutboxDao,
     private val syncScheduler: SyncScheduler,
@@ -202,6 +206,8 @@ class SyncManager @Inject constructor(
         itemDao.reassignHousehold(oldHouseholdId, newHouseholdId, now)
         storeDao.reassignHousehold(oldHouseholdId, newHouseholdId, now)
         listEntryDao.reassignHousehold(oldHouseholdId, newHouseholdId, now)
+        categoryDao.reassignHousehold(oldHouseholdId, newHouseholdId, now)
+        // store_categories rows carry no householdId — they follow their store/category ids.
         householdDao.delete(oldHouseholdId, now)
         // The remapped rows have no outbox entries; enqueueInitialUploadIfNeeded()
         // picks them up because the watermark is still unset during this first sync.
@@ -243,6 +249,23 @@ class SyncManager @Inject constructor(
                     upsertEntry(
                         SyncContract.ENTITY_ITEM_STORE,
                         SyncContract.itemStoreEntityId(it.itemId, it.storeId)
+                    )
+                )
+            }
+
+        val pendingCategories = outboxDao.getPendingEntityIds(SyncContract.ENTITY_CATEGORY).toSet()
+        categoryDao.getAllIncludingDeleted(household.id)
+            .filter { it.id !in pendingCategories }
+            .forEach { outboxDao.enqueue(upsertEntry(SyncContract.ENTITY_CATEGORY, it.id)) }
+
+        val pendingStoreCategories = outboxDao.getPendingEntityIds(SyncContract.ENTITY_STORE_CATEGORY).toSet()
+        storeCategoryDao.getAllForHousehold(household.id)
+            .filter { SyncContract.storeCategoryEntityId(it.storeId, it.categoryId) !in pendingStoreCategories }
+            .forEach {
+                outboxDao.enqueue(
+                    upsertEntry(
+                        SyncContract.ENTITY_STORE_CATEGORY,
+                        SyncContract.storeCategoryEntityId(it.storeId, it.categoryId)
                     )
                 )
             }
@@ -296,6 +319,22 @@ class SyncManager @Inject constructor(
                             remoteDataSource.deleteItemStore(itemId, storeId)
                         }
                     }
+
+                    SyncContract.ENTITY_CATEGORY -> {
+                        val local = categoryDao.getByIdIncludingDeleted(entry.entityId)
+                        if (local != null) remoteDataSource.upsertCategory(local.toDto())
+                    }
+
+                    SyncContract.ENTITY_STORE_CATEGORY -> {
+                        val (storeId, categoryId) = SyncContract.parseStoreCategoryEntityId(entry.entityId)
+                            ?: error("Malformed store_category entity id: ${entry.entityId}")
+                        val local = storeCategoryDao.getOnce(storeId, categoryId)
+                        if (local != null) {
+                            remoteDataSource.upsertStoreCategories(listOf(local.toDto()))
+                        } else {
+                            remoteDataSource.deleteStoreCategory(storeId, categoryId)
+                        }
+                    }
                 }
                 outboxDao.delete(entry.id)
             } catch (e: CancellationException) {
@@ -324,9 +363,11 @@ class SyncManager @Inject constructor(
 
         pullHousehold(household.id)
         pullStores(household.id)
+        pullCategories(household.id)
         pullItems(household.id)
         pullListEntries(household.id)
         reconcileItemStores(household.id)
+        reconcileStoreCategories(household.id)
     }
 
     private suspend fun pullHousehold(householdId: String) {
@@ -394,6 +435,38 @@ class SyncManager @Inject constructor(
         }
         removed.forEach { (itemId, storeId) ->
             itemStoreDao.delete(itemId, storeId)
+        }
+    }
+
+    private suspend fun pullCategories(householdId: String) {
+        val since = syncStateDao.get(SyncContract.TABLE_CATEGORIES)?.lastSyncedAt ?: Instant.EPOCH
+        val rows = remoteDataSource.fetchCategoriesSince(householdId, since).map { it.toDb() }
+        if (rows.isNotEmpty()) {
+            Log.d(TAG, "Pull: ${rows.size} categories (since=$since)")
+        }
+        categoryDao.insertAll(rows)
+        rows.maxOfOrNull { it.updatedAt }?.let {
+            syncStateDao.upsert(DbSyncState(SyncContract.TABLE_CATEGORIES, it))
+        }
+    }
+
+    /** store_categories has no updated_at server-side, so syncs reconcile the full ordering set. */
+    private suspend fun reconcileStoreCategories(householdId: String) {
+        val categoryIds = categoryDao.getAllIncludingDeleted(householdId).map { it.id }
+        val remoteRows = remoteDataSource.fetchStoreCategories(categoryIds)
+        val localKeys = storeCategoryDao.getAllForHousehold(householdId)
+            .map { it.storeId to it.categoryId }
+            .toSet()
+
+        storeCategoryDao.insertAll(remoteRows.map { it.toDb() })
+
+        val remoteKeys = remoteRows.map { it.storeId to it.categoryId }.toSet()
+        val removed = localKeys - remoteKeys
+        if (remoteRows.isNotEmpty() || removed.isNotEmpty()) {
+            Log.d(TAG, "Reconcile store_categories: ${remoteRows.size} remote, $removed removed locally")
+        }
+        removed.forEach { (storeId, categoryId) ->
+            storeCategoryDao.delete(storeId, categoryId)
         }
     }
 

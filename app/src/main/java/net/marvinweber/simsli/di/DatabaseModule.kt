@@ -8,11 +8,13 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import net.marvinweber.simsli.data.local.SimsliDatabase
+import net.marvinweber.simsli.data.local.dao.CategoryDao
 import net.marvinweber.simsli.data.local.dao.HouseholdDao
 import net.marvinweber.simsli.data.local.dao.ItemDao
 import net.marvinweber.simsli.data.local.dao.ItemStoreDao
 import net.marvinweber.simsli.data.local.dao.ListEntryDao
 import net.marvinweber.simsli.data.local.dao.OutboxDao
+import net.marvinweber.simsli.data.local.dao.StoreCategoryDao
 import net.marvinweber.simsli.data.local.dao.StoreDao
 import net.marvinweber.simsli.data.local.dao.SyncStateDao
 import javax.inject.Singleton
@@ -50,6 +52,16 @@ object DatabaseModule {
     @Provides
     fun provideListEntryDao(database: SimsliDatabase): ListEntryDao {
         return database.listEntryDao()
+    }
+
+    @Provides
+    fun provideCategoryDao(database: SimsliDatabase): CategoryDao {
+        return database.categoryDao()
+    }
+
+    @Provides
+    fun provideStoreCategoryDao(database: SimsliDatabase): StoreCategoryDao {
+        return database.storeCategoryDao()
     }
 
     @Provides

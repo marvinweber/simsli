@@ -3,9 +3,13 @@ package net.marvinweber.simsli.ui.screens.list
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -16,21 +20,32 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.marvinweber.simsli.data.repository.AuthRepository
 import net.marvinweber.simsli.data.repository.AuthState
+import net.marvinweber.simsli.data.repository.CategoryRepository
 import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.data.repository.ItemRepository
 import net.marvinweber.simsli.data.repository.ListEntryRepository
 import net.marvinweber.simsli.data.repository.StoreRepository
+import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.Household
 import net.marvinweber.simsli.domain.model.Item
 import net.marvinweber.simsli.domain.model.ItemType
 import net.marvinweber.simsli.domain.model.ListEntry
 import net.marvinweber.simsli.domain.model.Store
+import net.marvinweber.simsli.domain.model.StoreCategory
 import java.time.Instant
 import javax.inject.Inject
 
 data class ListEntryItem(
     val listEntry: ListEntry,
     val item: Item?
+)
+
+/** A group of active list entries belonging to a category (LIST-6). */
+data class CategoryGroupUi(
+    val key: String,
+    val title: String,
+    val emoji: String? = null,
+    val entries: List<ListEntryItem>
 )
 
 /** A catalog item as offered in the quick-add sheet. */
@@ -62,8 +77,10 @@ sealed interface StoreFilter {
 data class ListUiState(
     val household: Household? = null,
     val stores: List<Store> = emptyList(),
+    val activeGroups: List<CategoryGroupUi> = emptyList(),
     val activeEntries: List<ListEntryItem> = emptyList(),
     val recentlyChecked: List<ListEntryItem> = emptyList(),
+    val completingEntryIds: Set<String> = emptySet(),
     val catalog: List<CatalogItemUi> = emptyList(),
     val isLoading: Boolean = true,
     val isAddSheetOpen: Boolean = false,
@@ -74,8 +91,9 @@ data class ListUiState(
     val error: String? = null
 )
 
-sealed class ListUiEvent {
-    data class ShowError(val message: String) : ListUiEvent()
+sealed interface ListUiEvent {
+    data class ShowError(val message: String) : ListUiEvent
+    data class ItemCompleted(val entryId: String, val itemName: String) : ListUiEvent
 }
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -85,11 +103,15 @@ class ListViewModel @Inject constructor(
     private val householdRepository: HouseholdRepository,
     private val storeRepository: StoreRepository,
     private val itemRepository: ItemRepository,
-    private val listEntryRepository: ListEntryRepository
+    private val listEntryRepository: ListEntryRepository,
+    private val categoryRepository: CategoryRepository
 ) : ViewModel() {
 
     private val _storeFilter = MutableStateFlow<StoreFilter>(StoreFilter.All)
     val storeFilter: StateFlow<StoreFilter> = _storeFilter.asStateFlow()
+
+    /** IDs of active entries currently showing visual tick before moving to recently checked. */
+    private val completingEntryIds = MutableStateFlow<Set<String>>(emptySet())
 
     /** Sheet/dialog state kept apart from data state so the data pipeline stays small. */
     private data class SheetUi(
@@ -102,15 +124,24 @@ class ListViewModel @Inject constructor(
 
     private val sheetUi = MutableStateFlow(SheetUi())
 
+    private data class ListUiData(
+        val household: Household,
+        val stores: List<Store>,
+        val activeGroups: List<CategoryGroupUi>,
+        val activeEntries: List<ListEntryItem>,
+        val recentlyChecked: List<ListEntryItem>,
+        val catalog: List<CatalogItemUi>,
+        val entryItems: List<ListEntryItem>
+    )
+
     val uiState: StateFlow<ListUiState> = combine(
         householdRepository.getHousehold(),
-        _storeFilter,
-        sheetUi
-    ) { household, storeFilter, sheet ->
-        Triple(household, storeFilter, sheet)
-    }.flatMapLatest { (household, storeFilter, sheet) ->
+        _storeFilter
+    ) { household, storeFilter ->
+        household to storeFilter
+    }.flatMapLatest { (household, storeFilter) ->
         if (household == null) {
-            flowOf(ListUiState(isLoading = false))
+            flowOf(null)
         } else {
             val entriesFlow = when (storeFilter) {
                 is StoreFilter.All -> listEntryRepository.getListEntriesByHousehold(household.id)
@@ -118,31 +149,106 @@ class ListViewModel @Inject constructor(
                     listEntryRepository.getListEntriesByHouseholdAndStore(household.id, storeFilter.storeId)
                 is StoreFilter.NoStore -> listEntryRepository.getListEntriesByHouseholdWithoutStore(household.id)
             }
+            val storeCategoriesFlow = when (storeFilter) {
+                is StoreFilter.ByStore -> categoryRepository.getStoreCategories(storeFilter.storeId)
+                else -> flowOf(emptyList<StoreCategory>())
+            }
             combine(
                 storeRepository.getStoresByHousehold(household.id),
+                categoryRepository.getCategoriesByHousehold(household.id),
+                storeCategoriesFlow,
                 entriesFlow,
                 itemRepository.getItemsByHousehold(household.id)
-            ) { stores, listEntries, items ->
+            ) { stores, categories, storeCategories, listEntries, items ->
                 val itemMap = items.associateBy { it.id }
                 val entryItems = listEntries.map { entry ->
                     ListEntryItem(entry, itemMap[entry.itemId])
                 }
                 val activeItemIds = listEntries.filter { !it.done }.map { it.itemId }.toSet()
                 val entryIdByItemId = listEntries.associate { it.itemId to it.id }
-                ListUiState(
+
+                val activeEntryItems = entryItems.filter { !it.listEntry.done }
+                val recentlyChecked = entryItems.filter { it.listEntry.done }
+
+                val categoryById = categories.associateBy { it.id }
+                val (categorizedEntries, uncategorizedEntries) = activeEntryItems.partition { entry ->
+                    val catId = entry.item?.categoryId
+                    catId != null && categoryById.containsKey(catId)
+                }
+
+                val orderedCategories = when (storeFilter) {
+                    is StoreFilter.ByStore -> {
+                        val explicitCategoryIds = storeCategories.map { it.categoryId }.filter { it in categoryById }
+                        val explicitSet = explicitCategoryIds.toSet()
+                        val remaining = categories.filter { it.id !in explicitSet }
+                        explicitCategoryIds.mapNotNull { categoryById[it] } + remaining
+                    }
+                    else -> categories
+                }
+
+                val entriesByCategoryId = categorizedEntries.groupBy { it.item!!.categoryId!! }
+                val activeGroups = mutableListOf<CategoryGroupUi>()
+
+                for (cat in orderedCategories) {
+                    val groupEntries = entriesByCategoryId[cat.id]
+                    if (!groupEntries.isNullOrEmpty()) {
+                        activeGroups.add(
+                            CategoryGroupUi(
+                                key = cat.id,
+                                title = cat.name,
+                                emoji = cat.emoji,
+                                entries = groupEntries.sortedBy { it.item?.sortOrder ?: 0f }
+                            )
+                        )
+                    }
+                }
+
+                if (uncategorizedEntries.isNotEmpty()) {
+                    activeGroups.add(
+                        CategoryGroupUi(
+                            key = "uncategorized",
+                            title = "Uncategorized",
+                            emoji = null,
+                            entries = uncategorizedEntries.sortedBy { it.item?.sortOrder ?: 0f }
+                        )
+                    )
+                }
+
+                ListUiData(
                     household = household,
                     stores = stores,
-                    activeEntries = entryItems.filter { !it.listEntry.done },
-                    recentlyChecked = entryItems.filter { it.listEntry.done },
+                    activeGroups = activeGroups,
+                    activeEntries = activeEntryItems,
+                    recentlyChecked = recentlyChecked,
                     catalog = items.map {
                         CatalogItemUi(it, it.id in activeItemIds, entryIdByItemId[it.id])
                     },
+                    entryItems = entryItems
+                )
+            }
+        }
+    }.flatMapLatest { data ->
+        if (data == null) {
+            flowOf(ListUiState(isLoading = false))
+        } else {
+            combine(
+                sheetUi,
+                completingEntryIds
+            ) { sheet, completing ->
+                ListUiState(
+                    household = data.household,
+                    stores = data.stores,
+                    activeGroups = data.activeGroups,
+                    activeEntries = data.activeEntries,
+                    recentlyChecked = data.recentlyChecked,
+                    completingEntryIds = completing,
+                    catalog = data.catalog,
                     isLoading = false,
                     isAddSheetOpen = sheet.addSheetOpen,
                     addQuery = sheet.addQuery,
                     addSelection = sheet.addSelection,
                     isAddInProgress = sheet.isAddInProgress,
-                    editingEntry = entryItems.firstOrNull { it.listEntry.id == sheet.editingEntryId },
+                    editingEntry = data.entryItems.firstOrNull { it.listEntry.id == sheet.editingEntryId },
                     error = null
                 )
             }
@@ -153,8 +259,8 @@ class ListViewModel @Inject constructor(
         initialValue = ListUiState(isLoading = true)
     )
 
-    private val _events = MutableStateFlow<ListUiEvent?>(null)
-    val events: StateFlow<ListUiEvent?> = _events.asStateFlow()
+    private val _events = MutableSharedFlow<ListUiEvent>(extraBufferCapacity = 64)
+    val events: SharedFlow<ListUiEvent> = _events.asSharedFlow()
 
     init {
         ensureHouseholdExists()
@@ -170,7 +276,7 @@ class ListViewModel @Inject constructor(
             if (householdRepository.getHousehold().first() == null) {
                 householdRepository.createHousehold("My household")
                     .onFailure { error ->
-                        _events.value = ListUiEvent.ShowError("Failed to create household: ${error.message}")
+                        _events.emit(ListUiEvent.ShowError("Failed to create household: ${error.message}"))
                     }
             }
         }
@@ -180,22 +286,45 @@ class ListViewModel @Inject constructor(
         _storeFilter.value = filter
     }
 
-    fun onEventConsumed() {
-        _events.value = null
-    }
-
     // --- Check off / undo ---------------------------------------------------------
 
     fun onToggleItemDone(listEntryId: String) {
         viewModelScope.launch {
-            val current = uiState.value.let { state ->
+            val currentEntryItem = uiState.value.let { state ->
                 (state.activeEntries + state.recentlyChecked)
-                    .find { it.listEntry.id == listEntryId }?.listEntry
+                    .find { it.listEntry.id == listEntryId }
             } ?: return@launch
+            val current = currentEntryItem.listEntry
 
-            listEntryRepository.updateListEntryDoneStatus(listEntryId, !current.done)
+            if (!current.done) {
+                // Active -> Done: show tick immediately, pause briefly for completion feedback, then commit
+                if (listEntryId in completingEntryIds.value) return@launch
+                completingEntryIds.update { it + listEntryId }
+                val itemName = currentEntryItem.item?.name ?: "Item"
+                delay(400)
+                listEntryRepository.updateListEntryDoneStatus(listEntryId, true)
+                    .onSuccess {
+                        _events.emit(ListUiEvent.ItemCompleted(listEntryId, itemName))
+                    }
+                    .onFailure { error ->
+                        _events.emit(ListUiEvent.ShowError("Failed to update item: ${error.message}"))
+                    }
+                completingEntryIds.update { it - listEntryId }
+            } else {
+                // Done -> Active: immediately uncheck
+                listEntryRepository.updateListEntryDoneStatus(listEntryId, false)
+                    .onFailure { error ->
+                        _events.emit(ListUiEvent.ShowError("Failed to update item: ${error.message}"))
+                    }
+            }
+        }
+    }
+
+    fun revertItemDone(listEntryId: String) {
+        viewModelScope.launch {
+            listEntryRepository.updateListEntryDoneStatus(listEntryId, false)
                 .onFailure { error ->
-                    _events.value = ListUiEvent.ShowError("Failed to update item: ${error.message}")
+                    _events.emit(ListUiEvent.ShowError("Failed to revert item: ${error.message}"))
                 }
         }
     }
@@ -299,7 +428,7 @@ class ListViewModel @Inject constructor(
                     }
                 }
             }.onFailure { error ->
-                _events.value = ListUiEvent.ShowError("Failed to add item: ${error.message}")
+                _events.emit(ListUiEvent.ShowError("Failed to add item: ${error.message}"))
                 sheetUi.update { it.copy(isAddInProgress = false) }
             }
         }
@@ -323,7 +452,7 @@ class ListViewModel @Inject constructor(
                 unit = unit,
                 comment = comment
             ).onFailure { error ->
-                _events.value = ListUiEvent.ShowError("Failed to save: ${error.message}")
+                _events.emit(ListUiEvent.ShowError("Failed to save: ${error.message}"))
             }
             dismissEntryEditor()
         }
@@ -333,7 +462,7 @@ class ListViewModel @Inject constructor(
         viewModelScope.launch {
             listEntryRepository.deleteListEntry(listEntryId)
                 .onFailure { error ->
-                    _events.value = ListUiEvent.ShowError("Failed to remove item: ${error.message}")
+                    _events.emit(ListUiEvent.ShowError("Failed to remove item: ${error.message}"))
                 }
             dismissEntryEditor()
         }

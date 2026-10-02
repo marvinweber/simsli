@@ -1,14 +1,18 @@
 package net.marvinweber.simsli.data.remote.mapper
 
+import net.marvinweber.simsli.data.local.entity.DbCategory
 import net.marvinweber.simsli.data.local.entity.DbHousehold
 import net.marvinweber.simsli.data.local.entity.DbItem
 import net.marvinweber.simsli.data.local.entity.DbItemStore
 import net.marvinweber.simsli.data.local.entity.DbListEntry
 import net.marvinweber.simsli.data.local.entity.DbStore
+import net.marvinweber.simsli.data.local.entity.DbStoreCategory
+import net.marvinweber.simsli.data.remote.dto.CategoryDto
 import net.marvinweber.simsli.data.remote.dto.HouseholdDto
 import net.marvinweber.simsli.data.remote.dto.ItemDto
 import net.marvinweber.simsli.data.remote.dto.ItemStoreDto
 import net.marvinweber.simsli.data.remote.dto.ListEntryDto
+import net.marvinweber.simsli.data.remote.dto.StoreCategoryDto
 import net.marvinweber.simsli.data.remote.dto.StoreDto
 import net.marvinweber.simsli.domain.model.ItemType
 import java.time.Instant
@@ -75,6 +79,7 @@ fun ItemDto.toDb(): DbItem = DbItem(
     name = name,
     notes = notes,
     type = type.toItemTypeOrDefault(),
+    categoryId = categoryId,
     sortOrder = sortOrder.toFloat(),
     createdAt = createdAt.toInstantOrEpoch(),
     updatedAt = updatedAt.toInstantOrEpoch(),
@@ -87,6 +92,7 @@ fun DbItem.toDto(): ItemDto = ItemDto(
     name = name,
     notes = notes,
     type = type.toDtoName(),
+    categoryId = categoryId,
     sortOrder = sortOrder.toDouble(),
     createdAt = createdAt.toString(),
     updatedAt = updatedAt.toString(),
@@ -102,6 +108,42 @@ fun ItemStoreDto.toDb(): DbItemStore = DbItemStore(
 fun DbItemStore.toDto(): ItemStoreDto = ItemStoreDto(
     itemId = itemId,
     storeId = storeId,
+    createdAt = createdAt.toString()
+)
+
+fun CategoryDto.toDb(): DbCategory = DbCategory(
+    id = id,
+    householdId = householdId,
+    name = name,
+    emoji = emoji,
+    sortOrder = sortOrder.toFloat(),
+    createdAt = createdAt.toInstantOrEpoch(),
+    updatedAt = updatedAt.toInstantOrEpoch(),
+    deletedAt = deletedAt.toInstantOrNull()
+)
+
+fun DbCategory.toDto(): CategoryDto = CategoryDto(
+    id = id,
+    householdId = householdId,
+    name = name,
+    emoji = emoji,
+    sortOrder = sortOrder.toDouble(),
+    createdAt = createdAt.toString(),
+    updatedAt = updatedAt.toString(),
+    deletedAt = deletedAt?.toString()
+)
+
+fun StoreCategoryDto.toDb(): DbStoreCategory = DbStoreCategory(
+    storeId = storeId,
+    categoryId = categoryId,
+    sortOrder = sortOrder.toFloat(),
+    createdAt = createdAt.toInstantOrEpoch()
+)
+
+fun DbStoreCategory.toDto(): StoreCategoryDto = StoreCategoryDto(
+    storeId = storeId,
+    categoryId = categoryId,
+    sortOrder = sortOrder.toDouble(),
     createdAt = createdAt.toString()
 )
 

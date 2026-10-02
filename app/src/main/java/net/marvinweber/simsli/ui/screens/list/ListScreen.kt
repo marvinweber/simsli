@@ -1,6 +1,9 @@
 package net.marvinweber.simsli.ui.screens.list
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -38,6 +42,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -46,9 +51,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -59,9 +73,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.SoftwareKeyboardController
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -87,13 +103,35 @@ fun ListTabContent(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val storeFilter by viewModel.storeFilter.collectAsState()
-    val events by viewModel.events.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    events?.let { event ->
-        when (event) {
-            is ListUiEvent.ShowError -> {
-                // TODO: Show error snackbar
-                viewModel.onEventConsumed()
+    LaunchedEffect(Unit) {
+        var snackbarJob: Job? = null
+        viewModel.events.collect { event ->
+            when (event) {
+                is ListUiEvent.ShowError -> {
+                    snackbarJob?.cancel()
+                    snackbarJob = launch {
+                        snackbarHostState.showSnackbar(
+                            message = event.message,
+                            duration = SnackbarDuration.Short
+                        )
+                    }
+                }
+                is ListUiEvent.ItemCompleted -> {
+                    snackbarJob?.cancel()
+                    snackbarJob = launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        val result = snackbarHostState.showSnackbar(
+                            message = "${event.itemName} completed",
+                            actionLabel = "Revert",
+                            duration = SnackbarDuration.Long
+                        )
+                        if (result == SnackbarResult.ActionPerformed) {
+                            viewModel.revertItemDone(event.entryId)
+                        }
+                    }
+                }
             }
         }
     }
@@ -112,6 +150,12 @@ fun ListTabContent(
                 onFilterSelected = viewModel::selectFilter,
                 onAddClick = viewModel::onAddClick
             )
+        },
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
         }
     ) { paddingValues ->
         Column(
@@ -126,14 +170,34 @@ fun ListTabContent(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
-                    items(uiState.activeEntries, key = { it.listEntry.id }) { entryItem ->
-                        ListEntryCard(
-                            listEntryItem = entryItem,
-                            onToggleDone = { viewModel.onToggleItemDone(entryItem.listEntry.id) },
-                            onClick = { viewModel.onEntryClick(entryItem.listEntry.id) }
-                        )
+                    uiState.activeGroups.forEach { group ->
+                        item(key = "category_header_${group.key}") {
+                            CategorySectionHeader(
+                                title = group.title,
+                                emoji = group.emoji,
+                                isImplicit = group.key == "uncategorized",
+                                modifier = Modifier.animateItem()
+                            )
+                        }
+                        itemsIndexed(group.entries, key = { _, it -> it.listEntry.id }) { index, entryItem ->
+                            Column(modifier = Modifier.animateItem()) {
+                                ActiveListEntryRow(
+                                    listEntryItem = entryItem,
+                                    isCompleting = entryItem.listEntry.id in uiState.completingEntryIds,
+                                    onToggleDone = { viewModel.onToggleItemDone(entryItem.listEntry.id) },
+                                    onClick = { viewModel.onEntryClick(entryItem.listEntry.id) }
+                                )
+                                if (index < group.entries.lastIndex) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = 56.dp, end = 16.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                                        thickness = 0.5.dp
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     if (uiState.recentlyChecked.isNotEmpty()) {
@@ -141,16 +205,28 @@ fun ListTabContent(
                             Text(
                                 text = "Recently checked",
                                 style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 16.dp)
+                                modifier = Modifier
+                                    .animateItem()
+                                    .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 6.dp)
                             )
                         }
-                        items(uiState.recentlyChecked, key = { it.listEntry.id }) { entryItem ->
-                            ListEntryCard(
-                                listEntryItem = entryItem,
-                                onToggleDone = { viewModel.onToggleItemDone(entryItem.listEntry.id) },
-                                onClick = { viewModel.onEntryClick(entryItem.listEntry.id) }
-                            )
+                        itemsIndexed(uiState.recentlyChecked, key = { _, it -> "done_${it.listEntry.id}" }) { index, entryItem ->
+                            Column(modifier = Modifier.animateItem()) {
+                                RecentlyCheckedRow(
+                                    listEntryItem = entryItem,
+                                    onToggleDone = { viewModel.onToggleItemDone(entryItem.listEntry.id) },
+                                    onClick = { viewModel.onEntryClick(entryItem.listEntry.id) }
+                                )
+                                if (index < uiState.recentlyChecked.lastIndex) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = 56.dp, end = 16.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                                        thickness = 0.5.dp
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -315,45 +391,201 @@ private fun EmptyListView() {
 }
 
 @Composable
-private fun ListEntryCard(
+private fun CategorySectionHeader(
+    title: String,
+    emoji: String?,
+    isImplicit: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (!emoji.isNullOrBlank()) {
+            Text(
+                text = emoji,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(end = 8.dp)
+            )
+        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = if (isImplicit) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ActiveListEntryRow(
     listEntryItem: ListEntryItem,
+    isCompleting: Boolean = false,
     onToggleDone: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val listEntry = listEntryItem.listEntry
     val item = listEntryItem.item
-
     val displayName = item?.name ?: "Unknown item"
 
-    Card(
-        modifier = Modifier
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value != SwipeToDismissBoxValue.Settled && !isCompleting) {
+                onToggleDone()
+                true
+            } else {
+                false
+            }
+        }
+    )
+
+    LaunchedEffect(isCompleting) {
+        if (!isCompleting && dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
+            dismissState.snapTo(SwipeToDismissBoxValue.Settled)
+        }
+    }
+
+    val animatedAlpha by animateFloatAsState(
+        targetValue = if (isCompleting) 0.5f else 1f,
+        animationSpec = tween(durationMillis = 200),
+        label = "entryAlpha"
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = true,
+        enableDismissFromEndToStart = true,
+        backgroundContent = {
+            val direction = dismissState.dismissDirection
+            val alignment = when (direction) {
+                SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
+                else -> Alignment.Center
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .padding(horizontal = 20.dp),
+                contentAlignment = alignment
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Check off",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        },
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clickable(onClick = onClick)
+            .graphicsLayer { alpha = animatedAlpha }
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !isCompleting, onClick = onClick)
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(
+                    checked = isCompleting,
+                    onCheckedChange = { if (!isCompleting) onToggleDone() }
+                )
+
+                Spacer(modifier = Modifier.size(12.dp))
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(vertical = 2.dp)
+                ) {
+                    Text(
+                        text = displayName,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        textDecoration = if (isCompleting) TextDecoration.LineThrough else null,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    val meta = buildString {
+                        listEntry.quantity?.let { append(formatQuantity(it)) }
+                        listEntry.unit?.let {
+                            if (isNotEmpty()) append(' ')
+                            append(it)
+                        }
+                        val comment = listEntry.comment?.trim()
+                        if (!comment.isNullOrBlank()) {
+                            if (isNotEmpty()) append(" ‧ ")
+                            append(comment)
+                        }
+                    }
+                    if (meta.isNotEmpty()) {
+                        Text(
+                            text = meta,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textDecoration = if (isCompleting) TextDecoration.LineThrough else null,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecentlyCheckedRow(
+    listEntryItem: ListEntryItem,
+    onToggleDone: () -> Unit,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val listEntry = listEntryItem.listEntry
+    val item = listEntryItem.item
+    val displayName = item?.name ?: "Unknown item"
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer { alpha = 0.5f },
+        color = MaterialTheme.colorScheme.surface
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Checkbox(
-                checked = listEntry.done,
+                checked = true,
                 onCheckedChange = { onToggleDone() }
             )
 
-            Spacer(modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.size(12.dp))
 
             Column(
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = 2.dp)
             ) {
-                // Two lines: name, then quantity/unit + comment combined in the
-                // secondary style ("100g ‧ spicy").
                 Text(
                     text = displayName,
                     style = MaterialTheme.typography.bodyLarge,
-                    textDecoration = if (listEntry.done)
-                        TextDecoration.LineThrough else null,
+                    fontWeight = FontWeight.Medium,
+                    textDecoration = TextDecoration.LineThrough,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -373,10 +605,9 @@ private fun ListEntryCard(
                 if (meta.isNotEmpty()) {
                     Text(
                         text = meta,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textDecoration = if (listEntry.done)
-                            TextDecoration.LineThrough else null,
+                        textDecoration = TextDecoration.LineThrough,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )

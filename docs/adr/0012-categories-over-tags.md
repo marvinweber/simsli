@@ -1,6 +1,6 @@
 # ADR 0012: Categories over tags — single assignment, per-store ordering
 
-- **Status:** Accepted
+- **Status:** Partially superseded by [ADR-0014](0014-emoji-picker-view-for-categories.md)
 - **Date:** 2026-09-26
 
 ## Context

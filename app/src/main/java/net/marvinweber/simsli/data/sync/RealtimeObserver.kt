@@ -23,9 +23,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Realtime as a trigger, not a transport: postgres changes on list_entries and
- * items are turned into sync requests, and the watermark delta pull does the
- * actual work (and remains the backstop for anything missed while disconnected).
+ * Realtime as a trigger, not a transport: postgres changes on list_entries,
+ * items, stores, categories and store_categories are turned into sync requests,
+ * and the watermark delta pull does the actual work (and remains the backstop
+ * for anything missed while disconnected).
  *
  * One channel per household. Events fire only for the signed-in user's household
  * — Realtime authorizes through the same RLS policies as PostgREST.
@@ -66,15 +67,29 @@ class RealtimeObserver @Inject constructor(
             table = "items"
             filter("household_id", FilterOperator.EQ, householdId)
         }
+        val storeChanges = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+            table = "stores"
+            filter("household_id", FilterOperator.EQ, householdId)
+        }
+        val categoryChanges = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+            table = "categories"
+            filter("household_id", FilterOperator.EQ, householdId)
+        }
+        // store_categories carries no household_id — no server-side filter possible.
+        // Delivery is still RLS-scoped, and the events are only sync triggers anyway.
+        val storeCategoryChanges = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+            table = "store_categories"
+        }
         try {
             channel.subscribe(blockUntilSubscribed = true)
             Log.d(TAG, "Realtime channel joined for household $householdId")
             // (Re)joined: backfill anything missed while we were not connected.
             syncScheduler.requestSync("realtime:joined")
-            merge(entryChanges, itemChanges).collect { action ->
-                Log.d(TAG, "Realtime event: ${action::class.simpleName}")
-                syncScheduler.requestSync("realtime:${action::class.simpleName}")
-            }
+            merge(entryChanges, itemChanges, storeChanges, categoryChanges, storeCategoryChanges)
+                .collect { action ->
+                    Log.d(TAG, "Realtime event: ${action::class.simpleName}")
+                    syncScheduler.requestSync("realtime:${action::class.simpleName}")
+                }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

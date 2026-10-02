@@ -16,6 +16,8 @@ object SyncContract {
     const val ENTITY_STORE = "store"
     const val ENTITY_ITEM_STORE = "item_store"
     const val ENTITY_LIST_ENTRY = "list_entry"
+    const val ENTITY_CATEGORY = "category"
+    const val ENTITY_STORE_CATEGORY = "store_category"
 
     // Outbox operations
     const val OP_UPSERT = "UPSERT"
@@ -26,10 +28,18 @@ object SyncContract {
     const val TABLE_STORES = "stores"
     const val TABLE_ITEMS = "items"
     const val TABLE_LIST_ENTRIES = "list_entries"
+    const val TABLE_CATEGORIES = "categories"
 
     fun itemStoreEntityId(itemId: String, storeId: String): String = "$itemId:$storeId"
 
     fun parseItemStoreEntityId(entityId: String): Pair<String, String>? {
+        val parts = entityId.split(':', limit = 2)
+        return if (parts.size == 2) parts[0] to parts[1] else null
+    }
+
+    fun storeCategoryEntityId(storeId: String, categoryId: String): String = "$storeId:$categoryId"
+
+    fun parseStoreCategoryEntityId(entityId: String): Pair<String, String>? {
         val parts = entityId.split(':', limit = 2)
         return if (parts.size == 2) parts[0] to parts[1] else null
     }

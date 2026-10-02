@@ -6,11 +6,13 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.marvinweber.simsli.data.repository.AuthRepository
 import net.marvinweber.simsli.data.repository.HouseholdRepository
+import net.marvinweber.simsli.data.repository.CategoryRepository
 import net.marvinweber.simsli.data.repository.ItemRepository
 import net.marvinweber.simsli.data.repository.ItemStoreRepository
 import net.marvinweber.simsli.data.repository.ListEntryRepository
 import net.marvinweber.simsli.data.repository.StoreRepository
 import net.marvinweber.simsli.data.repository.impl.AuthRepositoryImpl
+import net.marvinweber.simsli.data.repository.impl.CategoryRepositoryImpl
 import net.marvinweber.simsli.data.repository.impl.HouseholdRepositoryImpl
 import net.marvinweber.simsli.data.repository.impl.ItemRepositoryImpl
 import net.marvinweber.simsli.data.repository.impl.ItemStoreRepositoryImpl
@@ -30,6 +32,11 @@ abstract class RepositoryModule {
     abstract fun bindHouseholdRepository(
         impl: HouseholdRepositoryImpl
     ): HouseholdRepository
+
+    @Binds
+    abstract fun bindCategoryRepository(
+        impl: CategoryRepositoryImpl
+    ): CategoryRepository
 
     @Binds
     abstract fun bindStoreRepository(
