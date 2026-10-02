@@ -8,9 +8,21 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
-// Supabase connection — override in local.properties (never committed):
-//   supabase.url=http://10.0.2.2:54321       (emulator -> host loopback)
-//   supabase.anon.key=eyJ...                 (print with: supabase status)
+// Supabase & Signing configuration — override in local.properties (never committed):
+//
+// Dev / Debug:
+//   supabase.url=http://10.0.2.2:54321       (defaults to emulator -> host loopback)
+//   supabase.anon.key=eyJ...                 (local anon key)
+//
+// Release / Staging:
+//   supabase.release.url=https://<ref>.supabase.co
+//   supabase.release.anon.key=<cloud-anon-key>
+//
+// Release Signing (for CLI ./gradlew bundleRelease):
+//   release.keystore.file=/path/to/upload-keystore.jks
+//   release.keystore.password=secret
+//   release.key.alias=upload-key
+//   release.key.password=secret
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
@@ -27,21 +39,59 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+    }
 
-        buildConfigField(
-            "String",
-            "SUPABASE_URL",
-            "\"${localProperties.getProperty("supabase.url") ?: "http://10.0.2.2:54321"}\""
-        )
-        buildConfigField(
-            "String",
-            "SUPABASE_ANON_KEY",
-            "\"${localProperties.getProperty("supabase.anon.key") ?: ""}\""
-        )
+    signingConfigs {
+        create("release") {
+            val keystorePath = localProperties.getProperty("release.keystore.file")
+                ?: System.getenv("RELEASE_KEYSTORE_FILE")
+            if (!keystorePath.isNullOrBlank()) {
+                val keystoreFile = rootProject.file(keystorePath)
+                if (keystoreFile.exists()) {
+                    storeFile = keystoreFile
+                    storePassword = localProperties.getProperty("release.keystore.password")
+                        ?: System.getenv("RELEASE_KEYSTORE_PASSWORD")
+                    keyAlias = localProperties.getProperty("release.key.alias")
+                        ?: System.getenv("RELEASE_KEY_ALIAS")
+                    keyPassword = localProperties.getProperty("release.key.password")
+                        ?: System.getenv("RELEASE_KEY_PASSWORD")
+                }
+            }
+        }
     }
 
     buildTypes {
+        debug {
+            buildConfigField(
+                "String",
+                "SUPABASE_URL",
+                "\"${localProperties.getProperty("supabase.url") ?: "http://10.0.2.2:54321"}\""
+            )
+            buildConfigField(
+                "String",
+                "SUPABASE_ANON_KEY",
+                "\"${localProperties.getProperty("supabase.anon.key") ?: ""}\""
+            )
+        }
+
         release {
+            val releaseUrl = localProperties.getProperty("supabase.release.url")
+                ?: localProperties.getProperty("supabase.url")
+                ?: System.getenv("SUPABASE_RELEASE_URL")
+                ?: ""
+            val releaseKey = localProperties.getProperty("supabase.release.anon.key")
+                ?: localProperties.getProperty("supabase.anon.key")
+                ?: System.getenv("SUPABASE_RELEASE_ANON_KEY")
+                ?: ""
+
+            buildConfigField("String", "SUPABASE_URL", "\"$releaseUrl\"")
+            buildConfigField("String", "SUPABASE_ANON_KEY", "\"$releaseKey\"")
+
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile != null) {
+                signingConfig = releaseSigning
+            }
+
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
