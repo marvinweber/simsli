@@ -37,6 +37,7 @@ data class ItemDetailUiState(
     /** True while an existing item is being loaded for editing. */
     val isWaitingForItem: Boolean = false,
     val isLoading: Boolean = true,
+    val isSaving: Boolean = false,
     val error: String? = null
 )
 
@@ -62,6 +63,7 @@ class ItemDetailViewModel @Inject constructor(
     private data class LoadedItem(val item: Item, val storeIds: Set<String>)
 
     private val loadedItem = MutableStateFlow<LoadedItem?>(null)
+    private val isSaving = MutableStateFlow(false)
 
     init {
         if (itemId != null) {
@@ -75,12 +77,14 @@ class ItemDetailViewModel @Inject constructor(
 
     val uiState: StateFlow<ItemDetailUiState> = combine(
         householdRepository.getHousehold(),
-        loadedItem
-    ) { household, loaded ->
-        Triple(household, loaded, itemId != null && loaded == null)
-    }.flatMapLatest { (household, loaded, waitingForItem) ->
+        loadedItem,
+        isSaving
+    ) { household, loaded, saving ->
+        Triple(household, loaded, saving)
+    }.flatMapLatest { (household, loaded, saving) ->
+        val waitingForItem = itemId != null && loaded == null
         if (household == null) {
-            flowOf(ItemDetailUiState(isLoading = false))
+            flowOf(ItemDetailUiState(isLoading = false, isSaving = saving))
         } else {
             combine(
                 storeRepository.getStoresByHousehold(household.id),
@@ -94,6 +98,7 @@ class ItemDetailViewModel @Inject constructor(
                     categories = categories,
                     isWaitingForItem = waitingForItem,
                     isLoading = false,
+                    isSaving = saving,
                     error = null
                 )
             }
@@ -115,6 +120,7 @@ class ItemDetailViewModel @Inject constructor(
         selectedStoreIds: List<String>,
         selectedCategoryId: String? = null
     ) {
+        if (isSaving.value) return
         viewModelScope.launch {
             val household = uiState.value.household
             if (household == null) {
@@ -126,6 +132,7 @@ class ItemDetailViewModel @Inject constructor(
                 return@launch
             }
 
+            isSaving.value = true
             val existing = uiState.value.existingItem
             if (existing == null) {
                 val item = Item(
@@ -147,6 +154,7 @@ class ItemDetailViewModel @Inject constructor(
                         _events.value = ItemDetailUiEvent.NavigateBack
                     }
                     .onFailure { error ->
+                        isSaving.value = false
                         _events.value = ItemDetailUiEvent.ShowError("Failed to create item: ${error.message}")
                     }
             } else {
@@ -168,6 +176,7 @@ class ItemDetailViewModel @Inject constructor(
                     toRemove.forEach { itemStoreRepository.removeAssignment(existing.id, it) }
                     _events.value = ItemDetailUiEvent.NavigateBack
                 }.onFailure { error ->
+                    isSaving.value = false
                     _events.value = ItemDetailUiEvent.ShowError("Failed to save item: ${error.message}")
                 }
             }

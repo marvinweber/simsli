@@ -243,7 +243,7 @@ fun ItemDetailScreen(
                                 )
                             },
                             modifier = Modifier.fillMaxWidth(),
-                            enabled = itemName.isNotBlank()
+                            enabled = itemName.isNotBlank() && !uiState.isSaving
                         ) {
                             Text(if (uiState.existingItem == null) "Add item" else "Save")
                         }

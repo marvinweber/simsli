@@ -3,6 +3,7 @@ package net.marvinweber.simsli.ui.screens.list
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -40,6 +42,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -53,8 +56,11 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
@@ -71,6 +77,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.SoftwareKeyboardController
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -163,8 +170,7 @@ fun ListTabContent(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
                     uiState.activeGroups.forEach { group ->
                         item(key = "category_header_${group.key}") {
@@ -175,14 +181,22 @@ fun ListTabContent(
                                 modifier = Modifier.animateItem()
                             )
                         }
-                        items(group.entries, key = { it.listEntry.id }) { entryItem ->
-                            ListEntryCard(
-                                listEntryItem = entryItem,
-                                isCompleting = entryItem.listEntry.id in uiState.completingEntryIds,
-                                onToggleDone = { viewModel.onToggleItemDone(entryItem.listEntry.id) },
-                                onClick = { viewModel.onEntryClick(entryItem.listEntry.id) },
-                                modifier = Modifier.animateItem()
-                            )
+                        itemsIndexed(group.entries, key = { _, it -> it.listEntry.id }) { index, entryItem ->
+                            Column(modifier = Modifier.animateItem()) {
+                                ListEntryRow(
+                                    listEntryItem = entryItem,
+                                    isCompleting = entryItem.listEntry.id in uiState.completingEntryIds,
+                                    onToggleDone = { viewModel.onToggleItemDone(entryItem.listEntry.id) },
+                                    onClick = { viewModel.onEntryClick(entryItem.listEntry.id) }
+                                )
+                                if (index < group.entries.lastIndex) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = 56.dp, end = 16.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                                        thickness = 0.5.dp
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -191,20 +205,29 @@ fun ListTabContent(
                             Text(
                                 text = "Recently checked",
                                 style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier
                                     .animateItem()
-                                    .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)
+                                    .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 6.dp)
                             )
                         }
-                        items(uiState.recentlyChecked, key = { it.listEntry.id }) { entryItem ->
-                            ListEntryCard(
-                                listEntryItem = entryItem,
-                                isCompleting = false,
-                                onToggleDone = { viewModel.onToggleItemDone(entryItem.listEntry.id) },
-                                onClick = { viewModel.onEntryClick(entryItem.listEntry.id) },
-                                modifier = Modifier.animateItem()
-                            )
+                        itemsIndexed(uiState.recentlyChecked, key = { _, it -> it.listEntry.id }) { index, entryItem ->
+                            Column(modifier = Modifier.animateItem()) {
+                                ListEntryRow(
+                                    listEntryItem = entryItem,
+                                    isCompleting = false,
+                                    onToggleDone = { viewModel.onToggleItemDone(entryItem.listEntry.id) },
+                                    onClick = { viewModel.onEntryClick(entryItem.listEntry.id) }
+                                )
+                                if (index < uiState.recentlyChecked.lastIndex) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = 56.dp, end = 16.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                                        thickness = 0.5.dp
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -378,7 +401,7 @@ private fun CategorySectionHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (!emoji.isNullOrBlank()) {
@@ -391,13 +414,15 @@ private fun CategorySectionHeader(
         Text(
             text = title,
             style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
             color = if (isImplicit) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
         )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ListEntryCard(
+private fun ListEntryRow(
     listEntryItem: ListEntryItem,
     isCompleting: Boolean = false,
     onToggleDone: () -> Unit,
@@ -410,68 +435,115 @@ private fun ListEntryCard(
     val displayName = item?.name ?: "Unknown item"
     val isDone = listEntry.done || isCompleting
 
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value != SwipeToDismissBoxValue.Settled) {
+                onToggleDone()
+                true
+            } else {
+                false
+            }
+        }
+    )
+
+    LaunchedEffect(isDone) {
+        if (!isDone && dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
+            dismissState.snapTo(SwipeToDismissBoxValue.Settled)
+        }
+    }
+
     val animatedAlpha by animateFloatAsState(
         targetValue = if (isDone) 0.5f else 1f,
         animationSpec = tween(durationMillis = 200),
         label = "entryAlpha"
     )
 
-    Card(
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = !isDone && !isCompleting,
+        enableDismissFromEndToStart = !isDone && !isCompleting,
+        backgroundContent = {
+            val direction = dismissState.dismissDirection
+            val alignment = when (direction) {
+                SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
+                else -> Alignment.Center
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .padding(horizontal = 20.dp),
+                contentAlignment = alignment
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Check off",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        },
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
             .graphicsLayer { alpha = animatedAlpha }
-            .clickable(enabled = !isCompleting, onClick = onClick)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surface
         ) {
-            Checkbox(
-                checked = isDone,
-                onCheckedChange = { if (!isCompleting) onToggleDone() }
-            )
-
-            Spacer(modifier = Modifier.size(16.dp))
-
-            Column(
-                modifier = Modifier.weight(1f)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !isCompleting, onClick = onClick)
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Two lines: name, then quantity/unit + comment combined in the
-                // secondary style ("100g ‧ spicy").
-                Text(
-                    text = displayName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    textDecoration = if (isDone)
-                        TextDecoration.LineThrough else null,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                Checkbox(
+                    checked = isDone,
+                    onCheckedChange = { if (!isCompleting) onToggleDone() }
                 )
 
-                val meta = buildString {
-                    listEntry.quantity?.let { append(formatQuantity(it)) }
-                    listEntry.unit?.let {
-                        if (isNotEmpty()) append(' ')
-                        append(it)
-                    }
-                    val comment = listEntry.comment?.trim()
-                    if (!comment.isNullOrBlank()) {
-                        if (isNotEmpty()) append(" ‧ ")
-                        append(comment)
-                    }
-                }
-                if (meta.isNotEmpty()) {
+                Spacer(modifier = Modifier.size(12.dp))
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(vertical = 2.dp)
+                ) {
                     Text(
-                        text = meta,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = displayName,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
                         textDecoration = if (isDone)
                             TextDecoration.LineThrough else null,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+
+                    val meta = buildString {
+                        listEntry.quantity?.let { append(formatQuantity(it)) }
+                        listEntry.unit?.let {
+                            if (isNotEmpty()) append(' ')
+                            append(it)
+                        }
+                        val comment = listEntry.comment?.trim()
+                        if (!comment.isNullOrBlank()) {
+                            if (isNotEmpty()) append(" ‧ ")
+                            append(comment)
+                        }
+                    }
+                    if (meta.isNotEmpty()) {
+                        Text(
+                            text = meta,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textDecoration = if (isDone)
+                                TextDecoration.LineThrough else null,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }
