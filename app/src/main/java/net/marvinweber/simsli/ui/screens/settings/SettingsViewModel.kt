@@ -28,7 +28,8 @@ data class SettingsUiState(
     val renameInput: String? = null,  // non-null → rename dialog open, holds the field content
     val inviteCode: String? = null,   // non-null → invite dialog open, shows the generated code
     val joinInput: String? = null,    // non-null → join dialog open, holds the field content
-    val showSeedConfirm: Boolean = false  // debug only: confirm before wiping + seeding
+    val showSeedConfirm: Boolean = false, // debug only: confirm before wiping + seeding
+    val showSignOutConfirm: Boolean = false
 )
 
 @HiltViewModel
@@ -46,12 +47,14 @@ class SettingsViewModel @Inject constructor(
     private val inviteCode = MutableStateFlow<String?>(null)
     private val joinInput = MutableStateFlow<String?>(null)
     private val seedConfirmOpen = MutableStateFlow(false)
+    private val signOutConfirmOpen = MutableStateFlow(false)
 
     /** Dialog visibility + content, bundled to keep every combine on a typed overload. */
     private data class DialogInputs(
         val inviteCode: String?,
         val joinInput: String?,
-        val seedConfirmOpen: Boolean
+        val seedConfirmOpen: Boolean,
+        val signOutConfirmOpen: Boolean
     )
 
     /** Local-only inputs bundled so the outer combine stays within its arity limit. */
@@ -68,7 +71,8 @@ class SettingsViewModel @Inject constructor(
         householdRepository.getHousehold(),
         combine(
             emailInput, isBusy, statusMessage, renameInput,
-            combine(inviteCode, joinInput, seedConfirmOpen, ::DialogInputs), ::Inputs
+            combine(inviteCode, joinInput, seedConfirmOpen, signOutConfirmOpen, ::DialogInputs),
+            ::Inputs
         )
     ) { authState, household, inputs ->
         SettingsUiState(
@@ -80,6 +84,7 @@ class SettingsViewModel @Inject constructor(
             statusMessage = inputs.statusMessage,
             renameInput = inputs.renameInput,
             showSeedConfirm = inputs.dialog.seedConfirmOpen,
+            showSignOutConfirm = inputs.dialog.signOutConfirmOpen,
             inviteCode = inputs.dialog.inviteCode,
             joinInput = inputs.dialog.joinInput
         )
@@ -109,6 +114,23 @@ class SettingsViewModel @Inject constructor(
                 .onFailure { statusMessage.value = "Failed to send magic link: ${it.message}" }
             isBusy.value = false
         }
+    }
+
+    fun startSignOut() {
+        signOutConfirmOpen.value = true
+    }
+
+    fun dismissSignOut() {
+        signOutConfirmOpen.value = false
+    }
+
+    fun confirmSignOut() {
+        signOutConfirmOpen.value = false
+        signOut()
+    }
+
+    fun dismissStatusMessage() {
+        statusMessage.value = null
     }
 
     fun signOut() {
