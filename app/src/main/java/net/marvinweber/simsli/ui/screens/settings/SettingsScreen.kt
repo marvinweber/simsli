@@ -78,6 +78,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
@@ -846,18 +847,18 @@ fun SettingsTabContent(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            if (uiState.endpointHealth.detail != null) {
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = uiState.endpointHealth.detail ?: "",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = when (uiState.endpointHealth.status) {
-                                        EndpointStatus.ONLINE -> MaterialTheme.colorScheme.primary
-                                        EndpointStatus.OFFLINE, EndpointStatus.ERROR -> MaterialTheme.colorScheme.error
-                                        EndpointStatus.CHECKING -> MaterialTheme.colorScheme.onSurfaceVariant
-                                    }
-                                )
-                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            val isChecking = uiState.endpointHealth.status == EndpointStatus.CHECKING
+                            Text(
+                                text = if (isChecking) "Checking..." else (uiState.endpointHealth.detail ?: ""),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontStyle = if (isChecking) FontStyle.Italic else FontStyle.Normal,
+                                color = when (uiState.endpointHealth.status) {
+                                    EndpointStatus.ONLINE -> MaterialTheme.colorScheme.primary
+                                    EndpointStatus.OFFLINE, EndpointStatus.ERROR -> MaterialTheme.colorScheme.error
+                                    EndpointStatus.CHECKING -> MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
                         }
 
                         Spacer(modifier = Modifier.width(8.dp))
