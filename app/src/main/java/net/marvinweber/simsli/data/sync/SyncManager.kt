@@ -218,6 +218,7 @@ class SyncManager @Inject constructor(
     /**
      * Data written before the outbox existed is only discoverable here: while no
      * watermark exists (never pulled), enqueue every local row for upload.
+     * Enqueued in dependency order (categories/stores -> items -> child/join tables).
      */
     private suspend fun enqueueInitialUploadIfNeeded() {
         if (syncStateDao.get(SyncContract.TABLE_ITEMS) != null) return
@@ -226,16 +227,24 @@ class SyncManager @Inject constructor(
 
         Log.d(TAG, "Initial upload: no items watermark yet, enqueuing all local rows")
 
-        val pendingItems = outboxDao.getPendingEntityIds(SyncContract.ENTITY_ITEM).toSet()
-        itemDao.getAllIncludingDeleted(household.id)
-            .filter { it.id !in pendingItems }
-            .forEach { outboxDao.enqueue(upsertEntry(SyncContract.ENTITY_ITEM, it.id)) }
+        // 1. Categories & Stores (referenced by items and join tables)
+        val pendingCategories = outboxDao.getPendingEntityIds(SyncContract.ENTITY_CATEGORY).toSet()
+        categoryDao.getAllIncludingDeleted(household.id)
+            .filter { it.id !in pendingCategories }
+            .forEach { outboxDao.enqueue(upsertEntry(SyncContract.ENTITY_CATEGORY, it.id)) }
 
         val pendingStores = outboxDao.getPendingEntityIds(SyncContract.ENTITY_STORE).toSet()
         storeDao.getAllIncludingDeleted(household.id)
             .filter { it.id !in pendingStores }
             .forEach { outboxDao.enqueue(upsertEntry(SyncContract.ENTITY_STORE, it.id)) }
 
+        // 2. Items (references categories and household)
+        val pendingItems = outboxDao.getPendingEntityIds(SyncContract.ENTITY_ITEM).toSet()
+        itemDao.getAllIncludingDeleted(household.id)
+            .filter { it.id !in pendingItems }
+            .forEach { outboxDao.enqueue(upsertEntry(SyncContract.ENTITY_ITEM, it.id)) }
+
+        // 3. Child entries & join tables (references items, stores, categories)
         val pendingEntries = outboxDao.getPendingEntityIds(SyncContract.ENTITY_LIST_ENTRY).toSet()
         listEntryDao.getAllByHousehold(household.id)
             .filter { it.id !in pendingEntries }
@@ -253,11 +262,6 @@ class SyncManager @Inject constructor(
                 )
             }
 
-        val pendingCategories = outboxDao.getPendingEntityIds(SyncContract.ENTITY_CATEGORY).toSet()
-        categoryDao.getAllIncludingDeleted(household.id)
-            .filter { it.id !in pendingCategories }
-            .forEach { outboxDao.enqueue(upsertEntry(SyncContract.ENTITY_CATEGORY, it.id)) }
-
         val pendingStoreCategories = outboxDao.getPendingEntityIds(SyncContract.ENTITY_STORE_CATEGORY).toSet()
         storeCategoryDao.getAllForHousehold(household.id)
             .filter { SyncContract.storeCategoryEntityId(it.storeId, it.categoryId) !in pendingStoreCategories }
@@ -271,12 +275,28 @@ class SyncManager @Inject constructor(
             }
     }
 
+    private fun entityTypeDependencyRank(entityType: String): Int = when (entityType) {
+        SyncContract.ENTITY_HOUSEHOLD -> 0
+        SyncContract.ENTITY_STORE -> 1
+        SyncContract.ENTITY_CATEGORY -> 1
+        SyncContract.ENTITY_ITEM -> 2
+        SyncContract.ENTITY_LIST_ENTRY -> 3
+        SyncContract.ENTITY_ITEM_STORE -> 3
+        SyncContract.ENTITY_STORE_CATEGORY -> 3
+        else -> 4
+    }
+
     /**
-     * Pushes the outbox in insertion order (parents before children) and stops at the
+     * Pushes the outbox in dependency order (parents before children) and stops at the
      * first failure — later entries can depend on earlier rows server-side.
      */
     private suspend fun flushOutbox(userId: String) {
-        val entries = outboxDao.getAll()
+        val entries = outboxDao.getAll().sortedWith(
+            compareBy(
+                { entityTypeDependencyRank(it.entityType) },
+                { it.id }
+            )
+        )
         if (entries.isNotEmpty()) {
             Log.d(TAG, "Outbox: flushing ${entries.size} entries")
         }
