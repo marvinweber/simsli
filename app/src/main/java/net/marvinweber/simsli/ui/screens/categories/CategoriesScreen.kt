@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -31,8 +32,10 @@ import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -189,121 +192,131 @@ private fun CategoriesList(
     LazyColumn(
         state = lazyListState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        contentPadding = PaddingValues(bottom = 80.dp)
     ) {
-        items(
+        itemsIndexed(
             items = localCategories,
-            key = { it.id }
-        ) { category ->
+            key = { _, it -> it.id }
+        ) { index, category ->
             val isDragging = category.id == draggingCategoryId
-            CategoryCard(
-                category = category,
-                onEdit = { onEditCategory(category) },
-                onDelete = { onDeleteCategory(category.id) },
-                dragHandleModifier = Modifier.pointerInput(category.id) {
-                    detectDragGestures(
-                        onDragStart = {
-                            draggingCategoryId = category.id
-                            dragOffsetY = 0f
-                        },
-                        onDrag = { change, dragAmount ->
-                            change.consume()
-                            dragOffsetY += dragAmount.y
-
-                            val currentId = draggingCategoryId ?: return@detectDragGestures
-                            val currentIdx = localCategories.indexOfFirst { it.id == currentId }
-                            if (currentIdx == -1) return@detectDragGestures
-
-                            val itemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == currentId }
-                                ?: return@detectDragGestures
-
-                            val currentItemCenter = itemInfo.offset + itemInfo.size / 2 + dragOffsetY
-
-                            // Check previous item
-                            if (currentIdx > 0) {
-                                val prevCategory = localCategories[currentIdx - 1]
-                                val prevItemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == prevCategory.id }
-                                if (prevItemInfo != null && currentItemCenter < (prevItemInfo.offset + prevItemInfo.size / 2)) {
-                                    val targetIdx = currentIdx - 1
-                                    val updated = localCategories.toMutableList()
-                                    val item = updated.removeAt(currentIdx)
-                                    updated.add(targetIdx, item)
-                                    localCategories = updated
-                                    dragOffsetY += (itemInfo.offset - prevItemInfo.offset)
-                                    return@detectDragGestures
-                                }
-                            }
-
-                            // Check next item
-                            if (currentIdx < localCategories.size - 1) {
-                                val nextCategory = localCategories[currentIdx + 1]
-                                val nextItemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == nextCategory.id }
-                                if (nextItemInfo != null && currentItemCenter > (nextItemInfo.offset + nextItemInfo.size / 2)) {
-                                    val targetIdx = currentIdx + 1
-                                    val updated = localCategories.toMutableList()
-                                    val item = updated.removeAt(currentIdx)
-                                    updated.add(targetIdx, item)
-                                    localCategories = updated
-                                    dragOffsetY -= (nextItemInfo.offset - itemInfo.offset)
-                                    return@detectDragGestures
-                                }
-                            }
-                        },
-                        onDragEnd = {
-                            val movedId = draggingCategoryId
-                            draggingCategoryId = null
-                            dragOffsetY = 0f
-                            if (movedId != null) {
-                                if (categories.map { it.id } != localCategories.map { it.id }) {
-                                    onReorder(localCategories)
-                                }
-                            }
-                        },
-                        onDragCancel = {
-                            draggingCategoryId = null
-                            dragOffsetY = 0f
-                            localCategories = categories
-                        }
-                    )
-                },
+            Column(
                 modifier = if (isDragging) {
                     Modifier
                         .zIndex(1f)
                         .graphicsLayer { translationY = dragOffsetY }
-                        .shadow(8.dp, shape = MaterialTheme.shapes.medium)
+                        .shadow(8.dp, shape = MaterialTheme.shapes.small)
                 } else {
                     Modifier
                         .zIndex(0f)
                         .animateItem()
                 }
-            )
+            ) {
+                CategoryRow(
+                    category = category,
+                    isDragging = isDragging,
+                    onEdit = { onEditCategory(category) },
+                    onDelete = { onDeleteCategory(category.id) },
+                    dragHandleModifier = Modifier.pointerInput(category.id) {
+                        detectDragGestures(
+                            onDragStart = {
+                                draggingCategoryId = category.id
+                                dragOffsetY = 0f
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                dragOffsetY += dragAmount.y
+
+                                val currentId = draggingCategoryId ?: return@detectDragGestures
+                                val currentIdx = localCategories.indexOfFirst { it.id == currentId }
+                                if (currentIdx == -1) return@detectDragGestures
+
+                                val itemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == currentId }
+                                    ?: return@detectDragGestures
+
+                                val currentItemCenter = itemInfo.offset + itemInfo.size / 2 + dragOffsetY
+
+                                // Check previous item
+                                if (currentIdx > 0) {
+                                    val prevCategory = localCategories[currentIdx - 1]
+                                    val prevItemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == prevCategory.id }
+                                    if (prevItemInfo != null && currentItemCenter < (prevItemInfo.offset + prevItemInfo.size / 2)) {
+                                        val targetIdx = currentIdx - 1
+                                        val updated = localCategories.toMutableList()
+                                        val item = updated.removeAt(currentIdx)
+                                        updated.add(targetIdx, item)
+                                        localCategories = updated
+                                        dragOffsetY += (itemInfo.offset - prevItemInfo.offset)
+                                        return@detectDragGestures
+                                    }
+                                }
+
+                                // Check next item
+                                if (currentIdx < localCategories.size - 1) {
+                                    val nextCategory = localCategories[currentIdx + 1]
+                                    val nextItemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == nextCategory.id }
+                                    if (nextItemInfo != null && currentItemCenter > (nextItemInfo.offset + nextItemInfo.size / 2)) {
+                                        val targetIdx = currentIdx + 1
+                                        val updated = localCategories.toMutableList()
+                                        val item = updated.removeAt(currentIdx)
+                                        updated.add(targetIdx, item)
+                                        localCategories = updated
+                                        dragOffsetY -= (nextItemInfo.offset - itemInfo.offset)
+                                        return@detectDragGestures
+                                    }
+                                }
+                            },
+                            onDragEnd = {
+                                val movedId = draggingCategoryId
+                                draggingCategoryId = null
+                                dragOffsetY = 0f
+                                if (movedId != null) {
+                                    if (categories.map { it.id } != localCategories.map { it.id }) {
+                                        onReorder(localCategories)
+                                    }
+                                }
+                            },
+                            onDragCancel = {
+                                draggingCategoryId = null
+                                dragOffsetY = 0f
+                                localCategories = categories
+                            }
+                        )
+                    }
+                )
+                if (index < localCategories.lastIndex && !isDragging) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 56.dp, end = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                        thickness = 0.5.dp
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun CategoryCard(
+private fun CategoryRow(
     category: Category,
+    isDragging: Boolean,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     dragHandleModifier: Modifier,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onEdit)
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = if (isDragging) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surface
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 12.dp),
+                .clickable(onClick = onEdit)
+                .padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = dragHandleModifier
-                    .size(40.dp),
+                modifier = dragHandleModifier.size(40.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -318,24 +331,29 @@ private fun CategoryCard(
             if (!category.emoji.isNullOrBlank()) {
                 Text(
                     text = category.emoji,
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(end = 12.dp)
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(end = 8.dp)
                 )
             }
 
             Text(
                 text = category.name,
                 style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
             )
 
-            IconButton(onClick = onDelete) {
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier.size(40.dp)
+            ) {
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = "Delete category",
-                    tint = MaterialTheme.colorScheme.error
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }

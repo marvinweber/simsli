@@ -14,22 +14,25 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -178,15 +181,23 @@ private fun ItemsTabContent(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(vertical = 8.dp)
+                    contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
-                    items(uiState.items, key = { it.item.id }) { row ->
-                        CatalogItemCard(
-                            row = row,
-                            onClick = { onNavigateToItemDetail(row.item.id) },
-                            onAddToList = { viewModel.onAddToListClick(row.item.id) }
-                        )
+                    itemsIndexed(uiState.items, key = { _, it -> it.item.id }) { index, row ->
+                        Column(modifier = Modifier.animateItem()) {
+                            CatalogItemRow(
+                                row = row,
+                                onClick = { onNavigateToItemDetail(row.item.id) },
+                                onAddToList = { viewModel.onAddToListClick(row.item.id) }
+                            )
+                            if (index < uiState.items.lastIndex) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                                    thickness = 0.5.dp
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -194,57 +205,67 @@ private fun ItemsTabContent(
     }
 }
 
-
 @Composable
-private fun CatalogItemCard(
+private fun CatalogItemRow(
     row: CatalogItemRow,
     onClick: () -> Unit,
-    onAddToList: () -> Unit
+    onAddToList: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clickable(onClick = onClick)
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .clickable(onClick = onClick)
+                .padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = 2.dp)
+            ) {
                 Text(
                     text = row.item.name,
                     style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 2,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 if (row.isOnActiveList) {
                     Text(
                         text = "On list",
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
 
             if (row.isOnActiveList) {
-                // Same 48 dp footprint as the IconButton next to it, so the two
-                // states line up horizontally.
                 Box(
-                    modifier = Modifier.size(48.dp),
+                    modifier = Modifier.size(40.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = "On list",
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             } else {
-                IconButton(onClick = onAddToList) {
-                    Icon(Icons.Default.Add, contentDescription = "Add to list")
+                IconButton(
+                    onClick = onAddToList,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Add to list",
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }

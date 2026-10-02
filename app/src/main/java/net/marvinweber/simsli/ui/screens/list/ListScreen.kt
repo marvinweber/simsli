@@ -183,7 +183,7 @@ fun ListTabContent(
                         }
                         itemsIndexed(group.entries, key = { _, it -> it.listEntry.id }) { index, entryItem ->
                             Column(modifier = Modifier.animateItem()) {
-                                ListEntryRow(
+                                ActiveListEntryRow(
                                     listEntryItem = entryItem,
                                     isCompleting = entryItem.listEntry.id in uiState.completingEntryIds,
                                     onToggleDone = { viewModel.onToggleItemDone(entryItem.listEntry.id) },
@@ -212,11 +212,10 @@ fun ListTabContent(
                                     .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 6.dp)
                             )
                         }
-                        itemsIndexed(uiState.recentlyChecked, key = { _, it -> it.listEntry.id }) { index, entryItem ->
+                        itemsIndexed(uiState.recentlyChecked, key = { _, it -> "done_${it.listEntry.id}" }) { index, entryItem ->
                             Column(modifier = Modifier.animateItem()) {
-                                ListEntryRow(
+                                RecentlyCheckedRow(
                                     listEntryItem = entryItem,
-                                    isCompleting = false,
                                     onToggleDone = { viewModel.onToggleItemDone(entryItem.listEntry.id) },
                                     onClick = { viewModel.onEntryClick(entryItem.listEntry.id) }
                                 )
@@ -422,7 +421,7 @@ private fun CategorySectionHeader(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ListEntryRow(
+private fun ActiveListEntryRow(
     listEntryItem: ListEntryItem,
     isCompleting: Boolean = false,
     onToggleDone: () -> Unit,
@@ -431,13 +430,11 @@ private fun ListEntryRow(
 ) {
     val listEntry = listEntryItem.listEntry
     val item = listEntryItem.item
-
     val displayName = item?.name ?: "Unknown item"
-    val isDone = listEntry.done || isCompleting
 
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
-            if (value != SwipeToDismissBoxValue.Settled) {
+            if (value != SwipeToDismissBoxValue.Settled && !isCompleting) {
                 onToggleDone()
                 true
             } else {
@@ -446,22 +443,22 @@ private fun ListEntryRow(
         }
     )
 
-    LaunchedEffect(isDone) {
-        if (!isDone && dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
+    LaunchedEffect(isCompleting) {
+        if (!isCompleting && dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
             dismissState.snapTo(SwipeToDismissBoxValue.Settled)
         }
     }
 
     val animatedAlpha by animateFloatAsState(
-        targetValue = if (isDone) 0.5f else 1f,
+        targetValue = if (isCompleting) 0.5f else 1f,
         animationSpec = tween(durationMillis = 200),
         label = "entryAlpha"
     )
 
     SwipeToDismissBox(
         state = dismissState,
-        enableDismissFromStartToEnd = !isDone && !isCompleting,
-        enableDismissFromEndToStart = !isDone && !isCompleting,
+        enableDismissFromStartToEnd = true,
+        enableDismissFromEndToStart = true,
         backgroundContent = {
             val direction = dismissState.dismissDirection
             val alignment = when (direction) {
@@ -500,7 +497,7 @@ private fun ListEntryRow(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Checkbox(
-                    checked = isDone,
+                    checked = isCompleting,
                     onCheckedChange = { if (!isCompleting) onToggleDone() }
                 )
 
@@ -515,8 +512,7 @@ private fun ListEntryRow(
                         text = displayName,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
-                        textDecoration = if (isDone)
-                            TextDecoration.LineThrough else null,
+                        textDecoration = if (isCompleting) TextDecoration.LineThrough else null,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -538,12 +534,83 @@ private fun ListEntryRow(
                             text = meta,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textDecoration = if (isDone)
-                                TextDecoration.LineThrough else null,
+                            textDecoration = if (isCompleting) TextDecoration.LineThrough else null,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecentlyCheckedRow(
+    listEntryItem: ListEntryItem,
+    onToggleDone: () -> Unit,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val listEntry = listEntryItem.listEntry
+    val item = listEntryItem.item
+    val displayName = item?.name ?: "Unknown item"
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer { alpha = 0.5f },
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = true,
+                onCheckedChange = { onToggleDone() }
+            )
+
+            Spacer(modifier = Modifier.size(12.dp))
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = 2.dp)
+            ) {
+                Text(
+                    text = displayName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    textDecoration = TextDecoration.LineThrough,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                val meta = buildString {
+                    listEntry.quantity?.let { append(formatQuantity(it)) }
+                    listEntry.unit?.let {
+                        if (isNotEmpty()) append(' ')
+                        append(it)
+                    }
+                    val comment = listEntry.comment?.trim()
+                    if (!comment.isNullOrBlank()) {
+                        if (isNotEmpty()) append(" ‧ ")
+                        append(comment)
+                    }
+                }
+                if (meta.isNotEmpty()) {
+                    Text(
+                        text = meta,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textDecoration = TextDecoration.LineThrough,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }
