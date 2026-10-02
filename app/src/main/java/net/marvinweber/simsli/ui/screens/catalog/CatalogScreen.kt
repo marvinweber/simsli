@@ -17,7 +17,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.ShoppingBag
+import androidx.compose.material.icons.outlined.Storefront
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -50,10 +57,14 @@ import net.marvinweber.simsli.ui.components.EntryDetailsSheet
 import net.marvinweber.simsli.ui.screens.categories.CategoriesTabContent
 import net.marvinweber.simsli.ui.screens.stores.StoresTabContent
 
-enum class CatalogTab(val label: String) {
-    ITEMS("Items"),
-    CATEGORIES("Categories"),
-    STORES("Stores")
+enum class CatalogTab(
+    val label: String,
+    val selectedIcon: ImageVector,
+    val unselectedIcon: ImageVector
+) {
+    ITEMS("Items", Icons.Filled.ShoppingBag, Icons.Outlined.ShoppingBag),
+    CATEGORIES("Categories", Icons.Filled.Category, Icons.Outlined.Category),
+    STORES("Stores", Icons.Filled.Storefront, Icons.Outlined.Storefront)
 }
 
 /**
@@ -92,10 +103,23 @@ fun CatalogScreen(
         ) {
             PrimaryTabRow(selectedTabIndex = selectedTab.ordinal) {
                 CatalogTab.entries.forEach { tab ->
+                    val isSelected = tab == selectedTab
                     Tab(
-                        selected = tab == selectedTab,
+                        selected = isSelected,
                         onClick = { selectedTabName = tab.name },
-                        text = { Text(tab.label) }
+                        text = {
+                            Text(
+                                text = tab.label,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        },
+                        icon = {
+                            Icon(
+                                imageVector = if (isSelected) tab.selectedIcon else tab.unselectedIcon,
+                                contentDescription = null
+                            )
+                        }
                     )
                 }
             }

@@ -55,6 +55,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -120,6 +122,7 @@ fun ListTabContent(
                     snackbarJob = launch {
                         snackbarHostState.showSnackbar(
                             message = event.message,
+                            withDismissAction = true,
                             duration = SnackbarDuration.Short
                         )
                     }
@@ -131,7 +134,8 @@ fun ListTabContent(
                         val result = snackbarHostState.showSnackbar(
                             message = "${event.itemName} completed",
                             actionLabel = "Revert",
-                            duration = SnackbarDuration.Long
+                            withDismissAction = true,
+                            duration = SnackbarDuration.Short
                         )
                         if (result == SnackbarResult.ActionPerformed) {
                             viewModel.revertItemDone(event.entryId)
@@ -165,7 +169,34 @@ fun ListTabContent(
         snackbarHost = {
             SnackbarHost(
                 hostState = snackbarHostState,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 8.dp),
+                snackbar = { data ->
+                    SwipeToDismissBox(
+                        state = rememberSwipeToDismissBoxState(
+                            confirmValueChange = { value ->
+                                if (value != SwipeToDismissBoxValue.Settled) {
+                                    data.dismiss()
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        ),
+                        backgroundContent = {},
+                        enableDismissFromStartToEnd = true,
+                        enableDismissFromEndToStart = true
+                    ) {
+                        Snackbar(
+                            snackbarData = data,
+                            shape = RoundedCornerShape(16.dp),
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                            actionColor = MaterialTheme.colorScheme.primary,
+                            actionContentColor = MaterialTheme.colorScheme.primary,
+                            dismissActionContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             )
         }
     ) { paddingValues ->
