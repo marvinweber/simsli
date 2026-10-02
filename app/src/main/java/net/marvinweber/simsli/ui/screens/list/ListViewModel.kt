@@ -482,4 +482,15 @@ class ListViewModel @Inject constructor(
             dismissEntryEditor()
         }
     }
+
+    fun clearRecentlyChecked() {
+        val entryIds = uiState.value.recentlyChecked.map { it.listEntry.id }
+        if (entryIds.isEmpty()) return
+        viewModelScope.launch {
+            listEntryRepository.deleteListEntries(entryIds)
+                .onFailure { error ->
+                    _events.emit(ListUiEvent.ShowError("Failed to clear items: ${error.message}"))
+                }
+        }
+    }
 }

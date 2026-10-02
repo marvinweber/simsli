@@ -11,7 +11,7 @@ data class ListEntryDto(
     val quantity: Double? = null,
     val unit: String? = null,
     val comment: String? = null,
-    val done: Boolean = false,
+    val done: Boolean,
     @SerialName("completed_at") val completedAt: String? = null,
     @SerialName("created_at") val createdAt: String,
     @SerialName("updated_at") val updatedAt: String,

@@ -63,6 +63,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import kotlinx.coroutines.Job
@@ -212,15 +213,30 @@ fun ListTabContent(
 
                     if (uiState.recentlyChecked.isNotEmpty()) {
                         item(key = "recently_checked_header") {
-                            Text(
-                                text = "Recently checked",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            Row(
                                 modifier = Modifier
+                                    .fillMaxWidth()
                                     .animateItem()
-                                    .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 6.dp)
-                            )
+                                    .padding(start = 16.dp, end = 12.dp, top = 20.dp, bottom = 2.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Recently checked",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                TextButton(
+                                    onClick = viewModel::clearRecentlyChecked,
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                                ) {
+                                    Text(
+                                        text = "Clear",
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
+                            }
                         }
                         itemsIndexed(uiState.recentlyChecked, key = { _, it -> "done_${it.listEntry.id}" }) { index, entryItem ->
                             Column(modifier = Modifier.animateItem()) {
@@ -264,6 +280,7 @@ fun ListTabContent(
                 quantity = entryItem.listEntry.quantity,
                 unit = entryItem.listEntry.unit,
                 comment = entryItem.listEntry.comment,
+                saveButtonText = if (entryItem.listEntry.done) "Add to list" else "Save",
                 onSave = { quantity, unit, comment ->
                     viewModel.saveEntryDetails(entryItem.listEntry.id, quantity, unit, comment)
                 },

@@ -141,6 +141,7 @@ private fun ItemsTabContent(
                 quantity = null,
                 unit = null,
                 comment = null,
+                saveButtonText = "Add to list",
                 onSave = { quantity, unit, comment ->
                     viewModel.confirmAddToList(row.item.id, quantity, unit, comment)
                 },

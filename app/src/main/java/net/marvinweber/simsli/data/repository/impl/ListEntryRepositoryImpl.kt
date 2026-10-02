@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import net.marvinweber.simsli.data.local.dao.ItemDao
 import net.marvinweber.simsli.data.local.dao.ListEntryDao
 import net.marvinweber.simsli.data.local.dao.OutboxDao
 import net.marvinweber.simsli.data.local.entity.DbOutboxEntry
@@ -13,6 +14,7 @@ import net.marvinweber.simsli.data.repository.ListEntryRepository
 import net.marvinweber.simsli.data.sync.SyncContract
 import net.marvinweber.simsli.data.sync.SyncScheduler
 import net.marvinweber.simsli.di.IoDispatcher
+import net.marvinweber.simsli.domain.model.ItemType
 import net.marvinweber.simsli.domain.model.ListEntry
 import java.time.Instant
 import java.util.UUID
@@ -22,6 +24,7 @@ import javax.inject.Singleton
 @Singleton
 class ListEntryRepositoryImpl @Inject constructor(
     private val listEntryDao: ListEntryDao,
+    private val itemDao: ItemDao,
     private val outboxDao: OutboxDao,
     private val syncScheduler: SyncScheduler,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
@@ -78,12 +81,33 @@ class ListEntryRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deleteListEntry(listEntryId: String): Result<Unit> {
+    override suspend fun deleteListEntry(listEntryId: String): Result<Unit> =
+        deleteListEntries(listOf(listEntryId))
+
+    override suspend fun deleteListEntries(listEntryIds: List<String>): Result<Unit> {
         return withContext(ioDispatcher) {
             try {
-                listEntryDao.delete(listEntryId)
-                enqueue(listEntryId, SyncContract.OP_DELETE)
-                syncScheduler.requestSync("list_entry:delete")
+                if (listEntryIds.isEmpty()) return@withContext Result.success(Unit)
+                val now = Instant.now()
+                for (id in listEntryIds) {
+                    val entry = listEntryDao.getListEntryOnce(id) ?: continue
+                    listEntryDao.delete(id)
+                    enqueue(id, SyncContract.OP_DELETE)
+
+                    val item = itemDao.getByIdIncludingDeleted(entry.itemId)
+                    if (item != null && item.deletedAt == null && item.type == ItemType.ONE_TIME) {
+                        itemDao.delete(item.id, now)
+                        outboxDao.enqueue(
+                            DbOutboxEntry(
+                                entityType = SyncContract.ENTITY_ITEM,
+                                entityId = item.id,
+                                operation = SyncContract.OP_UPSERT,
+                                createdAt = now
+                            )
+                        )
+                    }
+                }
+                syncScheduler.requestSync("list_entry:delete_entries")
                 Result.success(Unit)
             } catch (e: Exception) {
                 Result.failure(e)

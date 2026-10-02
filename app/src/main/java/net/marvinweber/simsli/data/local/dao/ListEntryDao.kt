@@ -89,7 +89,7 @@ interface ListEntryDao {
 
     @Query("""
         UPDATE list_entries
-        SET quantity = :quantity, unit = :unit, comment = :comment, updatedAt = :updatedAt
+        SET quantity = :quantity, unit = :unit, comment = :comment, done = 0, completedAt = NULL, updatedAt = :updatedAt
         WHERE id = :id
     """)
     suspend fun updateDetails(id: String, quantity: Double?, unit: String?, comment: String?, updatedAt: java.time.Instant)

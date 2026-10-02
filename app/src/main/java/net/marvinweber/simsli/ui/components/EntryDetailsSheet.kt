@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -50,7 +51,8 @@ fun EntryDetailsSheet(
     comment: String?,
     onDismiss: () -> Unit,
     onSave: (quantityText: String, unit: String, comment: String) -> Unit,
-    onRemove: (() -> Unit)? = null
+    onRemove: (() -> Unit)? = null,
+    saveButtonText: String = "Save"
 ) {
     var quantityText by remember(stateKey) { mutableStateOf(formatQuantity(quantity)) }
     var unitText by remember(stateKey) { mutableStateOf(unit.orEmpty()) }
@@ -112,10 +114,10 @@ fun EntryDetailsSheet(
                 ) {
                     Text(if (onRemove != null) "Remove from list" else "Cancel")
                 }
-                OutlinedButton(
+                Button(
                     onClick = { onSave(quantityText, unitText, commentText) }
                 ) {
-                    Text("Save")
+                    Text(saveButtonText)
                 }
             }
         }

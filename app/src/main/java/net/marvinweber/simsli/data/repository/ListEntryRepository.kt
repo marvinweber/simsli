@@ -17,6 +17,7 @@ interface ListEntryRepository {
     suspend fun updateListEntry(listEntry: ListEntry): Result<ListEntry>
 
     suspend fun deleteListEntry(listEntryId: String): Result<Unit>
+    suspend fun deleteListEntries(listEntryIds: List<String>): Result<Unit>
 
     suspend fun updateListEntryDoneStatus(listEntryId: String, done: Boolean): Result<Unit>
 
