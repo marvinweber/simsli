@@ -56,6 +56,16 @@ fun HomeScreen(
     val selectedTab = HomeTab.entries.firstOrNull { it.name == selectedTabName } ?: HomeTab.LIST
     val isSyncing by viewModel.isSyncing.collectAsState()
 
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.quickActions.collect { action ->
+            when (action) {
+                net.marvinweber.simsli.ui.navigation.QuickAction.ADD_ITEM -> {
+                    selectedTabName = HomeTab.LIST.name
+                }
+            }
+        }
+    }
+
     Scaffold(
         // Tab scaffolds own their insets: the top-most app bar per column handles
         // the status bar, the NavigationBar here handles the nav bar. Nothing

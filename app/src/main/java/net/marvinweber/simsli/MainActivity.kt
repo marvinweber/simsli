@@ -20,10 +20,14 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var authRepository: AuthRepository
 
+    @Inject
+    lateinit var quickActionManager: net.marvinweber.simsli.ui.navigation.QuickActionManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleAuthDeepLink(intent)
+        handleQuickAction(intent)
         setContent {
             SimsliTheme {
                 val navController = rememberNavController()
@@ -34,13 +38,26 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         handleAuthDeepLink(intent)
+        handleQuickAction(intent)
     }
 
     private fun handleAuthDeepLink(intent: Intent?) {
         if (intent == null) return
         lifecycleScope.launch {
             authRepository.handleDeepLink(intent)
+        }
+    }
+
+    private fun handleQuickAction(intent: Intent?) {
+        if (intent == null) return
+        val data = intent.data
+        val action = intent.action
+        if (data?.scheme == "simsli" && data.host == "list" && (data.path == "/add" || data.path == "add")) {
+            quickActionManager.trigger(net.marvinweber.simsli.ui.navigation.QuickAction.ADD_ITEM)
+        } else if (action == "net.marvinweber.simsli.action.ADD_ITEM") {
+            quickActionManager.trigger(net.marvinweber.simsli.ui.navigation.QuickAction.ADD_ITEM)
         }
     }
 }

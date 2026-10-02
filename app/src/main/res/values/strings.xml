@@ -6,4 +6,6 @@
     <string name="all_stores">All</string>
     <string name="empty_list">Your list is empty</string>
     <string name="empty_list_hint">Add items to get started</string>
+    <string name="shortcut_add_item_short">Add item</string>
+    <string name="shortcut_add_item_long">Add item to list</string>
 </resources>

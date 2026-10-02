@@ -104,7 +104,8 @@ class ListViewModel @Inject constructor(
     private val storeRepository: StoreRepository,
     private val itemRepository: ItemRepository,
     private val listEntryRepository: ListEntryRepository,
-    private val categoryRepository: CategoryRepository
+    private val categoryRepository: CategoryRepository,
+    private val quickActionManager: net.marvinweber.simsli.ui.navigation.QuickActionManager
 ) : ViewModel() {
 
     private val _storeFilter = MutableStateFlow<StoreFilter>(StoreFilter.All)
@@ -264,6 +265,20 @@ class ListViewModel @Inject constructor(
 
     init {
         ensureHouseholdExists()
+        observeQuickActions()
+    }
+
+    private fun observeQuickActions() {
+        viewModelScope.launch {
+            quickActionManager.actions.collect { action ->
+                when (action) {
+                    net.marvinweber.simsli.ui.navigation.QuickAction.ADD_ITEM -> {
+                        onAddClick()
+                        quickActionManager.consume()
+                    }
+                }
+            }
+        }
     }
 
     private fun ensureHouseholdExists() {

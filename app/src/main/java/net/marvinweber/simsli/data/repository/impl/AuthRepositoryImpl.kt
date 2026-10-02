@@ -87,7 +87,7 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override suspend fun handleDeepLink(intent: Intent?): Boolean {
-        if (intent?.data?.scheme != "simsli") return false
+        if (intent?.data?.scheme != "simsli" || intent.data?.host != "auth") return false
         return withContext(ioDispatcher) {
             Log.d(TAG, "Handling auth deep link: ${intent.data}")
             supabaseClient.handleDeeplinks(
