@@ -57,9 +57,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
-import net.marvinweber.simsli.ui.components.SimsliTopAppBarTitle
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import net.marvinweber.simsli.ui.components.SimsliTopAppBarTitle
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -111,7 +117,27 @@ fun SettingsTabContent(
     LaunchedEffect(uiState.statusMessage) {
         val message = uiState.statusMessage
         if (message != null) {
-            snackbarHostState.showSnackbar(message)
+            val isError = message.contains("failed", ignoreCase = true) ||
+                    message.contains("error", ignoreCase = true) ||
+                    message.contains("denied", ignoreCase = true) ||
+                    message.contains("couldn't", ignoreCase = true)
+            val actionLabel = if (isError) "Copy" else null
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = actionLabel,
+                withDismissAction = true,
+                duration = if (isError) SnackbarDuration.Long else SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed && isError) {
+                clipboard.setClipEntry(
+                    ClipData.newPlainText("Simsli error", message).toClipEntry()
+                )
+                snackbarHostState.showSnackbar(
+                    message = "Error copied to clipboard",
+                    withDismissAction = true,
+                    duration = SnackbarDuration.Short
+                )
+            }
             viewModel.dismissStatusMessage()
         }
     }
@@ -128,7 +154,40 @@ fun SettingsTabContent(
                 }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.padding(bottom = 8.dp),
+                snackbar = { data ->
+                    SwipeToDismissBox(
+                        state = rememberSwipeToDismissBoxState(
+                            confirmValueChange = { value ->
+                                if (value != SwipeToDismissBoxValue.Settled) {
+                                    data.dismiss()
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        ),
+                        backgroundContent = {},
+                        enableDismissFromStartToEnd = true,
+                        enableDismissFromEndToStart = true
+                    ) {
+                        Snackbar(
+                            snackbarData = data,
+                            actionOnNewLine = data.visuals.actionLabel != null,
+                            shape = RoundedCornerShape(16.dp),
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                            actionColor = MaterialTheme.colorScheme.primary,
+                            actionContentColor = MaterialTheme.colorScheme.primary,
+                            dismissActionContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            )
+        }
     ) { padding ->
         // --- Dialogs ---
 
