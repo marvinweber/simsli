@@ -30,6 +30,9 @@ object SyncContract {
     const val TABLE_LIST_ENTRIES = "list_entries"
     const val TABLE_CATEGORIES = "categories"
 
+    // Marker key to ensure initial local upload is only performed once
+    const val KEY_INITIAL_UPLOAD_DONE = "_initial_upload_done"
+
     fun itemStoreEntityId(itemId: String, storeId: String): String = "$itemId:$storeId"
 
     fun parseItemStoreEntityId(entityId: String): Pair<String, String>? {

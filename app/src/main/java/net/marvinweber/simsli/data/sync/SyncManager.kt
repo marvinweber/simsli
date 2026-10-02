@@ -209,23 +209,28 @@ class SyncManager @Inject constructor(
         categoryDao.reassignHousehold(oldHouseholdId, newHouseholdId, now)
         // store_categories rows carry no householdId — they follow their store/category ids.
         householdDao.delete(oldHouseholdId, now)
+        syncStateDao.clearAll()
         // The remapped rows have no outbox entries; enqueueInitialUploadIfNeeded()
-        // picks them up because the watermark is still unset during this first sync.
+        // picks them up because the watermark and upload marker are cleared during this first sync.
     }
 
     // --- 2. Outbox (local -> remote) ----------------------------------------------
 
     /**
      * Data written before the outbox existed is only discoverable here: while no
-     * watermark exists (never pulled), enqueue every local row for upload.
+     * initial upload marker exists, enqueue every local row for upload.
      * Enqueued in dependency order (categories/stores -> items -> child/join tables).
      */
     private suspend fun enqueueInitialUploadIfNeeded() {
-        if (syncStateDao.get(SyncContract.TABLE_ITEMS) != null) return
+        if (syncStateDao.get(SyncContract.KEY_INITIAL_UPLOAD_DONE) != null ||
+            syncStateDao.get(SyncContract.TABLE_ITEMS) != null
+        ) {
+            return
+        }
 
         val household = householdDao.getHouseholdOnce() ?: return
 
-        Log.d(TAG, "Initial upload: no items watermark yet, enqueuing all local rows")
+        Log.d(TAG, "Initial upload: enqueuing all local rows")
 
         // 1. Categories & Stores (referenced by items and join tables)
         val pendingCategories = outboxDao.getPendingEntityIds(SyncContract.ENTITY_CATEGORY).toSet()
@@ -273,6 +278,8 @@ class SyncManager @Inject constructor(
                     )
                 )
             }
+
+        syncStateDao.upsert(DbSyncState(SyncContract.KEY_INITIAL_UPLOAD_DONE, Instant.now()))
     }
 
     private fun entityTypeDependencyRank(entityType: String): Int = when (entityType) {
