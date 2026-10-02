@@ -10,6 +10,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.res.painterResource
 import net.marvinweber.simsli.R
+import net.marvinweber.simsli.ui.components.SimsliTopAppBarTitle
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -102,6 +103,7 @@ private const val MAX_SUGGESTIONS = 5
 @Composable
 fun ListTabContent(
     onNavigateToItemDetail: (String?) -> Unit,
+    isSyncing: Boolean = false,
     viewModel: ListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -144,21 +146,10 @@ fun ListTabContent(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Image(
-                            painter = painterResource(R.drawable.ic_simsli_logo),
-                            contentDescription = "Simsli logo",
-                            modifier = Modifier.size(32.dp)
-                        )
-                        Text(
-                            text = "Simsli",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                    SimsliTopAppBarTitle(
+                        title = "Simsli",
+                        isSyncing = isSyncing
+                    )
                 }
             )
         },

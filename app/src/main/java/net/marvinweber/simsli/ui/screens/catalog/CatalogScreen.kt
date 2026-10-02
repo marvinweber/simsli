@@ -33,6 +33,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.ui.text.font.FontWeight
+import net.marvinweber.simsli.ui.components.SimsliTopAppBarTitle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -64,6 +65,7 @@ enum class CatalogTab(val label: String) {
 @Composable
 fun CatalogScreen(
     onNavigateToItemDetail: (String?) -> Unit,
+    isSyncing: Boolean = false,
     viewModel: CatalogViewModel = hiltViewModel()
 ) {
     var selectedTabName by rememberSaveable { mutableStateOf(CatalogTab.ITEMS.name) }
@@ -74,7 +76,12 @@ fun CatalogScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Catalog") }
+                title = {
+                    SimsliTopAppBarTitle(
+                        title = "Catalog",
+                        isSyncing = isSyncing
+                    )
+                }
             )
         }
     ) { paddingValues ->

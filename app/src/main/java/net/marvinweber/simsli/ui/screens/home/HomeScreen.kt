@@ -1,23 +1,14 @@
 package net.marvinweber.simsli.ui.screens.home
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -93,39 +84,29 @@ fun HomeScreen(
             }
         }
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            AnimatedVisibility(
-                visible = isSyncing,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically()
-            ) {
-                LinearWavyProgressIndicator(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                )
-            }
-
-            Box(modifier = Modifier.fillMaxSize()) {
-                val tabStateHolder = rememberSaveableStateHolder()
-                when (selectedTab) {
-                    HomeTab.LIST -> tabStateHolder.SaveableStateProvider(HomeTab.LIST.name) {
-                        ListTabContent(
-                            onNavigateToItemDetail = onNavigateToItemDetail
-                        )
-                    }
-                    HomeTab.CATALOG -> tabStateHolder.SaveableStateProvider(HomeTab.CATALOG.name) {
-                        CatalogScreen(
-                            onNavigateToItemDetail = onNavigateToItemDetail
-                        )
-                    }
-                    HomeTab.SETTINGS -> tabStateHolder.SaveableStateProvider(HomeTab.SETTINGS.name) {
-                        SettingsTabContent()
-                    }
+            val tabStateHolder = rememberSaveableStateHolder()
+            when (selectedTab) {
+                HomeTab.LIST -> tabStateHolder.SaveableStateProvider(HomeTab.LIST.name) {
+                    ListTabContent(
+                        onNavigateToItemDetail = onNavigateToItemDetail,
+                        isSyncing = isSyncing
+                    )
+                }
+                HomeTab.CATALOG -> tabStateHolder.SaveableStateProvider(HomeTab.CATALOG.name) {
+                    CatalogScreen(
+                        onNavigateToItemDetail = onNavigateToItemDetail,
+                        isSyncing = isSyncing
+                    )
+                }
+                HomeTab.SETTINGS -> tabStateHolder.SaveableStateProvider(HomeTab.SETTINGS.name) {
+                    SettingsTabContent(
+                        isSyncing = isSyncing
+                    )
                 }
             }
         }

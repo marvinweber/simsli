@@ -58,6 +58,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
+import net.marvinweber.simsli.ui.components.SimsliTopAppBarTitle
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -94,6 +95,7 @@ import net.marvinweber.simsli.R
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsTabContent(
+    isSyncing: Boolean = false,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -116,10 +118,9 @@ fun SettingsTabContent(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Text(
-                        text = "Settings",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+                    SimsliTopAppBarTitle(
+                        title = "Settings",
+                        isSyncing = isSyncing
                     )
                 }
             )
@@ -739,10 +740,10 @@ fun SettingsTabContent(
                         }
                         FilledTonalButton(
                             onClick = viewModel::syncNow,
-                            enabled = !uiState.isBusy,
+                            enabled = !uiState.isBusy && !isSyncing,
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            if (uiState.isBusy) {
+                            if (uiState.isBusy || isSyncing) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(16.dp),
                                     strokeWidth = 2.dp
