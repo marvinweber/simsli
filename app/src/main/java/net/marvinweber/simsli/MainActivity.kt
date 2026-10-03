@@ -7,6 +7,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import net.marvinweber.simsli.data.repository.AuthRepository
@@ -30,8 +34,13 @@ class MainActivity : ComponentActivity() {
         handleQuickAction(intent)
         setContent {
             SimsliTheme {
-                val navController = rememberNavController()
-                SimsliNavHost(navController = navController)
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    val navController = rememberNavController()
+                    SimsliNavHost(navController = navController)
+                }
             }
         }
     }
