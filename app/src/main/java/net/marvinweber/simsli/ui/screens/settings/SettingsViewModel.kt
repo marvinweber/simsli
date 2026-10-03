@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.CoroutineDispatcher
@@ -20,6 +21,8 @@ import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.data.repository.SignOutResult
 import net.marvinweber.simsli.data.sync.SyncManager
 import net.marvinweber.simsli.di.IoDispatcher
+import net.marvinweber.simsli.domain.model.HouseholdMember
+import net.marvinweber.simsli.domain.model.MemberRole
 import java.net.HttpURLConnection
 import java.net.URL
 import javax.inject.Inject
@@ -41,11 +44,20 @@ data class SettingsUiState(
     val isSignedIn: Boolean = false,
     val userEmail: String? = null,
     val householdName: String? = null,
+    val householdId: String? = null,
+    val memberCount: Int = 1,
+    val currentUserRole: MemberRole? = null,
+    val isOwner: Boolean = true,
+    val canInvite: Boolean = true,
+    val inviteDisabledReason: String? = null,
+    val canJoin: Boolean = true,
+    val joinDisabledReason: String? = null,
     val emailInput: String = "",
     val isBusy: Boolean = false,
     val statusMessage: String? = null,
     val renameInput: String? = null,  // non-null → rename dialog open, holds the field content
     val inviteCode: String? = null,   // non-null → invite dialog open, shows the generated code
+    val showJoinWarning: Boolean = false, // non-null / true → show warning before entering join code
     val joinInput: String? = null,    // non-null → join dialog open, holds the field content
     val showSeedConfirm: Boolean = false, // debug only: confirm before wiping + seeding
     val showSignOutConfirm: Boolean = false,
@@ -66,21 +78,24 @@ class SettingsViewModel @Inject constructor(
     private val statusMessage = MutableStateFlow<String?>(null)
     private val renameInput = MutableStateFlow<String?>(null)
     private val inviteCode = MutableStateFlow<String?>(null)
+    private val showJoinWarning = MutableStateFlow(false)
     private val joinInput = MutableStateFlow<String?>(null)
     private val seedConfirmOpen = MutableStateFlow(false)
     private val signOutConfirmOpen = MutableStateFlow(false)
     private val endpointHealth = MutableStateFlow(EndpointHealth())
+    private val members = MutableStateFlow<List<HouseholdMember>>(emptyList())
 
     /** Dialog visibility + content, bundled to keep every combine on a typed overload. */
     private data class DialogInputs(
         val inviteCode: String?,
+        val showJoinWarning: Boolean,
         val joinInput: String?,
         val seedConfirmOpen: Boolean,
         val signOutConfirmOpen: Boolean
     )
 
     /** Local-only inputs bundled so the outer combine stays within its arity limit. */
-    private data class Inputs(
+    private data class LocalInputs(
         val emailInput: String,
         val isBusy: Boolean,
         val statusMessage: String?,
@@ -92,16 +107,49 @@ class SettingsViewModel @Inject constructor(
         authRepository.authState,
         householdRepository.getHousehold(),
         endpointHealth,
+        members,
         combine(
             emailInput, isBusy, statusMessage, renameInput,
-            combine(inviteCode, joinInput, seedConfirmOpen, signOutConfirmOpen, ::DialogInputs),
-            ::Inputs
+            combine(inviteCode, showJoinWarning, joinInput, seedConfirmOpen, signOutConfirmOpen, ::DialogInputs),
+            ::LocalInputs
         )
-    ) { authState, household, health, inputs ->
+    ) { authState, household, health, membersList, inputs ->
+        val currentUserId = (authState as? AuthState.SignedIn)?.userId
+        val currentMember = membersList.firstOrNull { it.userId == currentUserId }
+        val role = currentMember?.role ?: if (authState is AuthState.SignedIn) null else MemberRole.OWNER
+        val isOwner = role == MemberRole.OWNER || authState !is AuthState.SignedIn
+        val memberCount = if (membersList.isNotEmpty()) membersList.size else 1
+
+        val canInvite = if (authState is AuthState.SignedIn) {
+            role == MemberRole.OWNER
+        } else {
+            true
+        }
+        val inviteDisabledReason = if (authState is AuthState.SignedIn && role != MemberRole.OWNER) {
+            "Only owners and admins (in the future) can invite members"
+        } else {
+            null
+        }
+
+        val canJoin = !isOwner || memberCount <= 1
+        val joinDisabledReason = if (isOwner && memberCount > 1) {
+            "You cannot join another household as you are a member of a non empty household"
+        } else {
+            null
+        }
+
         SettingsUiState(
             isSignedIn = authState is AuthState.SignedIn,
             userEmail = (authState as? AuthState.SignedIn)?.email,
             householdName = household?.name,
+            householdId = household?.id,
+            memberCount = memberCount,
+            currentUserRole = role,
+            isOwner = isOwner,
+            canInvite = canInvite,
+            inviteDisabledReason = inviteDisabledReason,
+            canJoin = canJoin,
+            joinDisabledReason = joinDisabledReason,
             emailInput = inputs.emailInput,
             isBusy = inputs.isBusy,
             statusMessage = inputs.statusMessage,
@@ -109,6 +157,7 @@ class SettingsViewModel @Inject constructor(
             showSeedConfirm = inputs.dialog.seedConfirmOpen,
             showSignOutConfirm = inputs.dialog.signOutConfirmOpen,
             inviteCode = inputs.dialog.inviteCode,
+            showJoinWarning = inputs.dialog.showJoinWarning,
             joinInput = inputs.dialog.joinInput,
             endpointHealth = health
         )
@@ -120,6 +169,31 @@ class SettingsViewModel @Inject constructor(
 
     init {
         checkEndpointHealth()
+        viewModelScope.launch {
+            combine(
+                authRepository.authState,
+                householdRepository.getHousehold()
+            ) { auth, household -> auth to household }
+                .collectLatest { (auth, household) ->
+                    if (auth is AuthState.SignedIn && household != null) {
+                        householdRepository.getMembers(household.id)
+                            .onSuccess { members.value = it }
+                            .onFailure { members.value = emptyList() }
+                    } else {
+                        members.value = emptyList()
+                    }
+                }
+        }
+    }
+
+    fun refreshHouseholdData() {
+        viewModelScope.launch {
+            val household = householdRepository.getHousehold().first()
+            if (household != null && uiState.value.isSignedIn) {
+                householdRepository.getMembers(household.id)
+                    .onSuccess { members.value = it }
+            }
+        }
     }
 
     fun checkEndpointHealth() {
@@ -252,7 +326,10 @@ class SettingsViewModel @Inject constructor(
             }
             isBusy.value = true
             syncManager.syncNow("manual")
-                .onSuccess { statusMessage.value = "Sync complete" }
+                .onSuccess {
+                    statusMessage.value = "Sync complete"
+                    refreshHouseholdData()
+                }
                 .onFailure { statusMessage.value = "Sync failed: ${it.message}" }
             isBusy.value = false
         }
@@ -302,6 +379,10 @@ class SettingsViewModel @Inject constructor(
                 statusMessage.value = "Sign in first to invite someone."
                 return@launch
             }
+            if (!uiState.value.canInvite) {
+                statusMessage.value = uiState.value.inviteDisabledReason ?: "Only owners and admins can invite members."
+                return@launch
+            }
             if (householdRepository.getHousehold().first() == null) {
                 statusMessage.value = "No household set up yet"
                 return@launch
@@ -319,7 +400,20 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun startJoin() {
+        if (!uiState.value.canJoin) {
+            statusMessage.value = uiState.value.joinDisabledReason
+            return
+        }
+        showJoinWarning.value = true
+    }
+
+    fun confirmJoinWarning() {
+        showJoinWarning.value = false
         joinInput.value = ""
+    }
+
+    fun dismissJoinWarning() {
+        showJoinWarning.value = false
     }
 
     // --- Debug: demo data (debug builds only; the row is gated in the screen) -------------------
@@ -370,6 +464,7 @@ class SettingsViewModel @Inject constructor(
                         .onSuccess {
                             val name = householdRepository.getHousehold().first()?.name
                             statusMessage.value = "Joined household \"$name\""
+                            refreshHouseholdData()
                         }
                         .onFailure { statusMessage.value = "Joined, but sync failed: ${it.message}" }
                 }

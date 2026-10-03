@@ -80,12 +80,16 @@ class RealtimeObserver @Inject constructor(
         val storeCategoryChanges = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
             table = "store_categories"
         }
+        val memberChanges = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+            table = "household_members"
+            filter("household_id", FilterOperator.EQ, householdId)
+        }
         try {
             channel.subscribe(blockUntilSubscribed = true)
             Log.d(TAG, "Realtime channel joined for household $householdId")
             // (Re)joined: backfill anything missed while we were not connected.
             syncScheduler.requestSync("realtime:joined")
-            merge(entryChanges, itemChanges, storeChanges, categoryChanges, storeCategoryChanges)
+            merge(entryChanges, itemChanges, storeChanges, categoryChanges, storeCategoryChanges, memberChanges)
                 .collect { action ->
                     Log.d(TAG, "Realtime event: ${action::class.simpleName}")
                     syncScheduler.requestSync("realtime:${action::class.simpleName}")

@@ -33,6 +33,7 @@ import androidx.compose.material.icons.outlined.CloudQueue
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.GroupAdd
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Info
@@ -41,6 +42,7 @@ import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -105,6 +107,7 @@ import net.marvinweber.simsli.R
 @Composable
 fun SettingsTabContent(
     isSyncing: Boolean = false,
+    onNavigateToHouseholdMembers: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -302,6 +305,49 @@ fun SettingsTabContent(
                 confirmButton = {
                     TextButton(onClick = viewModel::dismissInvite) {
                         Text("Done")
+                    }
+                }
+            )
+        }
+
+        val showJoinWarning = uiState.showJoinWarning
+        if (showJoinWarning) {
+            AlertDialog(
+                onDismissRequest = viewModel::dismissJoinWarning,
+                icon = {
+                    Icon(
+                        imageVector = Icons.Outlined.WarningAmber,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                },
+                title = { Text("Join another household?") },
+                text = {
+                    val householdName = uiState.householdName ?: "your current household"
+                    val message = if (uiState.isOwner) {
+                        "Warning: Joining another household will delete \"$householdName\" and all its data. This cannot be undone.\n\nDo you want to continue?"
+                    } else {
+                        "Warning: Joining another household will remove you from \"$householdName\". You will lose access to its list and items.\n\nDo you want to continue?"
+                    }
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = viewModel::confirmJoinWarning,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        )
+                    ) {
+                        Text("Continue")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = viewModel::dismissJoinWarning) {
+                        Text("Cancel")
                     }
                 }
             )
@@ -644,6 +690,39 @@ fun SettingsTabContent(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            if (uiState.householdId != null) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .clickable {
+                                            scope.launch {
+                                                clipboard.setClipEntry(
+                                                    ClipData.newPlainText("Simsli Household ID", uiState.householdId).toClipEntry()
+                                                )
+                                                snackbarHostState.showSnackbar("Household ID copied to clipboard")
+                                            }
+                                        }
+                                        .padding(vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "ID: ${uiState.householdId}",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = Icons.Outlined.ContentCopy,
+                                        contentDescription = "Copy household ID",
+                                        modifier = Modifier.size(12.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                    )
+                                }
+                            }
                         }
                         IconButton(
                             onClick = { viewModel.startRename(uiState.householdName) },
@@ -661,12 +740,12 @@ fun SettingsTabContent(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(enabled = !uiState.isBusy, onClick = viewModel::startInvite)
+                                .clickable(enabled = !uiState.isBusy, onClick = onNavigateToHouseholdMembers)
                                 .padding(horizontal = 16.dp, vertical = 14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.PersonAdd,
+                                imageVector = Icons.Outlined.Group,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(22.dp)
@@ -674,12 +753,16 @@ fun SettingsTabContent(
                             Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Invite someone",
+                                    text = "Household members",
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontWeight = FontWeight.Medium
                                 )
                                 Text(
-                                    text = "Share an invite code to add a member",
+                                    text = if (uiState.memberCount > 0) {
+                                        "${uiState.memberCount} member" + if (uiState.memberCount != 1) "s" else ""
+                                    } else {
+                                        "View members"
+                                    },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -696,17 +779,64 @@ fun SettingsTabContent(
                             modifier = Modifier.padding(horizontal = 16.dp),
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                         )
+                        val canInvite = uiState.canInvite
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(enabled = !uiState.isBusy, onClick = viewModel::startJoin)
+                                .clickable(enabled = !uiState.isBusy && canInvite, onClick = viewModel::startInvite)
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.PersonAdd,
+                                contentDescription = null,
+                                tint = if (canInvite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Invite someone",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (canInvite) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                )
+                                Text(
+                                    text = if (canInvite) {
+                                        "Share an invite code to add a member"
+                                    } else {
+                                        uiState.inviteDisabledReason ?: "Only owners and admins can invite members"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (canInvite) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                )
+                            }
+                            if (canInvite) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Outlined.ArrowForwardIos,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+                        val canJoin = uiState.canJoin
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = !uiState.isBusy && canJoin, onClick = viewModel::startJoin)
                                 .padding(horizontal = 16.dp, vertical = 14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.GroupAdd,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = if (canJoin) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
                                 modifier = Modifier.size(22.dp)
                             )
                             Spacer(modifier = Modifier.width(14.dp))
@@ -714,20 +844,27 @@ fun SettingsTabContent(
                                 Text(
                                     text = "Join household",
                                     style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (canJoin) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                                 )
                                 Text(
-                                    text = "Enter an invite code from another device",
+                                    text = if (canJoin) {
+                                        "Enter an invite code from another device"
+                                    } else {
+                                        uiState.joinDisabledReason ?: "You cannot join another household as you are a member of a non-empty household"
+                                    },
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = if (canJoin) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                                 )
                             }
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Outlined.ArrowForwardIos,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            if (canJoin) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Outlined.ArrowForwardIos,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     } else {
                         HorizontalDivider(

@@ -164,8 +164,24 @@ class SyncManager @Inject constructor(
             // First sync of an offline household: the server adopts the local household
             // id (create_household_with_owner), keeping every local UUID reference valid.
             memberships.isEmpty() && localHousehold != null -> {
-                Log.d(TAG, "Household: adopting offline household ${localHousehold.id} server-side")
-                remoteDataSource.createHouseholdWithOwner(localHousehold.id, localHousehold.name)
+                val wasSynced = syncStateDao.get(SyncContract.KEY_INITIAL_UPLOAD_DONE) != null
+                if (wasSynced) {
+                    // Previously synced, but user has no memberships on server.
+                    // The user was removed from the household (HH-5 / DATA-2).
+                    Log.d(TAG, "Household: user was removed from household, wiping local data")
+                    db.clearAllTables()
+                    val now = Instant.now()
+                    val newHh = DbHousehold(
+                        id = UUID.randomUUID().toString(),
+                        name = "My household",
+                        createdAt = now,
+                        updatedAt = now
+                    )
+                    householdDao.insert(newHh)
+                } else {
+                    Log.d(TAG, "Household: adopting offline household ${localHousehold.id} server-side")
+                    remoteDataSource.createHouseholdWithOwner(localHousehold.id, localHousehold.name)
+                }
             }
 
             // Fresh account on a fresh device: one shared id on both sides.
@@ -189,29 +205,12 @@ class SyncManager @Inject constructor(
                     Log.d(TAG, "Household: pulling remote household $remoteHouseholdId (no local one)")
                     householdDao.insert(remoteDataSource.getHousehold(remoteHouseholdId).toDb())
                 } else if (localHousehold.id != remoteHouseholdId) {
-                    // v1 is single-household: remap local data onto the server household
-                    // so nothing is lost. True multi-household is a later milestone.
-                    Log.d(TAG, "Household: id mismatch, adopting remote household $remoteHouseholdId")
-                    adoptRemoteHousehold(localHousehold.id, remoteHouseholdId)
-                    // Bring in the authoritative household row — without it, pullDeltas
-                    // has no non-deleted household to work with in this same run.
+                    Log.d(TAG, "Household: id mismatch, switching to remote household $remoteHouseholdId")
+                    db.clearAllTables()
                     householdDao.insert(remoteDataSource.getHousehold(remoteHouseholdId).toDb())
                 }
             }
         }
-    }
-
-    private suspend fun adoptRemoteHousehold(oldHouseholdId: String, newHouseholdId: String) {
-        val now = Instant.now()
-        itemDao.reassignHousehold(oldHouseholdId, newHouseholdId, now)
-        storeDao.reassignHousehold(oldHouseholdId, newHouseholdId, now)
-        listEntryDao.reassignHousehold(oldHouseholdId, newHouseholdId, now)
-        categoryDao.reassignHousehold(oldHouseholdId, newHouseholdId, now)
-        // store_categories rows carry no householdId — they follow their store/category ids.
-        householdDao.delete(oldHouseholdId, now)
-        syncStateDao.clearAll()
-        // The remapped rows have no outbox entries; enqueueInitialUploadIfNeeded()
-        // picks them up because the watermark and upload marker are cleared during this first sync.
     }
 
     // --- 2. Outbox (local -> remote) ----------------------------------------------

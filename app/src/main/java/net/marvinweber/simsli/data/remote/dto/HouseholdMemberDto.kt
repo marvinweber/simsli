@@ -9,6 +9,8 @@ data class HouseholdMemberDto(
     @SerialName("household_id") val householdId: String,
     @SerialName("user_id") val userId: String,
     val role: String,
+    val email: String? = null,
+    val name: String? = null,
     @SerialName("joined_at") val joinedAt: String,
-    @SerialName("updated_at") val updatedAt: String
+    @SerialName("updated_at") val updatedAt: String? = null
 )

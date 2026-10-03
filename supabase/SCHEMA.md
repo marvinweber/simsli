@@ -160,9 +160,14 @@ Two helper functions handle the common check:
 Creates a household and adds the calling user as owner atomically.
 Used when syncing a locally-created (offline) household to the backend.
 
+### `get_household_members(p_household_id)`
+Returns members belonging to `p_household_id` with their user details (email, name, role, joined date), ordered by owner first. Only callable by members of that household.
+
+### `remove_household_member(p_household_id, p_user_id)`
+Removes a non-owner member from `p_household_id`. Only callable by the household owner. The owner cannot remove themselves.
+
 ### `accept_invite(token)`
-Validates a token, marks it used, adds the calling user to the household.
-Returns the `household_id` so the app can download the household data.
+Validates an invite token, cleans up the caller's previous household (deletes old household if sole owner; leaves it if member; refuses if caller owns a non-empty household), adds the caller to the new household, marks the token used, and returns the new `household_id`.
 
 ---
 

@@ -40,6 +40,23 @@ class SupabaseRemoteDataSource @Inject constructor(
             .decodeList()
     }
 
+    suspend fun getHouseholdMembers(householdId: String): List<HouseholdMemberDto> = withContext(ioDispatcher) {
+        supabaseClient.postgrest.rpc(
+            function = "get_household_members",
+            parameters = buildJsonObject { put("p_household_id", householdId) }
+        ).decodeList()
+    }
+
+    suspend fun removeHouseholdMember(householdId: String, userId: String): Unit = withContext(ioDispatcher) {
+        supabaseClient.postgrest.rpc(
+            function = "remove_household_member",
+            parameters = buildJsonObject {
+                put("p_household_id", householdId)
+                put("p_user_id", userId)
+            }
+        )
+    }
+
     suspend fun getHousehold(householdId: String): HouseholdDto = withContext(ioDispatcher) {
         supabaseClient.postgrest.from("households")
             .select { filter { eq("id", householdId) } }

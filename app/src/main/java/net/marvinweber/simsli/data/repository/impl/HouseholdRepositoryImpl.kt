@@ -7,12 +7,16 @@ import net.marvinweber.simsli.data.local.entity.DbOutboxEntry
 import net.marvinweber.simsli.data.local.mapper.toDomain
 import net.marvinweber.simsli.data.local.mapper.toDb
 import net.marvinweber.simsli.data.remote.SupabaseRemoteDataSource
+import net.marvinweber.simsli.data.remote.mapper.toDb
 import net.marvinweber.simsli.data.repository.AuthRepository
 import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.data.sync.SyncContract
+import net.marvinweber.simsli.data.sync.SyncManager
 import net.marvinweber.simsli.data.sync.SyncScheduler
 import net.marvinweber.simsli.di.IoDispatcher
 import net.marvinweber.simsli.domain.model.Household
+import net.marvinweber.simsli.domain.model.HouseholdMember
+import net.marvinweber.simsli.domain.model.MemberRole
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -21,6 +25,7 @@ import java.security.SecureRandom
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 
 @Singleton
@@ -30,6 +35,7 @@ class HouseholdRepositoryImpl @Inject constructor(
     private val syncScheduler: SyncScheduler,
     private val remoteDataSource: SupabaseRemoteDataSource,
     private val authRepository: AuthRepository,
+    private val syncManagerProvider: Provider<SyncManager>,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : HouseholdRepository {
 
@@ -104,10 +110,57 @@ class HouseholdRepositoryImpl @Inject constructor(
             if (authRepository.currentUserId() == null) {
                 return Result.failure(IllegalStateException("Not signed in — joining needs an account."))
             }
-            remoteDataSource.acceptInvite(token)
+            // 1. Redeems token on server: deletes old household if sole owner, or leaves it if member,
+            //    adds user to new household, marks token used, and returns new household ID.
+            val newHouseholdId = remoteDataSource.acceptInvite(token)
+
+            // 2. Fetch authoritative new household from remote
+            val newHousehold = remoteDataSource.getHousehold(newHouseholdId)
+
+            // 3. Clear all local tables (items, stores, categories, entries, outbox, watermarks)
+            syncManagerProvider.get().wipeLocalData()
+
+            // 4. Insert authoritative new household
+            householdDao.insert(newHousehold.toDb())
+
             Result.success(Unit)
         } catch (e: RestException) {
             // e.error is the PostgREST error message, e.g. "Invalid or expired invite token"
+            Result.failure(IllegalStateException(e.error, e))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun getMembers(householdId: String): Result<List<HouseholdMember>> {
+        return try {
+            val currentUserId = authRepository.currentUserId()
+            val dtos = remoteDataSource.getHouseholdMembers(householdId)
+            val members = dtos.map { dto ->
+                HouseholdMember(
+                    id = dto.id,
+                    householdId = dto.householdId,
+                    userId = dto.userId,
+                    role = MemberRole.fromString(dto.role),
+                    email = dto.email,
+                    name = dto.name,
+                    joinedAt = Instant.parse(dto.joinedAt),
+                    isCurrentUser = dto.userId == currentUserId
+                )
+            }
+            Result.success(members)
+        } catch (e: RestException) {
+            Result.failure(IllegalStateException(e.error, e))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun removeMember(householdId: String, userId: String): Result<Unit> {
+        return try {
+            remoteDataSource.removeHouseholdMember(householdId, userId)
+            Result.success(Unit)
+        } catch (e: RestException) {
             Result.failure(IllegalStateException(e.error, e))
         } catch (e: Exception) {
             Result.failure(e)
