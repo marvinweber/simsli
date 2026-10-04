@@ -25,3 +25,9 @@ app/release/
 # Supabase CLI state
 supabase/.branches/
 supabase/.temp/
+
+# Go server artifacts
+bin/
+server/data/
+*.db
+

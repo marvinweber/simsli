@@ -69,6 +69,8 @@ func Load() *Config {
 	var jwtSecret []byte
 	if jwtSecretStr != "" {
 		jwtSecret = []byte(jwtSecretStr)
+	} else if debug {
+		jwtSecret = []byte("simsli-dev-jwt-secret-stable-for-local-testing-12345")
 	} else {
 		// Generate random 32-byte secret for dev if not provided
 		jwtSecret = make([]byte, 32)

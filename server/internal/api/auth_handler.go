@@ -2,7 +2,9 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"net.marvinweber.simsli/server/internal/service"
 )
@@ -70,6 +72,38 @@ func (h *AuthHandler) Verify(w http.ResponseWriter, r *http.Request) {
 
 	if req.Token == "" {
 		writeJSONError(w, http.StatusBadRequest, "missing verification token")
+		return
+	}
+
+	// If accessed from a web browser via GET, redirect or provide deep link to launch the app
+	if r.Method == http.MethodGet && strings.Contains(r.Header.Get("Accept"), "text/html") {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		deepLink := fmt.Sprintf("simsli://auth/verify?token=%s", req.Token)
+		html := fmt.Sprintf(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Opening Simsli...</title>
+    <meta http-equiv="refresh" content="0;url=%s">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 80vh; margin: 0; background: #f8fafc; color: #0f172a; text-align: center; }
+        .card { background: white; padding: 2rem; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); max-width: 320px; }
+        h1 { margin-top: 0; font-size: 1.4rem; }
+        p { color: #64748b; font-size: 0.95rem; margin-bottom: 1.5rem; }
+        .btn { display: inline-block; padding: 0.75rem 1.5rem; background: #006C4C; color: white; text-decoration: none; border-radius: 9999px; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Simsli</h1>
+        <p>Opening the Simsli app to complete sign in...</p>
+        <a class="btn" href="%s">Open App</a>
+    </div>
+</body>
+</html>`, deepLink, deepLink)
+		_, _ = w.Write([]byte(html))
 		return
 	}
 
