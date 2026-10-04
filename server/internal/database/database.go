@@ -3,6 +3,8 @@ package database
 import (
 	"context"
 	"database/sql"
+	"embed"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -10,9 +12,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	migratedb "github.com/golang-migrate/migrate/v4/database"
+	"github.com/golang-migrate/migrate/v4/database/pgx/v5"
+	"github.com/golang-migrate/migrate/v4/database/sqlite"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite"
 )
+
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
 
 type DB struct {
 	*sql.DB
@@ -107,131 +117,38 @@ func (db *DB) Rebind(query string) string {
 }
 
 func (db *DB) Migrate() error {
-	schema := `
-	CREATE TABLE IF NOT EXISTS users (
-		id TEXT PRIMARY KEY,
-		email TEXT UNIQUE NOT NULL,
-		created_at TEXT NOT NULL,
-		updated_at TEXT NOT NULL
-	);
+	d, err := iofs.New(migrationsFS, "migrations")
+	if err != nil {
+		return fmt.Errorf("failed to create migration source driver: %w", err)
+	}
 
-	CREATE TABLE IF NOT EXISTS households (
-		id TEXT PRIMARY KEY,
-		name TEXT NOT NULL,
-		plan TEXT NOT NULL DEFAULT 'free',
-		status TEXT NOT NULL DEFAULT 'active',
-		current_period_end TEXT,
-		created_at TEXT NOT NULL,
-		updated_at TEXT NOT NULL,
-		deleted_at TEXT
-	);
+	var driver migratedb.Driver
+	if db.Driver == "pgx" {
+		driver, err = pgx.WithInstance(db.DB, &pgx.Config{
+			MultiStatementEnabled: true,
+		})
+	} else {
+		driver, err = sqlite.WithInstance(db.DB, &sqlite.Config{})
+	}
+	if err != nil {
+		return fmt.Errorf("failed to create migration database driver: %w", err)
+	}
 
-	CREATE TABLE IF NOT EXISTS household_members (
-		id TEXT PRIMARY KEY,
-		household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
-		user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-		role TEXT NOT NULL DEFAULT 'member',
-		joined_at TEXT NOT NULL,
-		updated_at TEXT NOT NULL,
-		UNIQUE(household_id, user_id)
-	);
+	m, err := migrate.NewWithInstance("iofs", d, db.Driver, driver)
+	if err != nil {
+		return fmt.Errorf("failed to initialize migration instance: %w", err)
+	}
 
-	CREATE TABLE IF NOT EXISTS stores (
-		id TEXT PRIMARY KEY,
-		household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
-		name TEXT NOT NULL,
-		sort_order REAL NOT NULL DEFAULT 0,
-		created_at TEXT NOT NULL,
-		updated_at TEXT NOT NULL,
-		deleted_at TEXT
-	);
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
 
-	CREATE TABLE IF NOT EXISTS categories (
-		id TEXT PRIMARY KEY,
-		household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
-		name TEXT NOT NULL,
-		emoji TEXT NOT NULL DEFAULT '',
-		sort_order REAL NOT NULL DEFAULT 0,
-		created_at TEXT NOT NULL,
-		updated_at TEXT NOT NULL,
-		deleted_at TEXT
-	);
+	version, dirty, err := m.Version()
+	if err != nil && !errors.Is(err, migrate.ErrNilVersion) {
+		log.Printf("[Database] Migrations applied (version check warning: %v)", err)
+	} else {
+		log.Printf("[Database] Schema at migration version %d (dirty: %v)", version, dirty)
+	}
 
-	CREATE TABLE IF NOT EXISTS store_categories (
-		store_id TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
-		category_id TEXT NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
-		sort_order REAL NOT NULL DEFAULT 0,
-		PRIMARY KEY(store_id, category_id)
-	);
-
-	CREATE TABLE IF NOT EXISTS items (
-		id TEXT PRIMARY KEY,
-		household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
-		category_id TEXT REFERENCES categories(id) ON DELETE SET NULL,
-		name TEXT NOT NULL,
-		notes TEXT NOT NULL DEFAULT '',
-		type TEXT NOT NULL DEFAULT 'PERMANENT',
-		default_unit TEXT,
-		sort_order REAL NOT NULL DEFAULT 0,
-		created_at TEXT NOT NULL,
-		updated_at TEXT NOT NULL,
-		deleted_at TEXT
-	);
-
-	CREATE TABLE IF NOT EXISTS item_stores (
-		item_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
-		store_id TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
-		created_at TEXT NOT NULL,
-		PRIMARY KEY(item_id, store_id)
-	);
-
-	CREATE TABLE IF NOT EXISTS list_entries (
-		id TEXT PRIMARY KEY,
-		household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
-		item_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
-		quantity REAL,
-		unit TEXT,
-		comment TEXT,
-		done INTEGER NOT NULL DEFAULT 0,
-		completed_at TEXT,
-		created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
-		created_at TEXT NOT NULL,
-		updated_at TEXT NOT NULL,
-		UNIQUE(household_id, item_id)
-	);
-
-	CREATE TABLE IF NOT EXISTS invite_tokens (
-		token TEXT PRIMARY KEY,
-		household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
-		created_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-		created_at TEXT NOT NULL,
-		expires_at TEXT NOT NULL,
-		used_at TEXT,
-		used_by TEXT REFERENCES users(id)
-	);
-
-	CREATE TABLE IF NOT EXISTS magic_links (
-		token TEXT PRIMARY KEY,
-		email TEXT NOT NULL,
-		created_at TEXT NOT NULL,
-		expires_at TEXT NOT NULL,
-		used_at TEXT
-	);
-
-	CREATE TABLE IF NOT EXISTS refresh_tokens (
-		token_hash TEXT PRIMARY KEY,
-		user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-		expires_at TEXT NOT NULL,
-		revoked_at TEXT
-	);
-
-	CREATE INDEX IF NOT EXISTS idx_stores_household_updated ON stores(household_id, updated_at);
-	CREATE INDEX IF NOT EXISTS idx_categories_household_updated ON categories(household_id, updated_at);
-	CREATE INDEX IF NOT EXISTS idx_items_household_updated ON items(household_id, updated_at);
-	CREATE INDEX IF NOT EXISTS idx_list_entries_household_updated ON list_entries(household_id, updated_at);
-	CREATE INDEX IF NOT EXISTS idx_household_members_user ON household_members(user_id);
-	`
-
-	_, err := db.Exec(schema)
-	return err
+	return nil
 }
