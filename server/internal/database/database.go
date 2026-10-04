@@ -99,6 +99,67 @@ func Connect(dbURL string) (*DB, error) {
 	return db, nil
 }
 
+type Tx struct {
+	*sql.Tx
+	db *DB
+}
+
+func (db *DB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) {
+	tx, err := db.DB.BeginTx(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	return &Tx{Tx: tx, db: db}, nil
+}
+
+func (db *DB) Exec(query string, args ...any) (sql.Result, error) {
+	return db.DB.Exec(db.Rebind(query), args...)
+}
+
+func (db *DB) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	return db.DB.ExecContext(ctx, db.Rebind(query), args...)
+}
+
+func (db *DB) Query(query string, args ...any) (*sql.Rows, error) {
+	return db.DB.Query(db.Rebind(query), args...)
+}
+
+func (db *DB) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return db.DB.QueryContext(ctx, db.Rebind(query), args...)
+}
+
+func (db *DB) QueryRow(query string, args ...any) *sql.Row {
+	return db.DB.QueryRow(db.Rebind(query), args...)
+}
+
+func (db *DB) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+	return db.DB.QueryRowContext(ctx, db.Rebind(query), args...)
+}
+
+func (tx *Tx) Exec(query string, args ...any) (sql.Result, error) {
+	return tx.Tx.Exec(tx.db.Rebind(query), args...)
+}
+
+func (tx *Tx) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	return tx.Tx.ExecContext(ctx, tx.db.Rebind(query), args...)
+}
+
+func (tx *Tx) Query(query string, args ...any) (*sql.Rows, error) {
+	return tx.Tx.Query(tx.db.Rebind(query), args...)
+}
+
+func (tx *Tx) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return tx.Tx.QueryContext(ctx, tx.db.Rebind(query), args...)
+}
+
+func (tx *Tx) QueryRow(query string, args ...any) *sql.Row {
+	return tx.Tx.QueryRow(tx.db.Rebind(query), args...)
+}
+
+func (tx *Tx) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+	return tx.Tx.QueryRowContext(ctx, tx.db.Rebind(query), args...)
+}
+
 func (db *DB) Rebind(query string) string {
 	if db.Driver != "pgx" {
 		return query

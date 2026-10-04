@@ -97,3 +97,28 @@ func TestExistingDatabaseAdoption(t *testing.T) {
 		t.Errorf("Expected version 1 (dirty: false), got version %d (dirty: %v)", version, dirty)
 	}
 }
+
+func TestRebind(t *testing.T) {
+	pgDB := &DB{Driver: "pgx"}
+	sqliteDB := &DB{Driver: "sqlite"}
+
+	q := "SELECT id, name FROM households WHERE deleted_at IS NULL AND id = ? AND created_at > ? LIMIT ? OFFSET ?"
+
+	pgRebound := pgDB.Rebind(q)
+	expectedPg := "SELECT id, name FROM households WHERE deleted_at IS NULL AND id = $1 AND created_at > $2 LIMIT $3 OFFSET $4"
+	if pgRebound != expectedPg {
+		t.Errorf("Expected %q, got %q", expectedPg, pgRebound)
+	}
+
+	// Idempotency: rebounding an already rebound query shouldn't change it
+	if pgDB.Rebind(pgRebound) != expectedPg {
+		t.Errorf("Expected idempotent rebind to keep %q", expectedPg)
+	}
+
+	// SQLite driver should leave query untouched
+	sqliteRebound := sqliteDB.Rebind(q)
+	if sqliteRebound != q {
+		t.Errorf("Expected SQLite to keep %q, got %q", q, sqliteRebound)
+	}
+}
+

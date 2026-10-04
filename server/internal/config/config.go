@@ -33,7 +33,7 @@ type Config struct {
 
 // Version is the server release version, synchronized with app releases.
 // Can be overridden at link time: -ldflags "-X net.marvinweber.simsli/server/internal/config.Version=x.y.z"
-var Version = "0.3.0"
+var Version = "0.3.1"
 
 func Load() *Config {
 	port := getEnv("SIMSLI_PORT", "8080")
