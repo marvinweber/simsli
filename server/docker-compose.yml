@@ -1,0 +1,48 @@
+services:
+  # Option 1: Default Self-Hosted (Single Container, Embedded SQLite)
+  simsli:
+    image: ghcr.io/marvinweber/simsli-server:latest
+    build: .
+    container_name: simsli-server
+    restart: unless-stopped
+    ports:
+      - "8080:8080"            # Public Mobile App API
+      - "127.0.0.1:8081:8081"  # Private Admin Dashboard (host/LAN only)
+    volumes:
+      - simsli_data:/data
+    environment:
+      - SIMSLI_SERVER_MODE=self_hosted
+      - SIMSLI_REGISTRATION_OPEN=false
+      - SIMSLI_DATABASE_URL=sqlite:///data/simsli.db
+      - SIMSLI_PUBLIC_URL=http://localhost:8080
+      # - SIMSLI_EMAIL_ALLOWLIST=*@family.de,marvin@example.com
+      # - SIMSLI_SMTP_HOST=smtp.resend.com
+      # - SIMSLI_SMTP_PORT=587
+      # - SIMSLI_SMTP_USER=resend
+      # - SIMSLI_SMTP_PASSWORD=re_123456789
+
+  # Option 2: Cloud / Postgres Mode (Optional for local testing)
+  # simsli-postgres:
+  #   build: .
+  #   ports:
+  #     - "8080:8080"
+  #     - "8081:8081"
+  #   environment:
+  #     - SIMSLI_SERVER_MODE=cloud
+  #     - SIMSLI_REGISTRATION_OPEN=false
+  #     - SIMSLI_DATABASE_URL=postgres://postgres:postgres@postgres:5432/simsli?sslmode=disable
+  #   depends_on:
+  #     - postgres
+  #
+  # postgres:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     - POSTGRES_USER=postgres
+  #     - POSTGRES_PASSWORD=postgres
+  #     - POSTGRES_DB=simsli
+  #   volumes:
+  #     - pg_data:/var/lib/postgresql/data
+
+volumes:
+  simsli_data:
+  # pg_data:

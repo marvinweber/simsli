@@ -1,39 +1,44 @@
 package net.marvinweber.simsli.data.sync
 
 import android.util.Log
-import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.postgrest.query.filter.FilterOperator
-import io.github.jan.supabase.realtime.PostgresAction
-import io.github.jan.supabase.realtime.channel
-import io.github.jan.supabase.realtime.postgresChangeFlow
-import io.github.jan.supabase.realtime.realtime
-import kotlinx.coroutines.CancellationException
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import net.marvinweber.simsli.data.local.AuthTokenStorage
 import net.marvinweber.simsli.data.local.dao.HouseholdDao
 import net.marvinweber.simsli.data.repository.AuthRepository
 import net.marvinweber.simsli.data.repository.AuthState
 import net.marvinweber.simsli.di.ApplicationScope
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resume
 
 /**
- * Realtime as a trigger, not a transport: postgres changes on list_entries,
- * items, stores, categories and store_categories are turned into sync requests,
- * and the watermark delta pull does the actual work (and remains the backstop
- * for anything missed while disconnected).
+ * Realtime WebSocket observer: connects to the Simsli server WebSocket endpoint
+ * ONLY when the app is in the foreground (via [ProcessLifecycleOwner]).
  *
- * One channel per household. Events fire only for the signed-in user's household
- * — Realtime authorizes through the same RLS policies as PostgREST.
+ * When the app is closed, minimized, or the screen is turned off, the connection
+ * is immediately severed to preserve battery and avoid wasteful background network sync.
  */
 @Singleton
 class RealtimeObserver @Inject constructor(
-    private val supabaseClient: SupabaseClient,
+    private val httpClient: OkHttpClient,
+    private val tokenStorage: AuthTokenStorage,
     private val authRepository: AuthRepository,
     private val householdDao: HouseholdDao,
     private val syncScheduler: SyncScheduler,
@@ -42,68 +47,81 @@ class RealtimeObserver @Inject constructor(
 
     fun start() {
         externalScope.launch {
-            // Only re-listen when the household ID changes (e.g. adoption on first sync) —
-            // any other households-table write must not tear down and rejoin the channel.
-            combine(
-                authRepository.authState,
-                householdDao.getHousehold().map { it?.id }.distinctUntilChanged()
-            ) { auth, householdId -> auth to householdId }
-                .collectLatest { (auth, householdId) ->
-                    if (auth !is AuthState.SignedIn || householdId == null) return@collectLatest
-                    // Suspends until sign-out or household change cancels this coroutine —
-                    // the finally block in listen() then removes the channel.
-                    listen(householdId)
-                }
+            // Suspends when the app is backgrounded/stopped; automatically reconnects on foreground.
+            ProcessLifecycleOwner.get().lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                Log.d(TAG, "App in foreground: activating realtime observer")
+                combine(
+                    authRepository.authState,
+                    householdDao.getHousehold().map { it?.id }.distinctUntilChanged()
+                ) { auth, householdId -> auth to householdId }
+                    .collectLatest { (auth, householdId) ->
+                        if (auth !is AuthState.SignedIn || householdId == null) return@collectLatest
+                        listen(householdId)
+                    }
+            }
         }
     }
 
-    private suspend fun listen(householdId: String) {
-        val channel = supabaseClient.realtime.channel("household:$householdId")
-        val entryChanges = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-            table = "list_entries"
-            filter("household_id", FilterOperator.EQ, householdId)
-        }
-        val itemChanges = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-            table = "items"
-            filter("household_id", FilterOperator.EQ, householdId)
-        }
-        val storeChanges = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-            table = "stores"
-            filter("household_id", FilterOperator.EQ, householdId)
-        }
-        val categoryChanges = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-            table = "categories"
-            filter("household_id", FilterOperator.EQ, householdId)
-        }
-        // store_categories carries no household_id — no server-side filter possible.
-        // Delivery is still RLS-scoped, and the events are only sync triggers anyway.
-        val storeCategoryChanges = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-            table = "store_categories"
-        }
-        val memberChanges = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-            table = "household_members"
-            filter("household_id", FilterOperator.EQ, householdId)
-        }
-        try {
-            channel.subscribe(blockUntilSubscribed = true)
-            Log.d(TAG, "Realtime channel joined for household $householdId")
-            // (Re)joined: backfill anything missed while we were not connected.
-            syncScheduler.requestSync("realtime:joined")
-            merge(entryChanges, itemChanges, storeChanges, categoryChanges, storeCategoryChanges, memberChanges)
-                .collect { action ->
-                    Log.d(TAG, "Realtime event: ${action::class.simpleName}")
-                    syncScheduler.requestSync("realtime:${action::class.simpleName}")
+    private suspend fun listen(householdId: String) = coroutineScope {
+        while (isActive) {
+            val token = tokenStorage.accessToken
+            if (token.isNullOrBlank()) {
+                delay(RECONNECT_DELAY_MS)
+                continue
+            }
+
+            val wsUrl = tokenStorage.serverUrl
+                .replaceFirst("^http".toRegex(), "ws")
+                .trimEnd('/')
+
+            val request = Request.Builder()
+                .url("$wsUrl/api/v1/realtime?token=$token&household_id=$householdId")
+                .build()
+
+            val closedNormally = suspendCancellableCoroutine<Boolean> { cont ->
+                var socket: WebSocket? = null
+                val listener = object : WebSocketListener() {
+                    override fun onOpen(webSocket: WebSocket, response: Response) {
+                        Log.d(TAG, "Realtime WebSocket connected for household $householdId")
+                        syncScheduler.requestSync("realtime:connected")
+                    }
+
+                    override fun onMessage(webSocket: WebSocket, text: String) {
+                        Log.d(TAG, "Realtime event received: $text")
+                        syncScheduler.requestSync("realtime:event")
+                    }
+
+                    override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                        webSocket.close(1000, null)
+                    }
+
+                    override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                        Log.d(TAG, "Realtime WebSocket closed ($code): $reason")
+                        if (cont.isActive) cont.resume(true)
+                    }
+
+                    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                        Log.w(TAG, "Realtime WebSocket failure: ${t.message}")
+                        if (cont.isActive) cont.resume(false)
+                    }
                 }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.w(TAG, "Realtime channel failed — falling back to plain delta sync: ${e.message}")
-        } finally {
-            runCatching { supabaseClient.realtime.removeChannel(channel) }
+
+                socket = httpClient.newWebSocket(request, listener)
+
+                cont.invokeOnCancellation {
+                    Log.d(TAG, "Closing realtime WebSocket (app backgrounded or lifecycle stopped)")
+                    socket.close(1000, "App backgrounded")
+                }
+            }
+
+            if (!closedNormally && isActive) {
+                delay(RECONNECT_DELAY_MS)
+            }
         }
     }
 
     private companion object {
         const val TAG = "SimsliRealtime"
+        const val RECONNECT_DELAY_MS = 5000L
     }
 }

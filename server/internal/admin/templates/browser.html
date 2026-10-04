@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Simsli - Data Browser</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <style>
+    :root { --pico-font-size: 92%; }
+    .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
+    .badge-success { background: #2e7d32; color: white; }
+    .badge-info { background: #0288d1; color: white; }
+    .badge-warning { background: #ed6c02; color: white; }
+    .table-nav { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1.5rem; }
+    .table-nav a { padding: 0.35rem 0.75rem; font-size: 0.85rem; margin: 0; }
+    .data-table-container { overflow-x: auto; background: var(--pico-card-background-color); border: 1px solid var(--pico-muted-border-color); border-radius: 8px; margin-bottom: 1.5rem; }
+    table { margin-bottom: 0; font-size: 0.85rem; white-space: nowrap; }
+    th { background: var(--pico-table-row-stripped-background-color); position: sticky; top: 0; }
+    td { max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+    .null-val { color: var(--pico-muted-color); font-style: italic; }
+    .cell-mono { font-family: monospace; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <main class="container-fluid" style="padding: 1.5rem 2rem;">
+    <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <h2 style="margin-bottom: 0.2rem;">🗄️ Database Browser</h2>
+        <p style="margin: 0; color: var(--pico-muted-color);">Inspect raw tables and filter by household</p>
+      </div>
+      <div style="display: flex; gap: 0.75rem; align-items: center;">
+        <a href="/" role="button" class="outline">📊 Dashboard Overview</a>
+        <span class="badge {{if eq .ServerInfo.ServerMode "cloud"}}badge-info{{else}}badge-success{{end}}">
+          {{.ServerInfo.ServerMode}}
+        </span>
+        <span class="badge badge-info">
+          DB: {{.ServerInfo.DatabaseDriver}}
+        </span>
+      </div>
+    </header>
+
+    {{if .Error}}
+      <article style="background: rgba(211, 47, 47, 0.15); border-color: #d32f2f; margin-bottom: 1rem;">
+        {{.Error}}
+      </article>
+    {{end}}
+
+    <!-- Table Selection Navigation -->
+    <div class="table-nav">
+      {{range .Tables}}
+        <a href="/browser?table={{.}}{{if $.CurrentHousehold}}&household_id={{$.CurrentHousehold}}{{end}}" 
+           role="button" 
+           class="{{if eq $.CurrentTable .}}contrast{{else}}outline{{end}}">
+          {{.}}
+        </a>
+      {{end}}
+    </div>
+
+    <!-- Filter Bar -->
+    <article style="padding: 1rem; margin-bottom: 1.5rem;">
+      <form method="GET" action="/browser" style="display: flex; gap: 1rem; align-items: flex-end; margin: 0; flex-wrap: wrap;">
+        <input type="hidden" name="table" value="{{.CurrentTable}}">
+        <div style="flex: 1; min-width: 280px; margin: 0;">
+          <label for="household_id" style="font-weight: 600; margin-bottom: 0.3rem;">Filter by Household:</label>
+          <select id="household_id" name="household_id" onchange="this.form.submit()" style="margin: 0;">
+            <option value="">-- All Households (No Filter) --</option>
+            {{range .Households}}
+              <option value="{{.ID}}" {{if eq $.CurrentHousehold .ID}}selected{{end}}>
+                {{.Name}} ({{.ID}})
+              </option>
+            {{end}}
+          </select>
+        </div>
+        <button type="submit" class="outline" style="margin: 0; width: auto;">Apply Filter</button>
+        {{if .CurrentHousehold}}
+          <a href="/browser?table={{.CurrentTable}}" role="button" class="secondary" style="margin: 0; width: auto;">Clear Filter</a>
+        {{end}}
+      </form>
+    </article>
+
+    <!-- Table Meta -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap;">
+      <small style="color: var(--pico-muted-color);">
+        Showing <strong>{{len .Rows}}</strong> of <strong>{{.TotalCount}}</strong> rows in <code>{{.CurrentTable}}</code>
+        {{if .CurrentHousehold}}
+          for household <code>{{.CurrentHousehold}}</code>
+        {{end}}
+      </small>
+      <div>
+        {{if .HasPrev}}
+          <a href="/browser?table={{.CurrentTable}}{{if .CurrentHousehold}}&household_id={{.CurrentHousehold}}{{end}}&offset={{.PrevOffset}}" 
+             role="button" class="outline" style="padding: 0.2rem 0.6rem; font-size: 0.8rem;">&larr; Previous</a>
+        {{end}}
+        {{if .HasNext}}
+          <a href="/browser?table={{.CurrentTable}}{{if .CurrentHousehold}}&household_id={{.CurrentHousehold}}{{end}}&offset={{.NextOffset}}" 
+             role="button" class="outline" style="padding: 0.2rem 0.6rem; font-size: 0.8rem;">Next &rarr;</a>
+        {{end}}
+      </div>
+    </div>
+
+    <!-- Data Table View -->
+    <div class="data-table-container">
+      {{if .Rows}}
+        <table role="grid">
+          <thead>
+            <tr>
+              {{range .Columns}}
+                <th scope="col">{{.}}</th>
+              {{end}}
+            </tr>
+          </thead>
+          <tbody>
+            {{range $r := .Rows}}
+              <tr>
+                {{range $i, $c := $r}}
+                  <td>
+                    {{if eq $c "NULL"}}
+                      <span class="null-val">null</span>
+                    {{else}}
+                      {{$colName := index $.Columns $i}}
+                      {{if or (eq $colName "id") (eq $colName "household_id") (eq $colName "user_id") (eq $colName "item_id") (eq $colName "store_id") (eq $colName "category_id") (eq $colName "token")}}
+                        {{if and (eq $colName "household_id") (ne $.CurrentHousehold $c)}}
+                          <a href="/browser?table={{$.CurrentTable}}&household_id={{$c}}" class="cell-mono" title="Filter to this household">{{$c}}</a>
+                        {{else}}
+                          <span class="cell-mono">{{$c}}</span>
+                        {{end}}
+                      {{else}}
+                        {{$c}}
+                      {{end}}
+                    {{end}}
+                  </td>
+                {{end}}
+              </tr>
+            {{end}}
+          </tbody>
+        </table>
+      {{else}}
+        <div style="padding: 2.5rem; text-align: center; color: var(--pico-muted-color);">
+          No records found in <code>{{.CurrentTable}}</code>{{if .CurrentHousehold}} for this household{{end}}.
+        </div>
+      {{end}}
+    </div>
+  </main>
+</body>
+</html>

@@ -35,7 +35,7 @@ import javax.inject.Singleton
  * from scratch — that is the offline-adoption flow doing its job, and a handy
  * way to test it with realistic data.)
  *
- * The server-side twin of this dataset lives in supabase/seed.sql — keep the
+ * The server-side twin of this dataset lives in server/internal/service/seed.go — keep the
  * two in mind when changing either.
  */
 @Singleton

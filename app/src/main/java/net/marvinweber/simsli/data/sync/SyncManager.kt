@@ -29,7 +29,15 @@ import net.marvinweber.simsli.data.local.dao.SyncStateDao
 import net.marvinweber.simsli.data.local.entity.DbHousehold
 import net.marvinweber.simsli.data.local.entity.DbOutboxEntry
 import net.marvinweber.simsli.data.local.entity.DbSyncState
-import net.marvinweber.simsli.data.remote.SupabaseRemoteDataSource
+import net.marvinweber.simsli.data.remote.SimsliRemoteDataSource
+import net.marvinweber.simsli.data.remote.dto.CategoryDto
+import net.marvinweber.simsli.data.remote.dto.FlushRequestDto
+import net.marvinweber.simsli.data.remote.dto.HouseholdDto
+import net.marvinweber.simsli.data.remote.dto.ItemDto
+import net.marvinweber.simsli.data.remote.dto.ItemStoreDto
+import net.marvinweber.simsli.data.remote.dto.ListEntryDto
+import net.marvinweber.simsli.data.remote.dto.StoreCategoryDto
+import net.marvinweber.simsli.data.remote.dto.StoreDto
 import net.marvinweber.simsli.data.remote.mapper.toDb
 import net.marvinweber.simsli.data.remote.mapper.toDto
 import net.marvinweber.simsli.data.repository.AuthRepository
@@ -43,22 +51,19 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Two-way delta sync between Room and Supabase:
+ * Two-way delta sync between Room and the Simsli Go backend:
  *
- *  1. resolveHousehold — makes sure the signed-in user belongs to a household the
- *     local data can live under (adopting the offline household via RPC on first sync)
- *  2. flushOutbox — pushes pending local writes (current row state, last-write-wins)
+ *  1. resolveHousehold — ensures the signed-in user belongs to a household on the server
+ *  2. flushOutbox — pushes pending local writes in an atomic flush request
  *  3. pullDeltas — pulls server rows with updated_at newer than the local watermark
  *  4. gcExpiredEntries — removes checked-off entries past the "Recently checked" TTL
  *
  * Runs are serialized; a failed run leaves its state consistent for a retry.
- * Triggers: sign-in / session restore, debounced [SyncScheduler] requests (local
- * writes + realtime events), and the manual sync button.
  */
 @Singleton
 class SyncManager @Inject constructor(
     private val authRepository: AuthRepository,
-    private val remoteDataSource: SupabaseRemoteDataSource,
+    private val remoteDataSource: SimsliRemoteDataSource,
     private val db: SimsliDatabase,
     private val householdDao: HouseholdDao,
     private val storeDao: StoreDao,
@@ -135,16 +140,12 @@ class SyncManager @Inject constructor(
     }
 
     /**
-     * Wipes all local app data — every Room table, including outbox and watermarks
-     * (AUTH-2 / DATA-1). Runs under the sync mutex so a pull that was already in
-     * flight can't repopulate the database after the wipe; runs queued behind the
-     * wipe bail out on the missing user id once the session is gone.
+     * Wipes all local app data — every Room table, including outbox and watermarks.
      */
     suspend fun wipeLocalData() {
         mutex.withLock {
             withContext(ioDispatcher) {
-                Log.d(TAG, "Wiping all local data (sign-out)")
-                // Blocking; like DemoDataSeeder, must not run inside a transaction.
+                Log.d(TAG, "Wiping all local data")
                 db.clearAllTables()
             }
         }
@@ -162,12 +163,10 @@ class SyncManager @Inject constructor(
 
         when {
             // First sync of an offline household: the server adopts the local household
-            // id (create_household_with_owner), keeping every local UUID reference valid.
+            // id, keeping every local UUID reference valid.
             memberships.isEmpty() && localHousehold != null -> {
                 val wasSynced = syncStateDao.get(SyncContract.KEY_INITIAL_UPLOAD_DONE) != null
                 if (wasSynced) {
-                    // Previously synced, but user has no memberships on server.
-                    // The user was removed from the household (HH-5 / DATA-2).
                     Log.d(TAG, "Household: user was removed from household, wiping local data")
                     db.clearAllTables()
                     val now = Instant.now()
@@ -184,7 +183,7 @@ class SyncManager @Inject constructor(
                 }
             }
 
-            // Fresh account on a fresh device: one shared id on both sides.
+            // Fresh account on a fresh device
             memberships.isEmpty() && localHousehold == null -> {
                 Log.d(TAG, "Household: fresh account + fresh device, creating household")
                 val now = Instant.now()
@@ -198,7 +197,7 @@ class SyncManager @Inject constructor(
                 remoteDataSource.createHouseholdWithOwner(household.id, household.name)
             }
 
-            // Account already belongs to a household (second device / joined via invite).
+            // Account already belongs to a household
             else -> {
                 val remoteHouseholdId = memberships.first().householdId
                 if (localHousehold == null) {
@@ -215,11 +214,6 @@ class SyncManager @Inject constructor(
 
     // --- 2. Outbox (local -> remote) ----------------------------------------------
 
-    /**
-     * Data written before the outbox existed is only discoverable here: while no
-     * initial upload marker exists, enqueue every local row for upload.
-     * Enqueued in dependency order (categories/stores -> items -> child/join tables).
-     */
     private suspend fun enqueueInitialUploadIfNeeded() {
         if (syncStateDao.get(SyncContract.KEY_INITIAL_UPLOAD_DONE) != null ||
             syncStateDao.get(SyncContract.TABLE_ITEMS) != null
@@ -231,7 +225,6 @@ class SyncManager @Inject constructor(
 
         Log.d(TAG, "Initial upload: enqueuing all local rows")
 
-        // 1. Categories & Stores (referenced by items and join tables)
         val pendingCategories = outboxDao.getPendingEntityIds(SyncContract.ENTITY_CATEGORY).toSet()
         categoryDao.getAllIncludingDeleted(household.id)
             .filter { it.id !in pendingCategories }
@@ -242,13 +235,11 @@ class SyncManager @Inject constructor(
             .filter { it.id !in pendingStores }
             .forEach { outboxDao.enqueue(upsertEntry(SyncContract.ENTITY_STORE, it.id)) }
 
-        // 2. Items (references categories and household)
         val pendingItems = outboxDao.getPendingEntityIds(SyncContract.ENTITY_ITEM).toSet()
         itemDao.getAllIncludingDeleted(household.id)
             .filter { it.id !in pendingItems }
             .forEach { outboxDao.enqueue(upsertEntry(SyncContract.ENTITY_ITEM, it.id)) }
 
-        // 3. Child entries & join tables (references items, stores, categories)
         val pendingEntries = outboxDao.getPendingEntityIds(SyncContract.ENTITY_LIST_ENTRY).toSet()
         listEntryDao.getAllByHousehold(household.id)
             .filter { it.id !in pendingEntries }
@@ -292,10 +283,6 @@ class SyncManager @Inject constructor(
         else -> 4
     }
 
-    /**
-     * Pushes the outbox in dependency order (parents before children) and stops at the
-     * first failure — later entries can depend on earlier rows server-side.
-     */
     private suspend fun flushOutbox(userId: String) {
         val entries = outboxDao.getAll().sortedWith(
             compareBy(
@@ -303,75 +290,93 @@ class SyncManager @Inject constructor(
                 { it.id }
             )
         )
-        if (entries.isNotEmpty()) {
-            Log.d(TAG, "Outbox: flushing ${entries.size} entries")
-        }
+        if (entries.isEmpty()) return
+        Log.d(TAG, "Outbox: flushing ${entries.size} entries")
+
+        val household = householdDao.getHouseholdOnce() ?: return
+
+        val stores = mutableListOf<StoreDto>()
+        val categories = mutableListOf<CategoryDto>()
+        val storeCategories = mutableListOf<StoreCategoryDto>()
+        val items = mutableListOf<ItemDto>()
+        val itemStores = mutableListOf<ItemStoreDto>()
+        val listEntries = mutableListOf<ListEntryDto>()
+        val deletedStores = mutableListOf<String>()
+        val deletedCategories = mutableListOf<String>()
+        val deletedItems = mutableListOf<String>()
+        val deletedEntries = mutableListOf<String>()
+        var hhDto: HouseholdDto? = null
+
         for (entry in entries) {
-            Log.d(TAG, "Outbox: pushing ${entry.entityType}/${entry.entityId} (${entry.operation})")
-            try {
-                when (entry.entityType) {
-                    SyncContract.ENTITY_HOUSEHOLD -> {
-                        val local = householdDao.getHouseholdByIdIncludingDeleted(entry.entityId)
-                        if (local != null) remoteDataSource.upsertHousehold(local.toDto())
-                    }
-
-                    SyncContract.ENTITY_ITEM -> {
-                        val local = itemDao.getByIdIncludingDeleted(entry.entityId)
-                        if (local != null) remoteDataSource.upsertItem(local.toDto())
-                    }
-
-                    SyncContract.ENTITY_STORE -> {
-                        val local = storeDao.getByIdIncludingDeleted(entry.entityId)
-                        if (local != null) remoteDataSource.upsertStore(local.toDto())
-                    }
-
-                    SyncContract.ENTITY_LIST_ENTRY -> {
-                        val local = listEntryDao.getListEntryOnce(entry.entityId)
-                        if (local != null) {
-                            remoteDataSource.upsertListEntry(local.toDto(fallbackCreatedBy = userId))
-                        } else {
-                            // Deleted locally before it could be pushed — delete server-side too.
-                            remoteDataSource.deleteListEntry(entry.entityId)
-                        }
-                    }
-
-                    SyncContract.ENTITY_ITEM_STORE -> {
-                        val (itemId, storeId) = SyncContract.parseItemStoreEntityId(entry.entityId)
-                            ?: error("Malformed item_store entity id: ${entry.entityId}")
-                        val local = itemStoreDao.getOnce(itemId, storeId)
-                        if (local != null) {
-                            remoteDataSource.upsertItemStores(listOf(local.toDto()))
-                        } else {
-                            remoteDataSource.deleteItemStore(itemId, storeId)
-                        }
-                    }
-
-                    SyncContract.ENTITY_CATEGORY -> {
-                        val local = categoryDao.getByIdIncludingDeleted(entry.entityId)
-                        if (local != null) remoteDataSource.upsertCategory(local.toDto())
-                    }
-
-                    SyncContract.ENTITY_STORE_CATEGORY -> {
-                        val (storeId, categoryId) = SyncContract.parseStoreCategoryEntityId(entry.entityId)
-                            ?: error("Malformed store_category entity id: ${entry.entityId}")
-                        val local = storeCategoryDao.getOnce(storeId, categoryId)
-                        if (local != null) {
-                            remoteDataSource.upsertStoreCategories(listOf(local.toDto()))
-                        } else {
-                            remoteDataSource.deleteStoreCategory(storeId, categoryId)
-                        }
+            when (entry.entityType) {
+                SyncContract.ENTITY_HOUSEHOLD -> {
+                    val local = householdDao.getHouseholdByIdIncludingDeleted(entry.entityId)
+                    if (local != null) hhDto = local.toDto()
+                }
+                SyncContract.ENTITY_STORE -> {
+                    val local = storeDao.getByIdIncludingDeleted(entry.entityId)
+                    if (local != null) stores.add(local.toDto())
+                }
+                SyncContract.ENTITY_CATEGORY -> {
+                    val local = categoryDao.getByIdIncludingDeleted(entry.entityId)
+                    if (local != null) categories.add(local.toDto())
+                }
+                SyncContract.ENTITY_ITEM -> {
+                    val local = itemDao.getByIdIncludingDeleted(entry.entityId)
+                    if (local != null) items.add(local.toDto())
+                }
+                SyncContract.ENTITY_LIST_ENTRY -> {
+                    val local = listEntryDao.getListEntryOnce(entry.entityId)
+                    if (local != null) {
+                        listEntries.add(local.toDto(fallbackCreatedBy = userId))
+                    } else {
+                        deletedEntries.add(entry.entityId)
                     }
                 }
-                outboxDao.delete(entry.id)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                outboxDao.incrementAttempts(entry.id)
-                throw IllegalStateException(
-                    "Outbox flush failed at ${entry.entityType}/${entry.entityId}: ${e.message}",
-                    e
-                )
+                SyncContract.ENTITY_ITEM_STORE -> {
+                    val (itemId, storeId) = SyncContract.parseItemStoreEntityId(entry.entityId) ?: continue
+                    val local = itemStoreDao.getOnce(itemId, storeId)
+                    if (local != null) {
+                        itemStores.add(local.toDto())
+                    }
+                }
+                SyncContract.ENTITY_STORE_CATEGORY -> {
+                    val (storeId, categoryId) = SyncContract.parseStoreCategoryEntityId(entry.entityId) ?: continue
+                    val local = storeCategoryDao.getOnce(storeId, categoryId)
+                    if (local != null) {
+                        storeCategories.add(local.toDto())
+                    }
+                }
             }
+        }
+
+        val req = FlushRequestDto(
+            householdId = household.id,
+            household = hhDto,
+            stores = stores.ifEmpty { null },
+            categories = categories.ifEmpty { null },
+            storeCategories = storeCategories.ifEmpty { null },
+            items = items.ifEmpty { null },
+            itemStores = itemStores.ifEmpty { null },
+            listEntries = listEntries.ifEmpty { null },
+            deletedStores = deletedStores.ifEmpty { null },
+            deletedCategories = deletedCategories.ifEmpty { null },
+            deletedItems = deletedItems.ifEmpty { null },
+            deletedEntries = deletedEntries.ifEmpty { null }
+        )
+
+        try {
+            remoteDataSource.flush(req)
+            for (entry in entries) {
+                outboxDao.delete(entry.id)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            for (entry in entries) {
+                outboxDao.incrementAttempts(entry.id)
+            }
+            throw IllegalStateException("Outbox flush failed: ${e.message}", e)
         }
     }
 
@@ -387,123 +392,91 @@ class SyncManager @Inject constructor(
     private suspend fun pullDeltas() {
         val household = householdDao.getHouseholdOnce() ?: return
 
-        pullHousehold(household.id)
-        pullStores(household.id)
-        pullCategories(household.id)
-        pullItems(household.id)
-        pullListEntries(household.id)
-        reconcileItemStores(household.id)
-        reconcileStoreCategories(household.id)
-    }
+        val watermarkKeys = listOf(
+            SyncContract.TABLE_HOUSEHOLDS,
+            SyncContract.TABLE_STORES,
+            SyncContract.TABLE_CATEGORIES,
+            SyncContract.TABLE_ITEMS,
+            SyncContract.TABLE_LIST_ENTRIES
+        )
+        val since = watermarkKeys.mapNotNull { syncStateDao.get(it)?.lastSyncedAt }.minOrNull() ?: Instant.EPOCH
 
-    private suspend fun pullHousehold(householdId: String) {
-        val since = syncStateDao.get(SyncContract.TABLE_HOUSEHOLDS)?.lastSyncedAt ?: Instant.EPOCH
-        val rows = remoteDataSource.fetchHouseholdsSince(householdId, since).map { it.toDb() }
-        if (rows.isNotEmpty()) {
-            Log.d(TAG, "Pull: ${rows.size} households (since=$since)")
-        }
-        rows.forEach { householdDao.insert(it) }   // insert uses OnConflictStrategy.REPLACE
-        rows.maxOfOrNull { it.updatedAt }?.let {
-            syncStateDao.upsert(DbSyncState(SyncContract.TABLE_HOUSEHOLDS, it))
-        }
-    }
+        Log.d(TAG, "Pulling deltas since $since")
+        val deltas = remoteDataSource.getDeltas(household.id, since)
 
-    private suspend fun pullStores(householdId: String) {
-        val since = syncStateDao.get(SyncContract.TABLE_STORES)?.lastSyncedAt ?: Instant.EPOCH
-        val rows = remoteDataSource.fetchStoresSince(householdId, since).map { it.toDb() }
-        if (rows.isNotEmpty()) {
-            Log.d(TAG, "Pull: ${rows.size} stores (since=$since)")
+        // 1. Household
+        deltas.household?.let {
+            householdDao.insert(it.toDb())
         }
-        storeDao.insertAll(rows)
-        rows.maxOfOrNull { it.updatedAt }?.let {
-            syncStateDao.upsert(DbSyncState(SyncContract.TABLE_STORES, it))
-        }
-    }
 
-    private suspend fun pullItems(householdId: String) {
-        val since = syncStateDao.get(SyncContract.TABLE_ITEMS)?.lastSyncedAt ?: Instant.EPOCH
-        val rows = remoteDataSource.fetchItemsSince(householdId, since).map { it.toDb() }
-        if (rows.isNotEmpty()) {
-            Log.d(TAG, "Pull: ${rows.size} items (since=$since)")
+        // 2. Stores
+        deltas.stores?.map { it.toDb() }?.let { rows ->
+            if (rows.isNotEmpty()) Log.d(TAG, "Pull: ${rows.size} stores")
+            storeDao.insertAll(rows)
         }
-        itemDao.insertAll(rows)
-        rows.maxOfOrNull { it.updatedAt }?.let {
-            syncStateDao.upsert(DbSyncState(SyncContract.TABLE_ITEMS, it))
-        }
-    }
 
-    private suspend fun pullListEntries(householdId: String) {
-        val since = syncStateDao.get(SyncContract.TABLE_LIST_ENTRIES)?.lastSyncedAt ?: Instant.EPOCH
-        val rows = remoteDataSource.fetchListEntriesSince(householdId, since).map { it.toDb() }
-        if (rows.isNotEmpty()) {
-            Log.d(TAG, "Pull: ${rows.size} list_entries (since=$since)")
+        // 3. Categories
+        deltas.categories?.map { it.toDb() }?.let { rows ->
+            if (rows.isNotEmpty()) Log.d(TAG, "Pull: ${rows.size} categories")
+            categoryDao.insertAll(rows)
         }
-        listEntryDao.insertAll(rows)
-        rows.maxOfOrNull { it.updatedAt }?.let {
-            syncStateDao.upsert(DbSyncState(SyncContract.TABLE_LIST_ENTRIES, it))
+
+        // 4. Items
+        deltas.items?.map { it.toDb() }?.let { rows ->
+            if (rows.isNotEmpty()) Log.d(TAG, "Pull: ${rows.size} items")
+            itemDao.insertAll(rows)
         }
-    }
 
-    /** item_stores has no updated_at server-side, so syncs reconcile the full assignment set. */
-    private suspend fun reconcileItemStores(householdId: String) {
-        val itemIds = itemDao.getAllIncludingDeleted(householdId).map { it.id }
-        val remoteRows = remoteDataSource.fetchItemStores(itemIds)
-        val localKeys = itemStoreDao.getAllForHousehold(householdId)
-            .map { it.itemId to it.storeId }
-            .toSet()
-
-        itemStoreDao.insertAll(remoteRows.map { it.toDb() })
-
-        val remoteKeys = remoteRows.map { it.itemId to it.storeId }.toSet()
-        val removed = localKeys - remoteKeys
-        if (remoteRows.isNotEmpty() || removed.isNotEmpty()) {
-            Log.d(TAG, "Reconcile item_stores: ${remoteRows.size} remote, $removed removed locally")
+        // 5. List entries
+        deltas.listEntries?.map { it.toDb() }?.let { rows ->
+            if (rows.isNotEmpty()) Log.d(TAG, "Pull: ${rows.size} list_entries")
+            listEntryDao.insertAll(rows)
         }
-        removed.forEach { (itemId, storeId) ->
-            itemStoreDao.delete(itemId, storeId)
-        }
-    }
 
-    private suspend fun pullCategories(householdId: String) {
-        val since = syncStateDao.get(SyncContract.TABLE_CATEGORIES)?.lastSyncedAt ?: Instant.EPOCH
-        val rows = remoteDataSource.fetchCategoriesSince(householdId, since).map { it.toDb() }
-        if (rows.isNotEmpty()) {
-            Log.d(TAG, "Pull: ${rows.size} categories (since=$since)")
+        // 6. Full reconcile item_stores
+        deltas.itemStores?.let { remoteRows ->
+            val localKeys = itemStoreDao.getAllForHousehold(household.id)
+                .map { it.itemId to it.storeId }
+                .toSet()
+            itemStoreDao.insertAll(remoteRows.map { it.toDb() })
+            val remoteKeys = remoteRows.map { it.itemId to it.storeId }.toSet()
+            val removed = localKeys - remoteKeys
+            if (remoteRows.isNotEmpty() || removed.isNotEmpty()) {
+                Log.d(TAG, "Reconcile item_stores: ${remoteRows.size} remote, $removed removed locally")
+            }
+            removed.forEach { (itemId, storeId) ->
+                itemStoreDao.delete(itemId, storeId)
+            }
         }
-        categoryDao.insertAll(rows)
-        rows.maxOfOrNull { it.updatedAt }?.let {
-            syncStateDao.upsert(DbSyncState(SyncContract.TABLE_CATEGORIES, it))
+
+        // 7. Full reconcile store_categories
+        deltas.storeCategories?.let { remoteRows ->
+            val localKeys = storeCategoryDao.getAllForHousehold(household.id)
+                .map { it.storeId to it.categoryId }
+                .toSet()
+            storeCategoryDao.insertAll(remoteRows.map { it.toDb() })
+            val remoteKeys = remoteRows.map { it.storeId to it.categoryId }.toSet()
+            val removed = localKeys - remoteKeys
+            if (remoteRows.isNotEmpty() || removed.isNotEmpty()) {
+                Log.d(TAG, "Reconcile store_categories: ${remoteRows.size} remote, $removed removed locally")
+            }
+            removed.forEach { (storeId, categoryId) ->
+                storeCategoryDao.delete(storeId, categoryId)
+            }
         }
-    }
 
-    /** store_categories has no updated_at server-side, so syncs reconcile the full ordering set. */
-    private suspend fun reconcileStoreCategories(householdId: String) {
-        val categoryIds = categoryDao.getAllIncludingDeleted(householdId).map { it.id }
-        val remoteRows = remoteDataSource.fetchStoreCategories(categoryIds)
-        val localKeys = storeCategoryDao.getAllForHousehold(householdId)
-            .map { it.storeId to it.categoryId }
-            .toSet()
-
-        storeCategoryDao.insertAll(remoteRows.map { it.toDb() })
-
-        val remoteKeys = remoteRows.map { it.storeId to it.categoryId }.toSet()
-        val removed = localKeys - remoteKeys
-        if (remoteRows.isNotEmpty() || removed.isNotEmpty()) {
-            Log.d(TAG, "Reconcile store_categories: ${remoteRows.size} remote, $removed removed locally")
+        val serverTime = try {
+            Instant.parse(deltas.serverTime)
+        } catch (e: Exception) {
+            Instant.now()
         }
-        removed.forEach { (storeId, categoryId) ->
-            storeCategoryDao.delete(storeId, categoryId)
+        watermarkKeys.forEach { key ->
+            syncStateDao.upsert(DbSyncState(key, serverTime))
         }
     }
 
     // --- 4. Garbage collection ------------------------------------------------------
 
-    /**
-     * Removes checked-off entries past the TTL — locally, and (idempotently) on the
-     * server via the outbox. Every device runs the same deterministic rule, so all
-     * of them converge on the same deletions without coordination.
-     * ONE_TIME items are retired together with their last entry.
-     */
     private suspend fun gcExpiredEntries() {
         val cutoff = Instant.now().minus(SyncContract.RECENTLY_CHECKED_TTL)
         val expired = listEntryDao.getExpiredDoneEntries(cutoff)
@@ -525,7 +498,7 @@ class SyncManager @Inject constructor(
 
             val item = itemDao.getByIdIncludingDeleted(entry.itemId)
             if (item != null && item.deletedAt == null && item.type == ItemType.ONE_TIME) {
-                itemDao.delete(item.id, now)   // soft delete — pushed as row state below
+                itemDao.delete(item.id, now)
                 outboxDao.enqueue(
                     DbOutboxEntry(
                         entityType = SyncContract.ENTITY_ITEM,

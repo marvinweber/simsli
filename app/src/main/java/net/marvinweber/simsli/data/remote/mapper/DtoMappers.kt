@@ -137,7 +137,7 @@ fun StoreCategoryDto.toDb(): DbStoreCategory = DbStoreCategory(
     storeId = storeId,
     categoryId = categoryId,
     sortOrder = sortOrder.toFloat(),
-    createdAt = createdAt.toInstantOrEpoch()
+    createdAt = createdAt.toInstantOrNull() ?: Instant.EPOCH
 )
 
 fun DbStoreCategory.toDto(): StoreCategoryDto = StoreCategoryDto(

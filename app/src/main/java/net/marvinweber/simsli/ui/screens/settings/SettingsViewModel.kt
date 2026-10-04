@@ -15,6 +15,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.marvinweber.simsli.BuildConfig
 import net.marvinweber.simsli.data.debug.DemoDataSeeder
+import net.marvinweber.simsli.data.local.AuthTokenStorage
+import net.marvinweber.simsli.data.remote.SimsliRemoteDataSource
 import net.marvinweber.simsli.data.repository.AuthRepository
 import net.marvinweber.simsli.data.repository.AuthState
 import net.marvinweber.simsli.data.repository.HouseholdRepository
@@ -23,8 +25,6 @@ import net.marvinweber.simsli.data.sync.SyncManager
 import net.marvinweber.simsli.di.IoDispatcher
 import net.marvinweber.simsli.domain.model.HouseholdMember
 import net.marvinweber.simsli.domain.model.MemberRole
-import java.net.HttpURLConnection
-import java.net.URL
 import javax.inject.Inject
 
 enum class EndpointStatus {
@@ -35,9 +35,15 @@ enum class EndpointStatus {
 }
 
 data class EndpointHealth(
-    val url: String = BuildConfig.SUPABASE_URL,
+    val url: String = BuildConfig.SERVER_URL,
     val status: EndpointStatus = EndpointStatus.CHECKING,
-    val detail: String? = null
+    val detail: String? = null,
+    val serverVersion: String? = null,
+    val apiVersion: Int? = null,
+    val serverMode: String? = null,
+    val isOutdatedServer: Boolean = false,
+    val isOutdatedApp: Boolean = false,
+    val warningMessage: String? = null
 )
 
 data class SettingsUiState(
@@ -70,6 +76,8 @@ class SettingsViewModel @Inject constructor(
     private val householdRepository: HouseholdRepository,
     private val syncManager: SyncManager,
     private val demoDataSeeder: DemoDataSeeder,
+    private val remoteDataSource: SimsliRemoteDataSource,
+    private val tokenStorage: AuthTokenStorage,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ViewModel() {
 
@@ -203,56 +211,46 @@ class SettingsViewModel @Inject constructor(
                 detail = null
             )
             val result = withContext(ioDispatcher) {
-                probeEndpoint(BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_ANON_KEY)
+                probeEndpoint(tokenStorage.serverUrl)
             }
             endpointHealth.value = result
         }
     }
 
-    private fun probeEndpoint(supabaseUrl: String, anonKey: String): EndpointHealth {
-        if (supabaseUrl.isBlank()) {
+    private suspend fun probeEndpoint(serverUrl: String): EndpointHealth {
+        if (serverUrl.isBlank()) {
             return EndpointHealth(
                 url = "(not configured)",
                 status = EndpointStatus.ERROR,
                 detail = "URL is missing"
             )
         }
+        val start = System.currentTimeMillis()
         return try {
-            val start = System.currentTimeMillis()
-            val healthUrl = if (supabaseUrl.endsWith("/")) "${supabaseUrl}auth/v1/health" else "$supabaseUrl/auth/v1/health"
-            val conn = (URL(healthUrl).openConnection() as HttpURLConnection).apply {
-                connectTimeout = 4000
-                readTimeout = 4000
-                requestMethod = "GET"
-                instanceFollowRedirects = true
-                if (anonKey.isNotBlank()) {
-                    setRequestProperty("apikey", anonKey)
-                }
-            }
-            val code = conn.responseCode
+            val info = remoteDataSource.getServerInfo(serverUrl)
             val latency = System.currentTimeMillis() - start
-            if (code in 200..299) {
-                EndpointHealth(
-                    url = supabaseUrl,
-                    status = EndpointStatus.ONLINE,
-                    detail = "Online (${latency}ms)"
-                )
-            } else if (code == 503) {
-                EndpointHealth(
-                    url = supabaseUrl,
-                    status = EndpointStatus.ERROR,
-                    detail = "Paused (HTTP 503)"
-                )
-            } else {
-                EndpointHealth(
-                    url = supabaseUrl,
-                    status = EndpointStatus.ERROR,
-                    detail = "HTTP $code"
-                )
+            val mismatch = hasMajorOrMinorMismatch(info.version, BuildConfig.VERSION_NAME)
+            val isOutdatedServer = mismatch < 0
+            val isOutdatedApp = mismatch > 0
+            val warning = when {
+                isOutdatedServer -> "Server update recommended (v${info.version} → v${BuildConfig.VERSION_NAME})"
+                isOutdatedApp -> "App update recommended (v${BuildConfig.VERSION_NAME} → v${info.version})"
+                else -> null
             }
+            EndpointHealth(
+                url = serverUrl,
+                status = EndpointStatus.ONLINE,
+                detail = "Online (${latency}ms)",
+                serverVersion = info.version,
+                apiVersion = info.apiVersion,
+                serverMode = info.serverMode,
+                isOutdatedServer = isOutdatedServer,
+                isOutdatedApp = isOutdatedApp,
+                warningMessage = warning
+            )
         } catch (e: Exception) {
             EndpointHealth(
-                url = supabaseUrl,
+                url = serverUrl,
                 status = EndpointStatus.OFFLINE,
                 detail = "Unreachable"
             )
@@ -470,6 +468,20 @@ class SettingsViewModel @Inject constructor(
                 }
                 .onFailure { statusMessage.value = "Join failed: ${it.message}" }
             isBusy.value = false
+        }
+    }
+
+    companion object {
+        fun hasMajorOrMinorMismatch(v1: String, v2: String): Int {
+            val p1 = v1.split('.').mapNotNull { it.toIntOrNull() }
+            val p2 = v2.split('.').mapNotNull { it.toIntOrNull() }
+            val major1 = p1.getOrElse(0) { 0 }
+            val major2 = p2.getOrElse(0) { 0 }
+            if (major1 != major2) return major1.compareTo(major2)
+            val minor1 = p1.getOrElse(1) { 0 }
+            val minor2 = p2.getOrElse(1) { 0 }
+            if (minor1 != minor2) return minor1.compareTo(minor2)
+            return 0
         }
     }
 }

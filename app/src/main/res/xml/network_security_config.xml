@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Cleartext is only needed for the local Supabase dev stack (emulator reaches
+<!-- Cleartext is only needed for the local Simsli dev server (emulator reaches
      the host via 10.0.2.2). Production uses https and is unaffected. -->
 <network-security-config>
     <domain-config cleartextTrafficPermitted="true">

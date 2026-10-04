@@ -509,8 +509,13 @@ fun SettingsTabContent(
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
+                            val syncSubtitle = when {
+                                uiState.endpointHealth.serverMode == "cloud" -> "Signed in • Simsli Cloud"
+                                uiState.endpointHealth.serverMode != null -> "Signed in • Self-hosted"
+                                else -> "Signed in • Cloud Sync"
+                            }
                             Text(
-                                text = "Signed in • Supabase Cloud",
+                                text = syncSubtitle,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -1058,6 +1063,24 @@ fun SettingsTabContent(
                                     EndpointStatus.CHECKING -> MaterialTheme.colorScheme.onSurfaceVariant
                                 }
                             )
+                            if (uiState.endpointHealth.serverVersion != null) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                val modeText = if (uiState.endpointHealth.serverMode == "cloud") "Cloud" else "Self-hosted"
+                                Text(
+                                    text = "Server v${uiState.endpointHealth.serverVersion} (API v${uiState.endpointHealth.apiVersion ?: 1}) • $modeText",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (uiState.endpointHealth.warningMessage != null) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = uiState.endpointHealth.warningMessage!!,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
 
                         Spacer(modifier = Modifier.width(8.dp))

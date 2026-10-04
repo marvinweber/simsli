@@ -1,0 +1,4 @@
+simsli-server
+*.db*
+data/
+.git
