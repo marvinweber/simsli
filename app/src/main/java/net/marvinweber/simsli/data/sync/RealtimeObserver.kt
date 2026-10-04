@@ -1,7 +1,11 @@
 package net.marvinweber.simsli.data.sync
 
 import android.util.Log
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -26,7 +30,10 @@ import kotlin.coroutines.resume
 
 /**
  * Realtime WebSocket observer: connects to the Simsli server WebSocket endpoint
- * and turns server invalidation events into local sync requests.
+ * ONLY when the app is in the foreground (via [ProcessLifecycleOwner]).
+ *
+ * When the app is closed, minimized, or the screen is turned off, the connection
+ * is immediately severed to preserve battery and avoid wasteful background network sync.
  */
 @Singleton
 class RealtimeObserver @Inject constructor(
@@ -40,19 +47,23 @@ class RealtimeObserver @Inject constructor(
 
     fun start() {
         externalScope.launch {
-            combine(
-                authRepository.authState,
-                householdDao.getHousehold().map { it?.id }.distinctUntilChanged()
-            ) { auth, householdId -> auth to householdId }
-                .collectLatest { (auth, householdId) ->
-                    if (auth !is AuthState.SignedIn || householdId == null) return@collectLatest
-                    listen(householdId)
-                }
+            // Suspends when the app is backgrounded/stopped; automatically reconnects on foreground.
+            ProcessLifecycleOwner.get().lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                Log.d(TAG, "App in foreground: activating realtime observer")
+                combine(
+                    authRepository.authState,
+                    householdDao.getHousehold().map { it?.id }.distinctUntilChanged()
+                ) { auth, householdId -> auth to householdId }
+                    .collectLatest { (auth, householdId) ->
+                        if (auth !is AuthState.SignedIn || householdId == null) return@collectLatest
+                        listen(householdId)
+                    }
+            }
         }
     }
 
-    private suspend fun listen(householdId: String) {
-        while (externalScope.isActive) {
+    private suspend fun listen(householdId: String) = coroutineScope {
+        while (isActive) {
             val token = tokenStorage.accessToken
             if (token.isNullOrBlank()) {
                 delay(RECONNECT_DELAY_MS)
@@ -98,11 +109,12 @@ class RealtimeObserver @Inject constructor(
                 socket = httpClient.newWebSocket(request, listener)
 
                 cont.invokeOnCancellation {
-                    socket.close(1000, "Normal closure")
+                    Log.d(TAG, "Closing realtime WebSocket (app backgrounded or lifecycle stopped)")
+                    socket.close(1000, "App backgrounded")
                 }
             }
 
-            if (!closedNormally) {
+            if (!closedNormally && isActive) {
                 delay(RECONNECT_DELAY_MS)
             }
         }
