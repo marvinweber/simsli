@@ -28,6 +28,7 @@ func setupTestAdmin(t *testing.T, adminKey string) (http.Handler, *config.Config
 		PublicURL:        "http://localhost:8080",
 		AdminKey:         adminKey,
 		Debug:            true,
+		Version:          config.Version,
 	}
 
 	repo := repository.New(db)
@@ -204,3 +205,23 @@ func TestLogout(t *testing.T) {
 		t.Fatal("expected expired session cookie on logout")
 	}
 }
+
+func TestDashboardShowsVersion(t *testing.T) {
+	router, cfg := setupTestAdmin(t, "my-secret-key")
+
+	req := httptest.NewRequest(http.MethodGet, "/?key=my-secret-key", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rec.Code)
+	}
+
+	body := rec.Body.String()
+	expectedVersionBadge := "v" + cfg.Version
+	if !strings.Contains(body, expectedVersionBadge) {
+		t.Fatalf("expected dashboard body to contain %q, but got: %s", expectedVersionBadge, body)
+	}
+}
+

@@ -22,9 +22,12 @@
 </head>
 <body>
   <main class="container" style="padding-top: 2rem; padding-bottom: 3rem;">
-    <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
       <div>
-        <h1 style="margin-bottom: 0.2rem;">🛒 Simsli Server</h1>
+        <h1 style="margin-bottom: 0.2rem; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+          🛒 Simsli Server
+          {{if .ServerInfo.Version}}<span class="badge badge-info" style="font-size: 0.8rem; font-weight: 600;">v{{.ServerInfo.Version}}</span>{{end}}
+        </h1>
         <p style="margin: 0; color: var(--pico-muted-color);">Administration & Telemetry</p>
       </div>
       <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
@@ -244,6 +247,10 @@
         </footer>
       </article>
     </dialog>
+
+    <footer style="margin-top: 3rem; text-align: center; color: var(--pico-muted-color); font-size: 0.85rem;">
+      Simsli Server {{if .ServerInfo.Version}}v{{.ServerInfo.Version}}{{end}} &bull; API v{{.ServerInfo.APIVersion}} &bull; Mode: {{.ServerInfo.ServerMode}}
+    </footer>
   </main>
 
   <script>
