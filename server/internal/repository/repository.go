@@ -841,3 +841,92 @@ func (r *Repository) Flush(ctx context.Context, req *model.FlushRequest) error {
 func (r *Repository) GetDatabaseDriver() string {
 	return r.db.Driver
 }
+
+func (r *Repository) BrowseTable(ctx context.Context, table, householdID string, limit, offset int) ([]string, [][]string, int, error) {
+	validTables := map[string]string{
+		"households":        "id = ?",
+		"household_members": "household_id = ?",
+		"stores":            "household_id = ?",
+		"categories":        "household_id = ?",
+		"items":             "household_id = ?",
+		"item_stores":       "item_id IN (SELECT id FROM items WHERE household_id = ?)",
+		"store_categories":  "store_id IN (SELECT id FROM stores WHERE household_id = ?)",
+		"list_entries":      "household_id = ?",
+		"invite_tokens":     "household_id = ?",
+		"users":             "id IN (SELECT user_id FROM household_members WHERE household_id = ?)",
+		"magic_links":       "email IN (SELECT u.email FROM users u JOIN household_members hm ON hm.user_id = u.id WHERE hm.household_id = ?)",
+		"refresh_tokens":    "user_id IN (SELECT user_id FROM household_members WHERE household_id = ?)",
+	}
+
+	filterClause, ok := validTables[table]
+	if !ok {
+		return nil, nil, 0, fmt.Errorf("unknown or unsupported table: %s", table)
+	}
+
+	var whereSQL string
+	var args []interface{}
+	if householdID != "" {
+		whereSQL = " WHERE " + filterClause
+		args = append(args, householdID)
+	}
+
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s%s", table, whereSQL)
+	var total int
+	if err := r.db.QueryRowContext(ctx, r.db.Rebind(countQuery), args...).Scan(&total); err != nil {
+		return nil, nil, 0, fmt.Errorf("count %s: %w", table, err)
+	}
+
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 500 {
+		limit = 500
+	}
+
+	query := fmt.Sprintf("SELECT * FROM %s%s LIMIT ? OFFSET ?", table, whereSQL)
+	qArgs := append(args, limit, offset)
+
+	rows, err := r.db.QueryContext(ctx, r.db.Rebind(query), qArgs...)
+	if err != nil {
+		return nil, nil, 0, fmt.Errorf("query %s: %w", table, err)
+	}
+	defer rows.Close()
+
+	cols, err := rows.Columns()
+	if err != nil {
+		return nil, nil, 0, err
+	}
+
+	var result [][]string
+	for rows.Next() {
+		columnPointers := make([]interface{}, len(cols))
+		columnValues := make([]interface{}, len(cols))
+		for i := range columnValues {
+			columnPointers[i] = &columnValues[i]
+		}
+
+		if err := rows.Scan(columnPointers...); err != nil {
+			return nil, nil, 0, err
+		}
+
+		rowStr := make([]string, len(cols))
+		for i, val := range columnValues {
+			if val == nil {
+				rowStr[i] = "NULL"
+			} else {
+				switch v := val.(type) {
+				case []byte:
+					rowStr[i] = string(v)
+				case time.Time:
+					rowStr[i] = v.UTC().Format("2006-01-02 15:04:05")
+				default:
+					rowStr[i] = fmt.Sprintf("%v", v)
+				}
+			}
+		}
+		result = append(result, rowStr)
+	}
+
+	return cols, result, total, nil
+}
+

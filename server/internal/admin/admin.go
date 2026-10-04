@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"net/http"
 	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -31,6 +32,26 @@ type DashboardData struct {
 	ActiveWebSockets int
 	Message          string
 	Error            string
+}
+
+type TableBrowserData struct {
+	Config           *config.Config
+	ServerInfo       model.ServerInfo
+	Tables           []string
+	CurrentTable     string
+	Households       []model.Household
+	CurrentHousehold string
+	Columns          []string
+	Rows             [][]string
+	TotalCount       int
+	Limit            int
+	Offset           int
+	PrevOffset       int
+	NextOffset       int
+	HasPrev          bool
+	HasNext          bool
+	Error            string
+	Message          string
 }
 
 type Handler struct {
@@ -61,7 +82,7 @@ func NewHandler(svc *service.Service, hub *realtime.Hub, cfg *config.Config) *Ha
 		},
 	}
 
-	tmpl := template.Must(template.New("dashboard.html").Funcs(funcMap).ParseFS(templatesFS, "templates/dashboard.html"))
+	tmpl := template.Must(template.New("root").Funcs(funcMap).ParseFS(templatesFS, "templates/*.html"))
 
 	return &Handler{
 		svc:  svc,
@@ -91,6 +112,7 @@ func (h *Handler) NewRouter() http.Handler {
 	})
 
 	r.Get("/", h.RenderDashboard)
+	r.Get("/browser", h.RenderBrowser)
 	r.Post("/users", h.CreateUser)
 	r.Post("/magic-link", h.GenerateMagicLink)
 	r.Post("/seed", h.SeedDemoData)
@@ -124,7 +146,68 @@ func (h *Handler) RenderDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = h.tmpl.Execute(w, data)
+	_ = h.tmpl.ExecuteTemplate(w, "dashboard.html", data)
+}
+
+func (h *Handler) RenderBrowser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	table := r.URL.Query().Get("table")
+	if table == "" {
+		table = "households"
+	}
+	householdID := r.URL.Query().Get("household_id")
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	limit := 50
+
+	hhs, _, _ := h.svc.ListHouseholds(ctx, 100, 0)
+	cols, rows, total, err := h.svc.BrowseTable(ctx, table, householdID, limit, offset)
+
+	var errMsg string
+	if err != nil {
+		errMsg = err.Error()
+	}
+
+	tables := []string{
+		"households",
+		"household_members",
+		"items",
+		"stores",
+		"categories",
+		"list_entries",
+		"item_stores",
+		"store_categories",
+		"invite_tokens",
+		"users",
+		"magic_links",
+		"refresh_tokens",
+	}
+
+	prevOffset := offset - limit
+	if prevOffset < 0 {
+		prevOffset = 0
+	}
+
+	data := TableBrowserData{
+		Config:           h.cfg,
+		ServerInfo:       h.svc.GetServerInfo(),
+		Tables:           tables,
+		CurrentTable:     table,
+		Households:       hhs,
+		CurrentHousehold: householdID,
+		Columns:          cols,
+		Rows:             rows,
+		TotalCount:       total,
+		Limit:            limit,
+		Offset:           offset,
+		PrevOffset:       prevOffset,
+		NextOffset:       offset + limit,
+		HasPrev:          offset > 0,
+		HasNext:          offset+limit < total,
+		Error:            errMsg,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_ = h.tmpl.ExecuteTemplate(w, "browser.html", data)
 }
 
 func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {

@@ -1,6 +1,6 @@
 # ADR 0001: Use Supabase as the only backend
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR-0015](0015-custom-go-backend.md)
 - **Date:** 2026-09-21 (recorded retroactively — decision predates this ADR)
 
 ## Context

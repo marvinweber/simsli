@@ -28,11 +28,11 @@ Milestone tags are assignments, not promises — moving a feature between milest
 | 3.8 Device data (DATA)   | DATA-1, DATA-3         | —                    | DATA-2               | DATA-4       | —            | DATA-5    |
 | 3.9 Screens (SCREENS)    | SCREENS-1, SCREENS-4, SCREENS-6 | SCREENS-2, SCREENS-3 | SCREENS-5            | —            | —            | SCREENS-7 |
 | 3.10 Localization (I18N) | —                      | —                    | I18N-1               | —            | —            | —         |
-| 3.11 Business (BIZ)      | BIZ-6                  | —                    | —                    | BIZ-1, BIZ-5 | BIZ-2, BIZ-3 | —         |
+| 3.11 Business (BIZ)      | BIZ-5, BIZ-6           | —                    | —                    | BIZ-1        | BIZ-2, BIZ-3 | —         |
 
 Each feature appears once, under its current status; extensions tagged to later milestones (e.g. HH-2 admin role → v1.5, STORE-1 drag & drop → v1) stay tracked in the §3 entry. DATA-2 ships per path (removal with HH-5 in v0.1, leave/delete with HH-6/7 in v1). BIZ-4 is unlisted — its decision is open (OQ-1).
 
-Last updated: 2026-10-01
+Last updated: 2026-10-04
 
 ---
 
@@ -60,7 +60,8 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 
 ### 3.1 Auth & device (AUTH)
 
-- **AUTH-1 Magic-link sign-in ✅** — email → OTP mail → `simsli://auth` deep link. Session persists and replays at app start, which triggers an initial sync.
+- **AUTH-1 Magic-link sign-in ✅** — email → OTP mail → `simsli://auth` deep link (or HTTP landing page with automatic redirect and fallback "Open App" button). Session persists via JWT and replays at app start, triggering an initial sync.
+  - *Token security & storage note:* Magic link tokens are high-entropy (32-byte) strings valid for 15 minutes and single-use. Currently, tokens are stored raw in the database to allow display in the admin dashboard (convenient for zero-SMTP / local development & family LAN self-hosting). For production cloud deployments, tokens should be stored as SHA-256 hashes to prevent token exposure in database dumps/leaks, revealing the raw token only once at creation time if needed.
 - **AUTH-2 Sign out ✅** — revokes the session and **wipes all local app data** (Room + outbox), leaving a clean device. The wipe is serialized against sync runs (an in-flight pull can't repopulate the wiped data), and happens even when the server revoke fails (e.g. offline): the device is signed out regardless, only the refresh-token revocation is then left to expire server-side. Unsynced offline writes are lost; that is accepted (DATA-3).
 - **AUTH-3 Offline-first use ✅** — fully usable signed out: local household with a random UUID, everything works, unlimited. Signing in later adopts the offline household server-side (user becomes Owner) — subject to the adoption limit check (BIZ-1).
 - **AUTH-4 Email/password sign-in 📋 v1** — decided as part of auth scope (magic link + email/password), not yet built.
@@ -111,7 +112,7 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 
 ### 3.7 Sync (SYNC)
 
-- **SYNC-1 Triggers ✅** — sign-in/session restore; debounced (500 ms) requests after every local write; Supabase Realtime events on `list_entries`, `items`, `stores`, `categories`, `store_categories` ✅; manual "Sync now".
+- **SYNC-1 Triggers ✅** — sign-in/session restore; debounced (500 ms) requests after every local write; Realtime WebSocket invalidation events on `list_entries`, `items`, `stores`, `categories`, `store_categories` (foreground only: connection active while app is in foreground, closed on backgrounding/close) ✅; manual "Sync now".
 - **SYNC-2 Pipeline ✅** — resolveHousehold → flushOutbox (push current row state) → watermark delta pulls (`updated_at`, microsecond precision) → GC. Join tables without `updated_at` (`item_stores` ✅, `store_categories` ✅) reconcile by full set comparison.
 - **SYNC-3 Conflict resolution ✅** — last write wins per row (no payloads; the current local row state is pushed).
 - **SYNC-4 Realtime-as-trigger ✅** — realtime events only request a sync; the watermark pull is transport and backstop.
@@ -141,14 +142,14 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 
 ### 3.11 Business model: limits, subscriptions, hosting (BIZ)
 
-**Model overview** — offline use: free, unlimited, forever. Self-hosted: free, unlimited, forever (point the app at your own server). Hosted (simsli.app): free tier with limits; a per-household **Simsli Pro** subscription lifts all limits. One backend instance/cluster serves all households; each household carries `plan` (`free`/`pro`) plus subscription validity (`status`, `current_period_end`), written by the billing webhook — entitlement = plan `pro` **and** valid period (BIZ-3). Operations: start on Supabase Cloud free tier for testing; move to the paid tier the day real load or the first paying subscription exists (backups, no pause risk — see OQ-6). **Backend architecture evolution:** for v1-ish, a transition from Supabase to a lightweight custom **Go backend** is planned ([`docs/BACKEND-MIGRATION-PLAN.md`](BACKEND-MIGRATION-PLAN.md)) to deliver single-container self-hosting (~15 MB RAM, embedded SQLite) and European serverless cloud hosting (Scaleway/Koyeb + PostgreSQL). *Requirement before starting work:* re-verify the migration plan against all feature-spec additions made in the meantime.
+**Model overview** — offline use: free, unlimited, forever. Self-hosted: free, unlimited, forever (point the app at your own server). Hosted (simsli.app): free tier with limits; a per-household **Simsli Pro** subscription lifts all limits. One backend instance/cluster serves all households; each household carries `plan` (`free`/`pro`) plus subscription validity (`status`, `current_period_end`), written by the billing webhook — entitlement = plan `pro` **and** valid period (BIZ-3). **Backend architecture:** Powered by an in-house Go backend (`simsli-server`, ADR 0015) supporting embedded SQLite for single-container self-hosting (~15 MB RAM) and PostgreSQL for scalable cloud hosting, featuring atomic batched sync, WebSocket invalidation, and an embedded admin dashboard.
 
 - **BIZ-1 Free-tier limits 📋 v1** — a free hosted household: max **2 users**, **3 stores**, **20 catalog items**, **25 live list entries** (active + recently-checked combined; the 24h GC frees space). Enforced **server-side** (RPC/constraint checks reading a server config; a self-hosted instance defaults to unlimited) **and pre-checked client-side** for friendly errors and to show the upsell. Offline households are never limited; adoption of an over-limit offline household on sign-in is **refused** with a clear message (trim and retry, or self-host) — local data is untouched. Joining at the 2-user cap is refused (HH-4).
 - **BIZ-2 Lapse / fits-or-readonly 📋 v1.5** — when a subscription ends, the household reverts to `free`. If it fits the free limits, it keeps working as a free household. If it exceeds them: **read-only** — everything visible, no edits/adds/invites until trimmed below the limits or resubscribed. No data is deleted, ever.
 - **BIZ-3 Subscribe (Simsli Pro) 📋 v1.5** — the **Owner** subscribes *their household* (per-household subscription, not per-user). Active subscription: all limits lifted. The Owner cannot delete the household while subscribed (cancel first, HH-7). Cancellation runs to period end, then BIZ-2 applies.
-- **BIZ-4 Payment stack — open (OQ-1)** — provider-agnostic until subscriptions are built. Note: distributing via Google Play forces Play Billing for in-app subscriptions. Billing webhooks will be the first Edge Functions (amends the "no functions" stance of ADR-0001/0007 — new ADR at that time).
-- **BIZ-5 Server switch 📋 v1** — Settings → custom server URL + anon key. Switching warns that local data is wiped and sign-in starts fresh on the new server (AUTH-2 wipe). The server URL/key move from build-time config to local runtime settings; one base URL covers REST, auth, and realtime.
-- **BIZ-6 Self-host promise ✅ (policy)** — a self-hosted instance is unlimited by default, requires no account with simsli.app, and phones home to nothing. The OSS guarantee: AGPL, migrations public, full feature set self-hosted. Long-term target is a single-container Go binary with embedded SQLite ([`docs/BACKEND-MIGRATION-PLAN.md`](BACKEND-MIGRATION-PLAN.md)).
+- **BIZ-4 Payment stack — open (OQ-1)** — provider-agnostic until subscriptions are built. Note: distributing via Google Play forces Play Billing for in-app subscriptions. Billing webhooks will be handled server-side.
+- **BIZ-5 Server switch ✅** — Settings → custom server URL. Shows real-time connection status, server latency, and server version vs app version with compatibility check. Local data is retained if switching to another instance of the same household or adopting an offline household; sign-out cleanly wipes if desired (AUTH-2).
+- **BIZ-6 Self-host promise ✅ (policy)** — a self-hosted instance is unlimited by default, requires no account with simsli.app, and phones home to nothing. The OSS guarantee: AGPL, full feature set self-hosted. Delivered as a single-container Go binary (`simsli-server`) with embedded SQLite (~15 MB RAM), zero-SMTP login links/QRs, telemetry, and database table browsing in the admin dashboard (ADR 0015).
 
 ## 4. Data model delta (what this spec adds)
 

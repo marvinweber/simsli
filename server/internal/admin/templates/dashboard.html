@@ -27,7 +27,8 @@
         <h1 style="margin-bottom: 0.2rem;">🛒 Simsli Server</h1>
         <p style="margin: 0; color: var(--pico-muted-color);">Administration & Telemetry</p>
       </div>
-      <div>
+      <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+        <a href="/browser" role="button" class="outline" style="padding: 0.35rem 0.8rem; font-size: 0.85rem; margin: 0;">🗄️ Database Browser</a>
         <span class="badge {{if eq .ServerInfo.ServerMode "cloud"}}badge-info{{else}}badge-success{{end}}">
           Mode: {{.ServerInfo.ServerMode}}
         </span>

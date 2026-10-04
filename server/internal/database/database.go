@@ -89,6 +89,23 @@ func Connect(dbURL string) (*DB, error) {
 	return db, nil
 }
 
+func (db *DB) Rebind(query string) string {
+	if db.Driver != "pgx" {
+		return query
+	}
+	var b strings.Builder
+	idx := 1
+	for i := 0; i < len(query); i++ {
+		if query[i] == '?' {
+			b.WriteString(fmt.Sprintf("$%d", idx))
+			idx++
+		} else {
+			b.WriteByte(query[i])
+		}
+	}
+	return b.String()
+}
+
 func (db *DB) Migrate() error {
 	schema := `
 	CREATE TABLE IF NOT EXISTS users (

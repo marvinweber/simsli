@@ -411,3 +411,8 @@ func generateShortToken(n int) string {
 	}
 	return string(b)
 }
+
+func (s *Service) BrowseTable(ctx context.Context, table, householdID string, limit, offset int) ([]string, [][]string, int, error) {
+	return s.repo.BrowseTable(ctx, table, householdID, limit, offset)
+}
+
