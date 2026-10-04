@@ -229,11 +229,12 @@ class SettingsViewModel @Inject constructor(
         return try {
             val info = remoteDataSource.getServerInfo(serverUrl)
             val latency = System.currentTimeMillis() - start
-            val isOutdatedServer = info.apiVersion < MIN_REQUIRED_SERVER_API_VERSION
-            val isOutdatedApp = isVersionOlder(BuildConfig.VERSION_NAME, info.minAppVersion)
+            val mismatch = hasMajorOrMinorMismatch(info.version, BuildConfig.VERSION_NAME)
+            val isOutdatedServer = mismatch < 0
+            val isOutdatedApp = mismatch > 0
             val warning = when {
-                isOutdatedServer -> "Server update required (API v${info.apiVersion}, need v$MIN_REQUIRED_SERVER_API_VERSION)"
-                isOutdatedApp -> "App update required (v${BuildConfig.VERSION_NAME}, server requires >= v${info.minAppVersion})"
+                isOutdatedServer -> "Server update recommended (v${info.version} → v${BuildConfig.VERSION_NAME})"
+                isOutdatedApp -> "App update recommended (v${BuildConfig.VERSION_NAME} → v${info.version})"
                 else -> null
             }
             EndpointHealth(
@@ -471,19 +472,16 @@ class SettingsViewModel @Inject constructor(
     }
 
     companion object {
-        const val MIN_REQUIRED_SERVER_API_VERSION = 1
-
-        fun isVersionOlder(current: String, minRequired: String): Boolean {
-            val currentParts = current.split('.').mapNotNull { it.toIntOrNull() }
-            val requiredParts = minRequired.split('.').mapNotNull { it.toIntOrNull() }
-            val maxLen = maxOf(currentParts.size, requiredParts.size)
-            for (i in 0 until maxLen) {
-                val c = currentParts.getOrElse(i) { 0 }
-                val r = requiredParts.getOrElse(i) { 0 }
-                if (c < r) return true
-                if (c > r) return false
-            }
-            return false
+        fun hasMajorOrMinorMismatch(v1: String, v2: String): Int {
+            val p1 = v1.split('.').mapNotNull { it.toIntOrNull() }
+            val p2 = v2.split('.').mapNotNull { it.toIntOrNull() }
+            val major1 = p1.getOrElse(0) { 0 }
+            val major2 = p2.getOrElse(0) { 0 }
+            if (major1 != major2) return major1.compareTo(major2)
+            val minor1 = p1.getOrElse(1) { 0 }
+            val minor2 = p2.getOrElse(1) { 0 }
+            if (minor1 != minor2) return minor1.compareTo(minor2)
+            return 0
         }
     }
 }

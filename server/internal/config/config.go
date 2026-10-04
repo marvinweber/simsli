@@ -31,6 +31,10 @@ type Config struct {
 	SMTPFrom     string
 }
 
+// Version is the server release version, synchronized with app releases.
+// Can be overridden at link time: -ldflags "-X net.marvinweber.simsli/server/internal/config.Version=x.y.z"
+var Version = "0.2.0"
+
 func Load() *Config {
 	port := getEnv("SIMSLI_PORT", "8080")
 	adminPort := getEnv("SIMSLI_ADMIN_PORT", "8081")
@@ -89,7 +93,7 @@ func Load() *Config {
 		PublicURL:        publicURL,
 		AdminKey:         adminKey,
 		Debug:            debug,
-		Version:          getEnv("SIMSLI_VERSION", "1.0.0"),
+		Version:          getEnv("SIMSLI_VERSION", Version),
 		APIVersion:       1,
 		MinAppVersion:    getEnv("SIMSLI_MIN_APP_VERSION", "0.1.0"),
 		SMTPHost:         os.Getenv("SIMSLI_SMTP_HOST"),

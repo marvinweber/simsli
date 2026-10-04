@@ -10,8 +10,10 @@ RUN go mod download
 # Copy source code
 COPY . .
 
+ARG VERSION=0.2.0
+
 # Build static binary (CGO_ENABLED=0 thanks to pure-Go SQLite)
-RUN GOMEMLIMIT=1500MiB GOGC=50 CGO_ENABLED=0 GOOS=linux go build -p 1 -ldflags="-s -w" -o /simsli-server ./cmd/simsli
+RUN GOMEMLIMIT=1500MiB GOGC=50 CGO_ENABLED=0 GOOS=linux go build -p 1 -ldflags="-s -w -X net.marvinweber.simsli/server/internal/config.Version=${VERSION}" -o /simsli-server ./cmd/simsli
 
 # Production stage
 FROM alpine:3.20
