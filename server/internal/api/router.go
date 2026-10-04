@@ -63,9 +63,11 @@ func NewRouter(
 
 			// Households
 			r.Route("/households", func(r chi.Router) {
+				r.Get("/mine", hhH.GetMyMemberships)
 				r.Post("/", hhH.CreateHousehold)
 				r.Post("/invites/accept", hhH.AcceptInvite)
 				r.Get("/{id}", hhH.GetHousehold)
+				r.Put("/{id}", hhH.UpdateHousehold)
 				r.Get("/{id}/members", hhH.GetMembers)
 				r.Delete("/{id}/members/{userId}", hhH.RemoveMember)
 				r.Post("/{id}/invites", hhH.CreateInvite)

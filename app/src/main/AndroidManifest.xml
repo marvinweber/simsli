@@ -21,8 +21,7 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Supabase auth deep link (simsli://auth) — must match scheme/host in
-                 SupabaseModule and site_url in supabase/config.toml -->
+            <!-- Simsli auth deep link (simsli://auth) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

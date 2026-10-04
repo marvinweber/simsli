@@ -5,7 +5,7 @@ import androidx.room.PrimaryKey
 import java.time.Instant
 
 /**
- * A local change waiting to be pushed to Supabase. Holds no payload — at flush
+ * A local change waiting to be pushed to the remote server. Holds no payload — at flush
  * time the current row state is read from Room (last-write-wins, and repeated
  * edits collapse naturally because pushing is idempotent).
  */

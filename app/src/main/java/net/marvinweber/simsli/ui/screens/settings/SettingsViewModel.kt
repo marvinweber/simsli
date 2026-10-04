@@ -15,6 +15,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.marvinweber.simsli.BuildConfig
 import net.marvinweber.simsli.data.debug.DemoDataSeeder
+import net.marvinweber.simsli.data.local.AuthTokenStorage
+import net.marvinweber.simsli.data.remote.SimsliRemoteDataSource
 import net.marvinweber.simsli.data.repository.AuthRepository
 import net.marvinweber.simsli.data.repository.AuthState
 import net.marvinweber.simsli.data.repository.HouseholdRepository
@@ -23,8 +25,6 @@ import net.marvinweber.simsli.data.sync.SyncManager
 import net.marvinweber.simsli.di.IoDispatcher
 import net.marvinweber.simsli.domain.model.HouseholdMember
 import net.marvinweber.simsli.domain.model.MemberRole
-import java.net.HttpURLConnection
-import java.net.URL
 import javax.inject.Inject
 
 enum class EndpointStatus {
@@ -35,9 +35,15 @@ enum class EndpointStatus {
 }
 
 data class EndpointHealth(
-    val url: String = BuildConfig.SUPABASE_URL,
+    val url: String = BuildConfig.SERVER_URL,
     val status: EndpointStatus = EndpointStatus.CHECKING,
-    val detail: String? = null
+    val detail: String? = null,
+    val serverVersion: String? = null,
+    val apiVersion: Int? = null,
+    val serverMode: String? = null,
+    val isOutdatedServer: Boolean = false,
+    val isOutdatedApp: Boolean = false,
+    val warningMessage: String? = null
 )
 
 data class SettingsUiState(
@@ -70,6 +76,8 @@ class SettingsViewModel @Inject constructor(
     private val householdRepository: HouseholdRepository,
     private val syncManager: SyncManager,
     private val demoDataSeeder: DemoDataSeeder,
+    private val remoteDataSource: SimsliRemoteDataSource,
+    private val tokenStorage: AuthTokenStorage,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ViewModel() {
 
@@ -203,56 +211,45 @@ class SettingsViewModel @Inject constructor(
                 detail = null
             )
             val result = withContext(ioDispatcher) {
-                probeEndpoint(BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_ANON_KEY)
+                probeEndpoint(tokenStorage.serverUrl)
             }
             endpointHealth.value = result
         }
     }
 
-    private fun probeEndpoint(supabaseUrl: String, anonKey: String): EndpointHealth {
-        if (supabaseUrl.isBlank()) {
+    private suspend fun probeEndpoint(serverUrl: String): EndpointHealth {
+        if (serverUrl.isBlank()) {
             return EndpointHealth(
                 url = "(not configured)",
                 status = EndpointStatus.ERROR,
                 detail = "URL is missing"
             )
         }
+        val start = System.currentTimeMillis()
         return try {
-            val start = System.currentTimeMillis()
-            val healthUrl = if (supabaseUrl.endsWith("/")) "${supabaseUrl}auth/v1/health" else "$supabaseUrl/auth/v1/health"
-            val conn = (URL(healthUrl).openConnection() as HttpURLConnection).apply {
-                connectTimeout = 4000
-                readTimeout = 4000
-                requestMethod = "GET"
-                instanceFollowRedirects = true
-                if (anonKey.isNotBlank()) {
-                    setRequestProperty("apikey", anonKey)
-                }
-            }
-            val code = conn.responseCode
+            val info = remoteDataSource.getServerInfo(serverUrl)
             val latency = System.currentTimeMillis() - start
-            if (code in 200..299) {
-                EndpointHealth(
-                    url = supabaseUrl,
-                    status = EndpointStatus.ONLINE,
-                    detail = "Online (${latency}ms)"
-                )
-            } else if (code == 503) {
-                EndpointHealth(
-                    url = supabaseUrl,
-                    status = EndpointStatus.ERROR,
-                    detail = "Paused (HTTP 503)"
-                )
-            } else {
-                EndpointHealth(
-                    url = supabaseUrl,
-                    status = EndpointStatus.ERROR,
-                    detail = "HTTP $code"
-                )
+            val isOutdatedServer = info.apiVersion < MIN_REQUIRED_SERVER_API_VERSION
+            val isOutdatedApp = isVersionOlder(BuildConfig.VERSION_NAME, info.minAppVersion)
+            val warning = when {
+                isOutdatedServer -> "Server update required (API v${info.apiVersion}, need v$MIN_REQUIRED_SERVER_API_VERSION)"
+                isOutdatedApp -> "App update required (v${BuildConfig.VERSION_NAME}, server requires >= v${info.minAppVersion})"
+                else -> null
             }
+            EndpointHealth(
+                url = serverUrl,
+                status = EndpointStatus.ONLINE,
+                detail = "Online (${latency}ms)",
+                serverVersion = info.version,
+                apiVersion = info.apiVersion,
+                serverMode = info.serverMode,
+                isOutdatedServer = isOutdatedServer,
+                isOutdatedApp = isOutdatedApp,
+                warningMessage = warning
+            )
         } catch (e: Exception) {
             EndpointHealth(
-                url = supabaseUrl,
+                url = serverUrl,
                 status = EndpointStatus.OFFLINE,
                 detail = "Unreachable"
             )
@@ -470,6 +467,23 @@ class SettingsViewModel @Inject constructor(
                 }
                 .onFailure { statusMessage.value = "Join failed: ${it.message}" }
             isBusy.value = false
+        }
+    }
+
+    companion object {
+        const val MIN_REQUIRED_SERVER_API_VERSION = 1
+
+        fun isVersionOlder(current: String, minRequired: String): Boolean {
+            val currentParts = current.split('.').mapNotNull { it.toIntOrNull() }
+            val requiredParts = minRequired.split('.').mapNotNull { it.toIntOrNull() }
+            val maxLen = maxOf(currentParts.size, requiredParts.size)
+            for (i in 0 until maxLen) {
+                val c = currentParts.getOrElse(i) { 0 }
+                val r = requiredParts.getOrElse(i) { 0 }
+                if (c < r) return true
+                if (c > r) return false
+            }
+            return false
         }
     }
 }

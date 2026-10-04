@@ -29,7 +29,7 @@ type HouseholdMember struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 
 	// Joined fields for member listing
-	UserEmail string `json:"user_email,omitempty"`
+	Email string `json:"email,omitempty"`
 }
 
 type Store struct {
@@ -120,6 +120,7 @@ type RefreshToken struct {
 
 // DeltaResponse encapsulates all delta entities for sync
 type DeltaResponse struct {
+	Household       *Household      `json:"household,omitempty"`
 	Stores          []Store         `json:"stores"`
 	Categories      []Category      `json:"categories"`
 	StoreCategories []StoreCategory `json:"store_categories"`
@@ -131,17 +132,18 @@ type DeltaResponse struct {
 
 // FlushRequest carries outbox mutations
 type FlushRequest struct {
-	HouseholdID     string          `json:"household_id"`
-	Stores          []Store         `json:"stores,omitempty"`
-	Categories      []Category      `json:"categories,omitempty"`
-	StoreCategories []StoreCategory `json:"store_categories,omitempty"`
-	Items           []Item          `json:"items,omitempty"`
-	ItemStores      []ItemStore     `json:"item_stores,omitempty"`
-	ListEntries     []ListEntry     `json:"list_entries,omitempty"`
-	DeletedStores   []string        `json:"deleted_stores,omitempty"`
-	DeletedCategories []string      `json:"deleted_categories,omitempty"`
-	DeletedItems    []string        `json:"deleted_items,omitempty"`
-	DeletedEntries  []string        `json:"deleted_entries,omitempty"`
+	HouseholdID       string          `json:"household_id"`
+	Household         *Household      `json:"household,omitempty"`
+	Stores            []Store         `json:"stores,omitempty"`
+	Categories        []Category      `json:"categories,omitempty"`
+	StoreCategories   []StoreCategory `json:"store_categories,omitempty"`
+	Items             []Item          `json:"items,omitempty"`
+	ItemStores        []ItemStore     `json:"item_stores,omitempty"`
+	ListEntries       []ListEntry     `json:"list_entries,omitempty"`
+	DeletedStores     []string        `json:"deleted_stores,omitempty"`
+	DeletedCategories []string        `json:"deleted_categories,omitempty"`
+	DeletedItems      []string        `json:"deleted_items,omitempty"`
+	DeletedEntries    []string        `json:"deleted_entries,omitempty"`
 }
 
 type ServerInfo struct {
@@ -150,4 +152,7 @@ type ServerInfo struct {
 	RegistrationOpen bool   `json:"registration_open"`
 	BillingEnabled   bool   `json:"billing_enabled"`
 	Version          string `json:"version"`
+	APIVersion       int    `json:"api_version"`
+	MinAppVersion    string `json:"min_app_version"`
+	DebugMode        bool   `json:"debug_mode"`
 }

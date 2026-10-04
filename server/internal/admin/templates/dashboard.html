@@ -80,6 +80,22 @@
       </div>
     </div>
 
+    {{if .ServerInfo.DebugMode}}
+      <!-- Debug Tools -->
+      <article style="margin-bottom: 2rem; border-color: var(--pico-primary);">
+        <header style="display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0;">🛠️ Debug Tools (SIMSLI_DEBUG=true)</h3>
+          <span class="badge badge-warning">Development Only</span>
+        </header>
+        <p style="margin-top: 0.5rem; margin-bottom: 1rem;">
+          Quickly populate the database with the standard demo dataset (<strong>Testhaushalt</strong>: test1@simsli.de + test2@simsli.de, 3 stores, 6 categories, 15 items, and 11 list entries).
+        </p>
+        <form method="POST" action="/seed" style="margin: 0;" onsubmit="return confirm('Seed demo data into the database?');">
+          <button type="submit" class="contrast" style="width: auto;">🌱 Seed Demo Data (Testhaushalt)</button>
+        </form>
+      </article>
+    {{end}}
+
     <!-- Section 1: Pending Logins (Zero-SMTP Mode) -->
     <article style="margin-bottom: 2rem;">
       <header style="display: flex; justify-content: space-between; align-items: center;">

@@ -56,7 +56,10 @@ func (s *Service) GetServerInfo() model.ServerInfo {
 		DatabaseDriver:   s.repo.GetDatabaseDriver(),
 		RegistrationOpen: s.cfg.RegistrationOpen,
 		BillingEnabled:   s.billing.IsBillingEnabled(),
-		Version:          "1.0.0",
+		Version:          s.cfg.Version,
+		APIVersion:       s.cfg.APIVersion,
+		MinAppVersion:    s.cfg.MinAppVersion,
+		DebugMode:        s.cfg.Debug,
 	}
 }
 
@@ -238,6 +241,25 @@ func (s *Service) GetHousehold(ctx context.Context, userID, householdID string) 
 		return nil, ErrForbidden
 	}
 	return s.repo.GetHousehold(ctx, householdID)
+}
+
+func (s *Service) GetUserMemberships(ctx context.Context, userID string) ([]model.HouseholdMember, error) {
+	return s.repo.GetUserMemberships(ctx, userID)
+}
+
+func (s *Service) UpdateHousehold(ctx context.Context, userID, householdID, name string) error {
+	isMember, err := s.repo.IsHouseholdMember(ctx, householdID, userID)
+	if err != nil {
+		return err
+	}
+	if !isMember {
+		return ErrForbidden
+	}
+	if err := s.repo.UpdateHousehold(ctx, householdID, name); err != nil {
+		return err
+	}
+	s.hub.Broadcast(householdID)
+	return nil
 }
 
 func (s *Service) GetHouseholdMembers(ctx context.Context, userID, householdID string) ([]model.HouseholdMember, error) {

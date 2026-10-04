@@ -18,6 +18,10 @@ type Config struct {
 	JWTSecret        []byte
 	PublicURL        string
 	AdminKey         string
+	Debug            bool
+	Version          string
+	APIVersion       int
+	MinAppVersion    string
 
 	// SMTP
 	SMTPHost     string
@@ -38,6 +42,11 @@ func Load() *Config {
 	regOpen := false
 	if val := os.Getenv("SIMSLI_REGISTRATION_OPEN"); val != "" {
 		regOpen = strings.ToLower(val) == "true" || val == "1"
+	}
+
+	debug := false
+	if val := os.Getenv("SIMSLI_DEBUG"); val != "" {
+		debug = strings.ToLower(val) == "true" || val == "1"
 	}
 
 	var allowlist []string
@@ -79,6 +88,10 @@ func Load() *Config {
 		JWTSecret:        jwtSecret,
 		PublicURL:        publicURL,
 		AdminKey:         adminKey,
+		Debug:            debug,
+		Version:          getEnv("SIMSLI_VERSION", "1.0.0"),
+		APIVersion:       1,
+		MinAppVersion:    getEnv("SIMSLI_MIN_APP_VERSION", "0.1.0"),
 		SMTPHost:         os.Getenv("SIMSLI_SMTP_HOST"),
 		SMTPPort:         smtpPort,
 		SMTPUser:         os.Getenv("SIMSLI_SMTP_USER"),

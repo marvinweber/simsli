@@ -249,6 +249,16 @@ func (r *Repository) CreateHouseholdWithOwner(ctx context.Context, hh *model.Hou
 	return tx.Commit()
 }
 
+func (r *Repository) AddHouseholdMember(ctx context.Context, householdID, userID, role string) error {
+	nowStr := formatTime(time.Now().UTC())
+	memberID := uuid.NewString()
+	_, err := r.db.ExecContext(ctx,
+		"INSERT INTO household_members (id, household_id, user_id, role, joined_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(household_id, user_id) DO NOTHING",
+		memberID, householdID, userID, role, nowStr, nowStr,
+	)
+	return err
+}
+
 func (r *Repository) GetHousehold(ctx context.Context, id string) (*model.Household, error) {
 	row := r.db.QueryRowContext(ctx,
 		"SELECT id, name, plan, status, current_period_end, created_at, updated_at, deleted_at FROM households WHERE id = ?",
@@ -345,7 +355,7 @@ func (r *Repository) GetHouseholdMembers(ctx context.Context, householdID string
 	for rows.Next() {
 		var m model.HouseholdMember
 		var ja, ua string
-		if err := rows.Scan(&m.ID, &m.HouseholdID, &m.UserID, &m.Role, &ja, &ua, &m.UserEmail); err != nil {
+		if err := rows.Scan(&m.ID, &m.HouseholdID, &m.UserID, &m.Role, &ja, &ua, &m.Email); err != nil {
 			return nil, err
 		}
 		m.JoinedAt, _ = parseTime(ja)
@@ -390,6 +400,12 @@ func (r *Repository) RemoveHouseholdMember(ctx context.Context, householdID, tar
 func (r *Repository) SoftDeleteHousehold(ctx context.Context, householdID string) error {
 	now := formatTime(time.Now().UTC())
 	_, err := r.db.ExecContext(ctx, "UPDATE households SET deleted_at = ?, updated_at = ? WHERE id = ?", now, now, householdID)
+	return err
+}
+
+func (r *Repository) UpdateHousehold(ctx context.Context, householdID, name string) error {
+	now := formatTime(time.Now().UTC())
+	_, err := r.db.ExecContext(ctx, "UPDATE households SET name = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL", name, now, householdID)
 	return err
 }
 
@@ -492,6 +508,20 @@ func (r *Repository) GetDeltas(ctx context.Context, householdID string, since ti
 	sinceStr := formatTime(since)
 	resp := &model.DeltaResponse{
 		ServerTime: time.Now().UTC(),
+	}
+
+	// Household (if updated since)
+	var hh model.Household
+	var hhCa, hhUa string
+	var hhDa sql.NullString
+	if err := r.db.QueryRowContext(ctx,
+		"SELECT id, name, created_at, updated_at, deleted_at FROM households WHERE id = ? AND updated_at > ?",
+		householdID, sinceStr,
+	).Scan(&hh.ID, &hh.Name, &hhCa, &hhUa, &hhDa); err == nil {
+		hh.CreatedAt, _ = parseTime(hhCa)
+		hh.UpdatedAt, _ = parseTime(hhUa)
+		hh.DeletedAt = parseNullTime(hhDa)
+		resp.Household = &hh
 	}
 
 	// Stores
@@ -649,6 +679,17 @@ func (r *Repository) Flush(ctx context.Context, req *model.FlushRequest) error {
 	defer tx.Rollback()
 
 	nowStr := formatTime(time.Now().UTC())
+
+	// Upsert Household if present
+	if req.Household != nil {
+		_, err := tx.ExecContext(ctx,
+			"UPDATE households SET name = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL",
+			req.Household.Name, nowStr, req.Household.ID,
+		)
+		if err != nil {
+			return fmt.Errorf("flush household: %w", err)
+		}
+	}
 
 	// Upsert Stores
 	for _, s := range req.Stores {

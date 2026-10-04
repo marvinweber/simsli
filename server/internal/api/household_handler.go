@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"net.marvinweber.simsli/server/internal/model"
 	"net.marvinweber.simsli/server/internal/service"
 )
 
@@ -21,8 +22,57 @@ type CreateHouseholdRequest struct {
 	Name string `json:"name"`
 }
 
+type UpdateHouseholdRequest struct {
+	Name string `json:"name"`
+}
+
 type AcceptInviteRequest struct {
 	Token string `json:"token"`
+}
+
+func (h *HouseholdHandler) GetMyMemberships(w http.ResponseWriter, r *http.Request) {
+	user := GetAuthUser(r)
+	if user == nil {
+		writeJSONError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	members, err := h.svc.GetUserMemberships(r.Context(), user.ID)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if members == nil {
+		members = []model.HouseholdMember{}
+	}
+
+	writeJSON(w, http.StatusOK, members)
+}
+
+func (h *HouseholdHandler) UpdateHousehold(w http.ResponseWriter, r *http.Request) {
+	user := GetAuthUser(r)
+	if user == nil {
+		writeJSONError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	householdID := chi.URLParam(r, "id")
+	var req UpdateHouseholdRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if err := h.svc.UpdateHousehold(r.Context(), user.ID, householdID, req.Name); err != nil {
+		if err == service.ErrForbidden {
+			writeJSONError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"message": "household updated"})
 }
 
 func (h *HouseholdHandler) CreateHousehold(w http.ResponseWriter, r *http.Request) {

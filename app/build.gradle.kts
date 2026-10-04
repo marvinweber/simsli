@@ -76,6 +76,11 @@ android {
         debug {
             buildConfigField(
                 "String",
+                "SERVER_URL",
+                "\"${localProperties.getProperty("server.url") ?: "http://10.0.2.2:8080"}\""
+            )
+            buildConfigField(
+                "String",
                 "SUPABASE_URL",
                 "\"${localProperties.getProperty("supabase.url") ?: "http://10.0.2.2:54321"}\""
             )
@@ -87,6 +92,12 @@ android {
         }
 
         release {
+            val serverReleaseUrl = localProperties.getProperty("server.release.url")
+                ?: localProperties.getProperty("server.url")
+                ?: System.getenv("SERVER_RELEASE_URL")
+                ?: "https://api.simsli.app"
+            buildConfigField("String", "SERVER_URL", "\"$serverReleaseUrl\"")
+
             val releaseUrl = localProperties.getProperty("supabase.release.url")
                 ?: localProperties.getProperty("supabase.url")
                 ?: System.getenv("SUPABASE_RELEASE_URL")
@@ -154,16 +165,8 @@ dependencies {
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
 
-    // Supabase BOM — import first, then add supabase libs without versions
-    val supabaseBom = platform(libs.supabase.bom)
-    implementation(supabaseBom)
-    implementation(libs.supabase.postgrest)
-    implementation(libs.supabase.realtime)
-    implementation(libs.supabase.auth)
-    implementation(libs.supabase.storage)
-
-    // Ktor (required by supabase-kt)
-    implementation(libs.ktor.client.okhttp)
+    // HTTP & Networking
+    implementation(libs.okhttp)
 
     // Coil
     implementation(libs.coil.compose)

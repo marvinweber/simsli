@@ -168,3 +168,45 @@ func TestInviteFlow(t *testing.T) {
 		t.Errorf("expected 2 members, got %d", len(members))
 	}
 }
+
+func TestSeedDemoData(t *testing.T) {
+	svc, _ := setupTestService(t)
+	ctx := context.Background()
+
+	if err := svc.SeedDemoData(ctx); err != nil {
+		t.Fatalf("seed demo data failed: %v", err)
+	}
+
+	// Verify Testhaushalt was created
+	householdID := "dd000000-0000-0000-0000-000000000001"
+	user, err := svc.repo.GetUserByEmail(ctx, "test1@simsli.de")
+	if err != nil {
+		t.Fatalf("expected test1@simsli.de user: %v", err)
+	}
+
+	hh, err := svc.GetHousehold(ctx, user.ID, householdID)
+	if err != nil {
+		t.Fatalf("expected Testhaushalt: %v", err)
+	}
+	if hh.Name != "Testhaushalt" {
+		t.Errorf("expected Testhaushalt, got %q", hh.Name)
+	}
+
+	deltas, err := svc.GetDeltas(ctx, user.ID, householdID, time.Time{})
+	if err != nil {
+		t.Fatalf("get deltas failed: %v", err)
+	}
+
+	if len(deltas.Stores) != 3 {
+		t.Errorf("expected 3 stores, got %d", len(deltas.Stores))
+	}
+	if len(deltas.Categories) != 6 {
+		t.Errorf("expected 6 categories, got %d", len(deltas.Categories))
+	}
+	if len(deltas.Items) != 15 {
+		t.Errorf("expected 15 items, got %d", len(deltas.Items))
+	}
+	if len(deltas.ListEntries) != 11 {
+		t.Errorf("expected 11 entries, got %d", len(deltas.ListEntries))
+	}
+}

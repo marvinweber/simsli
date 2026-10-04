@@ -93,6 +93,7 @@ func (h *Handler) NewRouter() http.Handler {
 	r.Get("/", h.RenderDashboard)
 	r.Post("/users", h.CreateUser)
 	r.Post("/magic-link", h.GenerateMagicLink)
+	r.Post("/seed", h.SeedDemoData)
 
 	return r
 }
@@ -161,4 +162,18 @@ func (h *Handler) GenerateMagicLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, fmt.Sprintf("/?msg=Magic+link+generated+for+%s:+token=%s", email, token), http.StatusSeeOther)
+}
+
+func (h *Handler) SeedDemoData(w http.ResponseWriter, r *http.Request) {
+	if !h.cfg.Debug {
+		http.Redirect(w, r, "/?err=Seeding+is+only+allowed+in+debug+mode+(SIMSLI_DEBUG=true)", http.StatusForbidden)
+		return
+	}
+
+	if err := h.svc.SeedDemoData(r.Context()); err != nil {
+		http.Redirect(w, r, "/?err="+err.Error(), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/?msg=Demo+data+(Testhaushalt)+seeded+successfully!", http.StatusSeeOther)
 }
