@@ -1,9 +1,9 @@
 package net.marvinweber.simsli.data.sync
 
-import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -45,8 +45,10 @@ import net.marvinweber.simsli.data.repository.AuthState
 import net.marvinweber.simsli.di.ApplicationScope
 import net.marvinweber.simsli.di.IoDispatcher
 import net.marvinweber.simsli.domain.model.ItemType
+import java.time.Duration
 import java.time.Instant
 import java.util.UUID
+import kotlin.math.abs
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -75,6 +77,7 @@ class SyncManager @Inject constructor(
     private val syncStateDao: SyncStateDao,
     private val outboxDao: OutboxDao,
     private val syncScheduler: SyncScheduler,
+    private val diag: SyncDiagnostics,
     @ApplicationScope private val externalScope: CoroutineScope,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) {
@@ -92,7 +95,7 @@ class SyncManager @Inject constructor(
     fun start() {
         externalScope.launch {
             authRepository.authState.collect { state ->
-                Log.d(TAG, "Auth state: $state")
+                diag.d(TAG, "Auth state: $state")
                 if (state is AuthState.SignedIn) {
                     syncNow("auth")
                 }
@@ -100,9 +103,18 @@ class SyncManager @Inject constructor(
         }
         externalScope.launch {
             // Debounced: a burst of writes / realtime events collapses into one sync.
+            // The run itself must NOT be cancellable (collectLatest would kill it when
+            // the next poke arrives — e.g. the realtime echo of its own flush): a run
+            // cancelled between the server flush and the outbox delete re-pushes the
+            // same rows forever, and one cancelled mid-apply never advances the
+            // watermark, so every pull returns the same deltas — a self-sustaining
+            // refresh loop with two devices online. NonCancellable defers the
+            // cancellation until the run has finished.
             syncScheduler.requests.collectLatest {
                 delay(SyncScheduler.DEBOUNCE_MS)
-                syncNow("debounced")
+                withContext(NonCancellable) {
+                    syncNow("debounced")
+                }
             }
         }
     }
@@ -117,19 +129,28 @@ class SyncManager @Inject constructor(
                         val userId = authRepository.currentUserId()
                             ?: return@withContext Result.success(Unit) // signed out — nothing to sync
 
-                        Log.d(TAG, "Sync ($trigger) started")
+                        diag.d(TAG, "Sync ($trigger) started")
                         resolveHousehold(userId)
                         enqueueInitialUploadIfNeeded()
                         flushOutbox(userId)
                         pullDeltas()
                         gcExpiredEntries()
                         Result.success(Unit).also {
-                            Log.d(TAG, "Sync ($trigger) finished in ${System.currentTimeMillis() - startedAt}ms")
+                            // Outbox size after the run: in a refill loop this never reaches 0.
+                            diag.d(
+                                TAG,
+                                "Sync ($trigger) finished in ${System.currentTimeMillis() - startedAt}ms, " +
+                                    "outbox now ${outboxDao.getAll().size}"
+                            )
                         }
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        Log.w(TAG, "Sync ($trigger) failed after ${System.currentTimeMillis() - startedAt}ms: ${e.message}")
+                        diag.w(
+                            TAG,
+                            "Sync ($trigger) failed after ${System.currentTimeMillis() - startedAt}ms: " +
+                                "${e.javaClass.simpleName}: ${e.message}"
+                        )
                         Result.failure(e)
                     }
                 }
@@ -145,7 +166,7 @@ class SyncManager @Inject constructor(
     suspend fun wipeLocalData() {
         mutex.withLock {
             withContext(ioDispatcher) {
-                Log.d(TAG, "Wiping all local data")
+                diag.d(TAG, "Wiping all local data")
                 db.clearAllTables()
             }
         }
@@ -153,6 +174,12 @@ class SyncManager @Inject constructor(
 
     private companion object {
         const val TAG = "SimsliSync"
+
+        /** Device-vs-server clock differences above this are logged as warnings. */
+        const val SKEW_LOG_THRESHOLD_MS = 2_000L
+
+        /** Max rows itemized with id/updated_at in a single pull/flush log line. */
+        const val MAX_LOGGED_IDS = 8
     }
 
     // --- 1. Household resolution ------------------------------------------------
@@ -167,7 +194,7 @@ class SyncManager @Inject constructor(
             memberships.isEmpty() && localHousehold != null -> {
                 val wasSynced = syncStateDao.get(SyncContract.KEY_INITIAL_UPLOAD_DONE) != null
                 if (wasSynced) {
-                    Log.d(TAG, "Household: user was removed from household, wiping local data")
+                    diag.d(TAG, "Household: user was removed from household, wiping local data")
                     db.clearAllTables()
                     val now = Instant.now()
                     val newHh = DbHousehold(
@@ -178,14 +205,14 @@ class SyncManager @Inject constructor(
                     )
                     householdDao.insert(newHh)
                 } else {
-                    Log.d(TAG, "Household: adopting offline household ${localHousehold.id} server-side")
+                    diag.d(TAG, "Household: adopting offline household ${localHousehold.id} server-side")
                     remoteDataSource.createHouseholdWithOwner(localHousehold.id, localHousehold.name)
                 }
             }
 
             // Fresh account on a fresh device
             memberships.isEmpty() && localHousehold == null -> {
-                Log.d(TAG, "Household: fresh account + fresh device, creating household")
+                diag.d(TAG, "Household: fresh account + fresh device, creating household")
                 val now = Instant.now()
                 val household = DbHousehold(
                     id = UUID.randomUUID().toString(),
@@ -201,10 +228,10 @@ class SyncManager @Inject constructor(
             else -> {
                 val remoteHouseholdId = memberships.first().householdId
                 if (localHousehold == null) {
-                    Log.d(TAG, "Household: pulling remote household $remoteHouseholdId (no local one)")
+                    diag.d(TAG, "Household: pulling remote household $remoteHouseholdId (no local one)")
                     householdDao.insert(remoteDataSource.getHousehold(remoteHouseholdId).toDb())
                 } else if (localHousehold.id != remoteHouseholdId) {
-                    Log.d(TAG, "Household: id mismatch, switching to remote household $remoteHouseholdId")
+                    diag.d(TAG, "Household: id mismatch, switching to remote household $remoteHouseholdId")
                     db.clearAllTables()
                     householdDao.insert(remoteDataSource.getHousehold(remoteHouseholdId).toDb())
                 }
@@ -223,27 +250,28 @@ class SyncManager @Inject constructor(
 
         val household = householdDao.getHouseholdOnce() ?: return
 
-        Log.d(TAG, "Initial upload: enqueuing all local rows")
+        diag.d(TAG, "Initial upload: enqueuing all local rows")
+        var enqueued = 0
 
         val pendingCategories = outboxDao.getPendingEntityIds(SyncContract.ENTITY_CATEGORY).toSet()
         categoryDao.getAllIncludingDeleted(household.id)
             .filter { it.id !in pendingCategories }
-            .forEach { outboxDao.enqueue(upsertEntry(SyncContract.ENTITY_CATEGORY, it.id)) }
+            .forEach { outboxDao.enqueue(upsertEntry(SyncContract.ENTITY_CATEGORY, it.id)); enqueued++ }
 
         val pendingStores = outboxDao.getPendingEntityIds(SyncContract.ENTITY_STORE).toSet()
         storeDao.getAllIncludingDeleted(household.id)
             .filter { it.id !in pendingStores }
-            .forEach { outboxDao.enqueue(upsertEntry(SyncContract.ENTITY_STORE, it.id)) }
+            .forEach { outboxDao.enqueue(upsertEntry(SyncContract.ENTITY_STORE, it.id)); enqueued++ }
 
         val pendingItems = outboxDao.getPendingEntityIds(SyncContract.ENTITY_ITEM).toSet()
         itemDao.getAllIncludingDeleted(household.id)
             .filter { it.id !in pendingItems }
-            .forEach { outboxDao.enqueue(upsertEntry(SyncContract.ENTITY_ITEM, it.id)) }
+            .forEach { outboxDao.enqueue(upsertEntry(SyncContract.ENTITY_ITEM, it.id)); enqueued++ }
 
         val pendingEntries = outboxDao.getPendingEntityIds(SyncContract.ENTITY_LIST_ENTRY).toSet()
         listEntryDao.getAllByHousehold(household.id)
             .filter { it.id !in pendingEntries }
-            .forEach { outboxDao.enqueue(upsertEntry(SyncContract.ENTITY_LIST_ENTRY, it.id)) }
+            .forEach { outboxDao.enqueue(upsertEntry(SyncContract.ENTITY_LIST_ENTRY, it.id)); enqueued++ }
 
         val pendingItemStores = outboxDao.getPendingEntityIds(SyncContract.ENTITY_ITEM_STORE).toSet()
         itemStoreDao.getAllForHousehold(household.id)
@@ -255,6 +283,7 @@ class SyncManager @Inject constructor(
                         SyncContract.itemStoreEntityId(it.itemId, it.storeId)
                     )
                 )
+                enqueued++
             }
 
         val pendingStoreCategories = outboxDao.getPendingEntityIds(SyncContract.ENTITY_STORE_CATEGORY).toSet()
@@ -267,8 +296,10 @@ class SyncManager @Inject constructor(
                         SyncContract.storeCategoryEntityId(it.storeId, it.categoryId)
                     )
                 )
+                enqueued++
             }
 
+        diag.d(TAG, "Initial upload: enqueued $enqueued rows")
         syncStateDao.upsert(DbSyncState(SyncContract.KEY_INITIAL_UPLOAD_DONE, Instant.now()))
     }
 
@@ -291,7 +322,6 @@ class SyncManager @Inject constructor(
             )
         )
         if (entries.isEmpty()) return
-        Log.d(TAG, "Outbox: flushing ${entries.size} entries")
 
         val household = householdDao.getHouseholdOnce() ?: return
 
@@ -350,6 +380,24 @@ class SyncManager @Inject constructor(
             }
         }
 
+        // What is being pushed, including each row's client-stamped updated_at: in a
+        // loop, the same entity ids with stale timestamps show up here every run.
+        diag.d(
+            TAG,
+            "Outbox: flushing ${entries.size} entries " +
+                describeDtos(items.map { it.id to it.updatedAt.toInstantSafe() }, "item") +
+                describeDtos(listEntries.map { it.id to it.updatedAt.toInstantSafe() }, "entry") +
+                describeDtos(stores.map { it.id to it.updatedAt.toInstantSafe() }, "store") +
+                describeDtos(categories.map { it.id to it.updatedAt.toInstantSafe() }, "category") +
+                describeDtos(itemStores.map { it.itemId + ":" + it.storeId to it.createdAt.toInstantSafe() }, "item_store") +
+                describeDtos(storeCategories.map { it.storeId + ":" + it.categoryId to Instant.EPOCH }, "store_category") +
+                (if (hhDto != null) " household@${hhDto.updatedAt}" else "") +
+                (if (deletedEntries.isNotEmpty()) " deletes=${deletedEntries.size}" else "") +
+                (if (deletedItems.isNotEmpty()) " deleted_items=${deletedItems.size}" else "") +
+                (if (deletedStores.isNotEmpty()) " deleted_stores=${deletedStores.size}" else "") +
+                (if (deletedCategories.isNotEmpty()) " deleted_categories=${deletedCategories.size}" else "")
+        )
+
         val req = FlushRequestDto(
             householdId = household.id,
             household = hhDto,
@@ -376,7 +424,7 @@ class SyncManager @Inject constructor(
             for (entry in entries) {
                 outboxDao.incrementAttempts(entry.id)
             }
-            throw IllegalStateException("Outbox flush failed: ${e.message}", e)
+            throw IllegalStateException("Outbox flush failed (${e.javaClass.simpleName}): ${e.message}", e)
         }
     }
 
@@ -401,35 +449,36 @@ class SyncManager @Inject constructor(
         )
         val since = watermarkKeys.mapNotNull { syncStateDao.get(it)?.lastSyncedAt }.minOrNull() ?: Instant.EPOCH
 
-        Log.d(TAG, "Pulling deltas since $since")
+        diag.d(TAG, "Pulling deltas since $since")
         val deltas = remoteDataSource.getDeltas(household.id, since)
 
         // 1. Household
         deltas.household?.let {
+            diag.d(TAG, "Pull: household ua=${it.updatedAt}")
             householdDao.insert(it.toDb())
         }
 
         // 2. Stores
         deltas.stores?.map { it.toDb() }?.let { rows ->
-            if (rows.isNotEmpty()) Log.d(TAG, "Pull: ${rows.size} stores")
+            if (rows.isNotEmpty()) diag.d(TAG, "Pull: ${rows.size} stores ${describe(rows, { it.id }, { it.updatedAt })}")
             storeDao.insertAll(rows)
         }
 
         // 3. Categories
         deltas.categories?.map { it.toDb() }?.let { rows ->
-            if (rows.isNotEmpty()) Log.d(TAG, "Pull: ${rows.size} categories")
+            if (rows.isNotEmpty()) diag.d(TAG, "Pull: ${rows.size} categories ${describe(rows, { it.id }, { it.updatedAt })}")
             categoryDao.insertAll(rows)
         }
 
         // 4. Items
         deltas.items?.map { it.toDb() }?.let { rows ->
-            if (rows.isNotEmpty()) Log.d(TAG, "Pull: ${rows.size} items")
+            if (rows.isNotEmpty()) diag.d(TAG, "Pull: ${rows.size} items ${describe(rows, { it.id }, { it.updatedAt })}")
             itemDao.insertAll(rows)
         }
 
         // 5. List entries
         deltas.listEntries?.map { it.toDb() }?.let { rows ->
-            if (rows.isNotEmpty()) Log.d(TAG, "Pull: ${rows.size} list_entries")
+            if (rows.isNotEmpty()) diag.d(TAG, "Pull: ${rows.size} list_entries ${describe(rows, { it.id }, { it.updatedAt })}")
             listEntryDao.insertAll(rows)
         }
 
@@ -442,7 +491,7 @@ class SyncManager @Inject constructor(
             val remoteKeys = remoteRows.map { it.itemId to it.storeId }.toSet()
             val removed = localKeys - remoteKeys
             if (remoteRows.isNotEmpty() || removed.isNotEmpty()) {
-                Log.d(TAG, "Reconcile item_stores: ${remoteRows.size} remote, $removed removed locally")
+                diag.d(TAG, "Reconcile item_stores: ${remoteRows.size} remote, $removed removed locally")
             }
             removed.forEach { (itemId, storeId) ->
                 itemStoreDao.delete(itemId, storeId)
@@ -458,7 +507,7 @@ class SyncManager @Inject constructor(
             val remoteKeys = remoteRows.map { it.storeId to it.categoryId }.toSet()
             val removed = localKeys - remoteKeys
             if (remoteRows.isNotEmpty() || removed.isNotEmpty()) {
-                Log.d(TAG, "Reconcile store_categories: ${remoteRows.size} remote, $removed removed locally")
+                diag.d(TAG, "Reconcile store_categories: ${remoteRows.size} remote, $removed removed locally")
             }
             removed.forEach { (storeId, categoryId) ->
                 storeCategoryDao.delete(storeId, categoryId)
@@ -468,11 +517,41 @@ class SyncManager @Inject constructor(
         val serverTime = try {
             Instant.parse(deltas.serverTime)
         } catch (e: Exception) {
+            diag.w(TAG, "Pull: unparseable server_time '${deltas.serverTime}', using device clock")
             Instant.now()
         }
         watermarkKeys.forEach { key ->
             syncStateDao.upsert(DbSyncState(key, serverTime))
         }
+
+        // Clock skew: flushed rows carry client-stamped updated_at, so a device clock
+        // ahead of the server keeps its own rows above every future watermark until
+        // server time catches up — the signature of a self-sustaining pull loop.
+        val skewMs = Duration.between(serverTime, Instant.now()).toMillis()
+        if (abs(skewMs) > SKEW_LOG_THRESHOLD_MS) {
+            diag.w(TAG, "Clock skew: device is ${skewMs}ms ${if (skewMs > 0) "ahead of" else "behind"} server_time")
+        }
+        diag.d(TAG, "Pull done: watermarks set to $serverTime (skew ${skewMs}ms)")
+    }
+
+    /** Ids (with updated_at) of up to [MAX_LOGGED_IDS] rows, for loop diagnosis in pull/flush logs. */
+    private fun <T> describe(rows: List<T>, id: (T) -> String, updatedAt: (T) -> Instant): String =
+        formatEntries(rows.map { id(it) to updatedAt(it) })
+
+    /** Same as [describe] for a flush payload section, prefixed with the entity type. */
+    private fun describeDtos(rows: List<Pair<String, Instant>>, label: String): String =
+        if (rows.isEmpty()) "" else " $label=${formatEntries(rows)}"
+
+    private fun formatEntries(entries: List<Pair<String, Instant>>): String {
+        val shown = entries.take(MAX_LOGGED_IDS).joinToString(",") { "${it.first.take(8)}@${it.second}" }
+        val more = entries.size - minOf(entries.size, MAX_LOGGED_IDS)
+        return "[$shown${if (more > 0) ",…+$more" else ""}]"
+    }
+
+    private fun String.toInstantSafe(): Instant = try {
+        Instant.parse(this)
+    } catch (_: Exception) {
+        Instant.EPOCH
     }
 
     // --- 4. Garbage collection ------------------------------------------------------
@@ -482,7 +561,7 @@ class SyncManager @Inject constructor(
         val expired = listEntryDao.getExpiredDoneEntries(cutoff)
         if (expired.isEmpty()) return
 
-        Log.d(TAG, "GC: removing ${expired.size} expired entries (cutoff=$cutoff)")
+        diag.d(TAG, "GC: removing ${expired.size} expired entries ${describe(expired, { it.id }, { it.updatedAt })} (cutoff=$cutoff)")
 
         val now = Instant.now()
         for (entry in expired) {

@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import net.marvinweber.simsli.BuildConfig
 import net.marvinweber.simsli.data.repository.AuthState
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,6 +26,19 @@ class AuthTokenStorage @Inject constructor(
         set(value) {
             prefs.edit().putString(KEY_SERVER_URL, value.trimEnd('/')).apply()
         }
+
+    /**
+     * Install-stable identifier for sync diagnostics (never cleared by sign-out).
+     * Sent as `X-Simsli-Device-Id` so server logs can attribute requests to a device.
+     */
+    val deviceId: String
+        get() = prefs.getString(KEY_DEVICE_ID, null) ?: UUID.randomUUID().toString().also {
+            prefs.edit().putString(KEY_DEVICE_ID, it).apply()
+        }
+
+    /** Short form of [deviceId] for log lines. */
+    val shortDeviceId: String
+        get() = deviceId.take(8)
 
     val accessToken: String?
         get() = prefs.getString(KEY_ACCESS_TOKEN, null)
@@ -79,6 +93,7 @@ class AuthTokenStorage @Inject constructor(
     companion object {
         private const val PREFS_NAME = "simsli_auth_prefs"
         private const val KEY_SERVER_URL = "simsli_server_url"
+        private const val KEY_DEVICE_ID = "simsli_device_id"
         private const val KEY_ACCESS_TOKEN = "simsli_access_token"
         private const val KEY_REFRESH_TOKEN = "simsli_refresh_token"
         private const val KEY_USER_ID = "simsli_user_id"

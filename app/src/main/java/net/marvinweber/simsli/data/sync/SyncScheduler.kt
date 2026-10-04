@@ -1,6 +1,5 @@
 package net.marvinweber.simsli.data.sync
 
-import android.util.Log
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -14,7 +13,9 @@ import javax.inject.Singleton
  * Keeps repositories free of a SyncManager dependency (no cycle).
  */
 @Singleton
-class SyncScheduler @Inject constructor() {
+class SyncScheduler @Inject constructor(
+    private val diag: SyncDiagnostics
+) {
 
     private val _requests = MutableSharedFlow<Unit>(
         extraBufferCapacity = 64,
@@ -24,7 +25,7 @@ class SyncScheduler @Inject constructor() {
 
     /** [reason] identifies the poke source — logged so sync loops can be attributed. */
     fun requestSync(reason: String) {
-        Log.d(TAG, "requestSync($reason)")
+        diag.d(TAG, "requestSync($reason)")
         _requests.tryEmit(Unit)
     }
 

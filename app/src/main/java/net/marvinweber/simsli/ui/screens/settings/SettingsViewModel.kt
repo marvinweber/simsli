@@ -21,6 +21,7 @@ import net.marvinweber.simsli.data.repository.AuthRepository
 import net.marvinweber.simsli.data.repository.AuthState
 import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.data.repository.SignOutResult
+import net.marvinweber.simsli.data.sync.SyncDiagnostics
 import net.marvinweber.simsli.data.sync.SyncManager
 import net.marvinweber.simsli.di.IoDispatcher
 import net.marvinweber.simsli.domain.model.HouseholdMember
@@ -78,6 +79,7 @@ class SettingsViewModel @Inject constructor(
     private val demoDataSeeder: DemoDataSeeder,
     private val remoteDataSource: SimsliRemoteDataSource,
     private val tokenStorage: AuthTokenStorage,
+    private val syncDiagnostics: SyncDiagnostics,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ViewModel() {
 
@@ -415,6 +417,9 @@ class SettingsViewModel @Inject constructor(
     }
 
     // --- Debug: demo data (debug builds only; the row is gated in the screen) -------------------
+
+    /** Ring-buffer dump of recent sync/realtime lines, for diagnosing sync anomalies. */
+    fun syncDiagnosticsSnapshot(): String = syncDiagnostics.snapshot()
 
     fun startSeedDemo() {
         seedConfirmOpen.value = true

@@ -56,3 +56,12 @@ func GetAuthUser(r *http.Request) *AuthUser {
 	}
 	return nil
 }
+
+// DeviceID returns the client's diagnostics id ("-", if absent) so log lines can
+// attribute requests to a specific device (the app sends X-Simsli-Device-Id).
+func DeviceID(r *http.Request) string {
+	if id := r.Header.Get("X-Simsli-Device-Id"); id != "" {
+		return id
+	}
+	return "-"
+}

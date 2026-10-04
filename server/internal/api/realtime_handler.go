@@ -3,6 +3,7 @@ package api
 import (
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/coder/websocket"
 	"net.marvinweber.simsli/server/internal/auth"
@@ -25,7 +26,15 @@ func NewRealtimeHandler(hub *realtime.Hub, authMgr *auth.Manager, svc *service.S
 }
 
 func (h *RealtimeHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
-	token := r.URL.Query().Get("token")
+	// Prefer the Authorization header — query strings land in access logs and
+	// proxies verbatim. The query param stays as a fallback for older app versions.
+	token := ""
+	if authz := r.Header.Get("Authorization"); strings.HasPrefix(authz, "Bearer ") {
+		token = strings.TrimPrefix(authz, "Bearer ")
+	}
+	if token == "" {
+		token = r.URL.Query().Get("token")
+	}
 	householdID := r.URL.Query().Get("household_id")
 
 	if token == "" || householdID == "" {
@@ -55,5 +64,7 @@ func (h *RealtimeHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.hub.ServeWS(r.Context(), conn, householdID)
+	deviceID := DeviceID(r)
+	log.Printf("[WebSocket] connected household=%s device=%s", householdID, deviceID)
+	h.hub.ServeWS(r.Context(), conn, householdID, deviceID)
 }

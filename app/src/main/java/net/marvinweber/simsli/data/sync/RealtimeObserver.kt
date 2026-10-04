@@ -1,6 +1,5 @@
 package net.marvinweber.simsli.data.sync
 
-import android.util.Log
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
@@ -42,6 +41,7 @@ class RealtimeObserver @Inject constructor(
     private val authRepository: AuthRepository,
     private val householdDao: HouseholdDao,
     private val syncScheduler: SyncScheduler,
+    private val diag: SyncDiagnostics,
     @ApplicationScope private val externalScope: CoroutineScope
 ) {
 
@@ -49,7 +49,7 @@ class RealtimeObserver @Inject constructor(
         externalScope.launch {
             // Suspends when the app is backgrounded/stopped; automatically reconnects on foreground.
             ProcessLifecycleOwner.get().lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                Log.d(TAG, "App in foreground: activating realtime observer")
+                diag.d(TAG, "App in foreground: activating realtime observer")
                 combine(
                     authRepository.authState,
                     householdDao.getHousehold().map { it?.id }.distinctUntilChanged()
@@ -74,20 +74,24 @@ class RealtimeObserver @Inject constructor(
                 .replaceFirst("^http".toRegex(), "ws")
                 .trimEnd('/')
 
+            // Token in the Authorization header, not the URL: query strings end up in
+            // access logs and proxies verbatim.
             val request = Request.Builder()
-                .url("$wsUrl/api/v1/realtime?token=$token&household_id=$householdId")
+                .url("$wsUrl/api/v1/realtime?household_id=$householdId")
+                .header("Authorization", "Bearer $token")
+                .header("X-Simsli-Device-Id", tokenStorage.deviceId)
                 .build()
 
             val closedNormally = suspendCancellableCoroutine<Boolean> { cont ->
                 var socket: WebSocket? = null
                 val listener = object : WebSocketListener() {
                     override fun onOpen(webSocket: WebSocket, response: Response) {
-                        Log.d(TAG, "Realtime WebSocket connected for household $householdId")
+                        diag.d(TAG, "Realtime WebSocket connected for household $householdId")
                         syncScheduler.requestSync("realtime:connected")
                     }
 
                     override fun onMessage(webSocket: WebSocket, text: String) {
-                        Log.d(TAG, "Realtime event received: $text")
+                        diag.d(TAG, "Realtime event received: $text")
                         syncScheduler.requestSync("realtime:event")
                     }
 
@@ -96,12 +100,12 @@ class RealtimeObserver @Inject constructor(
                     }
 
                     override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                        Log.d(TAG, "Realtime WebSocket closed ($code): $reason")
+                        diag.d(TAG, "Realtime WebSocket closed ($code): $reason")
                         if (cont.isActive) cont.resume(true)
                     }
 
                     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                        Log.w(TAG, "Realtime WebSocket failure: ${t.message}")
+                        diag.w(TAG, "Realtime WebSocket failure: ${t.message}")
                         if (cont.isActive) cont.resume(false)
                     }
                 }
@@ -109,7 +113,7 @@ class RealtimeObserver @Inject constructor(
                 socket = httpClient.newWebSocket(request, listener)
 
                 cont.invokeOnCancellation {
-                    Log.d(TAG, "Closing realtime WebSocket (app backgrounded or lifecycle stopped)")
+                    diag.d(TAG, "Closing realtime WebSocket (app backgrounded or lifecycle stopped)")
                     socket.close(1000, "App backgrounded")
                 }
             }

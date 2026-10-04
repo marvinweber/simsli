@@ -1241,6 +1241,65 @@ fun SettingsTabContent(
                         }
                     }
                 }
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.errorContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.BugReport,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = "Copy sync diagnostics",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Recent sync & realtime log lines (ids only, no content)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    clipboard.setClipEntry(
+                                        ClipData.newPlainText(
+                                            "Simsli sync diagnostics",
+                                            viewModel.syncDiagnosticsSnapshot()
+                                        ).toClipEntry()
+                                    )
+                                    snackbarHostState.showSnackbar("Sync diagnostics copied to clipboard")
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Copy")
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

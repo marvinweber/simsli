@@ -213,6 +213,7 @@ class SimsliRemoteDataSource @Inject constructor(
         header("Accept", "application/json")
         header("X-Simsli-App-Version", BuildConfig.VERSION_NAME)
         header("X-Simsli-Platform", "Android")
+        header("X-Simsli-Device-Id", tokenStorage.deviceId)
         return this
     }
 

@@ -130,7 +130,7 @@ func (h *Hub) ActiveConnectionsCount() int {
 }
 
 // ServeWS handles WebSocket connection lifecycle
-func (h *Hub) ServeWS(ctx context.Context, conn *websocket.Conn, householdID string) {
+func (h *Hub) ServeWS(ctx context.Context, conn *websocket.Conn, householdID, deviceID string) {
 	client := &Client{
 		HouseholdID: householdID,
 		Conn:        conn,
@@ -167,7 +167,7 @@ func (h *Hub) ServeWS(ctx context.Context, conn *websocket.Conn, householdID str
 	for {
 		_, _, err := conn.Read(ctx)
 		if err != nil {
-			log.Printf("[WebSocket] client disconnected: %v", err)
+			log.Printf("[WebSocket] client disconnected household=%s device=%s: %v", householdID, deviceID, err)
 			break
 		}
 	}
