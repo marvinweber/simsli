@@ -45,7 +45,7 @@ import java.util.UUID
         DbSyncState::class,
         DbOutboxEntry::class
     ],
-    version = 3
+    version = 4
 )
 @TypeConverters(Converters::class)
 abstract class SimsliDatabase : RoomDatabase() {
@@ -89,13 +89,20 @@ abstract class SimsliDatabase : RoomDatabase() {
             }
         }
 
+        /** v3 → v4: items.links (ITEM-1). */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `items` ADD COLUMN `links` TEXT NOT NULL DEFAULT '[]'")
+            }
+        }
+
         fun create(context: Context): SimsliDatabase {
             return Room.databaseBuilder(
                 context,
                 SimsliDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_2_3)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
                 .fallbackToDestructiveMigration()
                 .addCallback(SimsliDatabaseCallback())
                 .build()

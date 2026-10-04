@@ -59,6 +59,11 @@ type StoreCategory struct {
 	SortOrder  float64 `json:"sort_order"`
 }
 
+type ItemLink struct {
+	URL   string  `json:"url"`
+	Title *string `json:"title,omitempty"`
+}
+
 type Item struct {
 	ID          string     `json:"id"`
 	HouseholdID string     `json:"household_id"`
@@ -68,6 +73,7 @@ type Item struct {
 	Type        string     `json:"type"` // "PERMANENT", "ONE_TIME", "CHECKLIST"
 	DefaultUnit *string    `json:"default_unit,omitempty"`
 	SortOrder   float64    `json:"sort_order"`
+	Links       []ItemLink `json:"links"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`

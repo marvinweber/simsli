@@ -35,8 +35,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Info
+import net.marvinweber.simsli.ui.components.LinkUtils
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -313,6 +316,8 @@ fun ListTabContent(
                 quantity = entryItem.listEntry.quantity,
                 unit = entryItem.listEntry.unit,
                 comment = entryItem.listEntry.comment,
+                note = entryItem.item?.notes,
+                links = entryItem.item?.links ?: emptyList(),
                 saveButtonText = if (entryItem.listEntry.done) "Add to list" else "Save",
                 onSave = { quantity, unit, comment ->
                     viewModel.saveEntryDetails(entryItem.listEntry.id, quantity, unit, comment)
@@ -491,6 +496,8 @@ private fun ActiveListEntryRow(
     val listEntry = listEntryItem.listEntry
     val item = listEntryItem.item
     val displayName = item?.name ?: "Unknown item"
+    val hasNote = !item?.notes.isNullOrBlank()
+    val hasLink = !item?.links.isNullOrEmpty() || LinkUtils.containsLink(listEntry.comment) || LinkUtils.containsLink(item?.notes)
 
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
@@ -568,14 +575,36 @@ private fun ActiveListEntryRow(
                         .weight(1f)
                         .padding(vertical = 2.dp)
                 ) {
-                    Text(
-                        text = displayName,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        textDecoration = if (isCompleting) TextDecoration.LineThrough else null,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = displayName,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            textDecoration = if (isCompleting) TextDecoration.LineThrough else null,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        if (hasNote) {
+                            Icon(
+                                imageVector = Icons.Outlined.Description,
+                                contentDescription = "Has catalog note",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
+                        if (hasLink) {
+                            Icon(
+                                imageVector = Icons.Default.Link,
+                                contentDescription = "Has link",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
+                    }
 
                     val meta = buildString {
                         listEntry.quantity?.let { append(formatQuantity(it)) }
@@ -615,6 +644,8 @@ private fun RecentlyCheckedRow(
     val listEntry = listEntryItem.listEntry
     val item = listEntryItem.item
     val displayName = item?.name ?: "Unknown item"
+    val hasNote = !item?.notes.isNullOrBlank()
+    val hasLink = !item?.links.isNullOrEmpty() || LinkUtils.containsLink(listEntry.comment) || LinkUtils.containsLink(item?.notes)
 
     Surface(
         modifier = modifier
@@ -641,14 +672,36 @@ private fun RecentlyCheckedRow(
                     .weight(1f)
                     .padding(vertical = 2.dp)
             ) {
-                Text(
-                    text = displayName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    textDecoration = TextDecoration.LineThrough,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = displayName,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        textDecoration = TextDecoration.LineThrough,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (hasNote) {
+                        Icon(
+                            imageVector = Icons.Outlined.Description,
+                            contentDescription = "Has catalog note",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                    if (hasLink) {
+                        Icon(
+                            imageVector = Icons.Default.Link,
+                            contentDescription = "Has link",
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                }
 
                 val meta = buildString {
                     listEntry.quantity?.let { append(formatQuantity(it)) }

@@ -1,6 +1,9 @@
 package net.marvinweber.simsli.data.local.entity
 
 import androidx.room.TypeConverter
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import net.marvinweber.simsli.domain.model.ItemLink
 import net.marvinweber.simsli.domain.model.ItemType
 import java.time.Instant
 
@@ -10,6 +13,21 @@ class Converters {
 
     @TypeConverter
     fun toItemType(value: String): ItemType = ItemType.valueOf(value)
+
+    @TypeConverter
+    fun fromItemLinkList(value: List<ItemLink>?): String {
+        return Json.encodeToString(value ?: emptyList())
+    }
+
+    @TypeConverter
+    fun toItemLinkList(value: String?): List<ItemLink> {
+        if (value.isNullOrBlank()) return emptyList()
+        return try {
+            Json.decodeFromString(value)
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
 
     /**
      * Stored as epoch microseconds, not milliseconds: delta-sync watermarks are

@@ -23,8 +23,10 @@ import net.marvinweber.simsli.data.repository.StoreRepository
 import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.Household
 import net.marvinweber.simsli.domain.model.Item
+import net.marvinweber.simsli.domain.model.ItemLink
 import net.marvinweber.simsli.domain.model.ItemType
 import net.marvinweber.simsli.domain.model.Store
+import net.marvinweber.simsli.ui.components.WebTitleFetcher
 import java.time.Instant
 import javax.inject.Inject
 
@@ -34,6 +36,7 @@ data class ItemDetailUiState(
     val existingStoreIds: Set<String> = emptySet(),
     val stores: List<Store> = emptyList(),
     val categories: List<Category> = emptyList(),
+    val links: List<ItemLink> = emptyList(),
     /** True while an existing item is being loaded for editing. */
     val isWaitingForItem: Boolean = false,
     val isLoading: Boolean = true,
@@ -54,6 +57,7 @@ class ItemDetailViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
     private val itemStoreRepository: ItemStoreRepository,
     private val categoryRepository: CategoryRepository,
+    private val webTitleFetcher: WebTitleFetcher,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -63,6 +67,7 @@ class ItemDetailViewModel @Inject constructor(
     private data class LoadedItem(val item: Item, val storeIds: Set<String>)
 
     private val loadedItem = MutableStateFlow<LoadedItem?>(null)
+    private val _links = MutableStateFlow<List<ItemLink>>(emptyList())
     private val isSaving = MutableStateFlow(false)
 
     init {
@@ -70,18 +75,32 @@ class ItemDetailViewModel @Inject constructor(
             viewModelScope.launch {
                 val item = itemRepository.getItemById(itemId).first() ?: return@launch
                 val storeIds = itemStoreRepository.getStoreIdsForItem(itemId).toSet()
+                _links.value = item.links
                 loadedItem.value = LoadedItem(item, storeIds)
+                item.links.forEach { link ->
+                    if (link.title.isNullOrBlank()) {
+                        fetchTitleForUrl(link.url)
+                    }
+                }
             }
         }
     }
 
+    private data class CombinedParams(
+        val household: Household?,
+        val loaded: LoadedItem?,
+        val links: List<ItemLink>,
+        val saving: Boolean
+    )
+
     val uiState: StateFlow<ItemDetailUiState> = combine(
         householdRepository.getHousehold(),
         loadedItem,
+        _links,
         isSaving
-    ) { household, loaded, saving ->
-        Triple(household, loaded, saving)
-    }.flatMapLatest { (household, loaded, saving) ->
+    ) { household, loaded, links, saving ->
+        CombinedParams(household, loaded, links, saving)
+    }.flatMapLatest { (household, loaded, links, saving) ->
         val waitingForItem = itemId != null && loaded == null
         if (household == null) {
             flowOf(ItemDetailUiState(isLoading = false, isSaving = saving))
@@ -96,6 +115,7 @@ class ItemDetailViewModel @Inject constructor(
                     existingStoreIds = loaded?.storeIds ?: emptySet(),
                     stores = stores,
                     categories = categories,
+                    links = links,
                     isWaitingForItem = waitingForItem,
                     isLoading = false,
                     isSaving = saving,
@@ -111,6 +131,30 @@ class ItemDetailViewModel @Inject constructor(
 
     private val _events = MutableStateFlow<ItemDetailUiEvent?>(null)
     val events: StateFlow<ItemDetailUiEvent?> = _events.asStateFlow()
+
+    fun addLink(url: String) {
+        val trimmed = url.trim()
+        if (trimmed.isBlank()) return
+        val current = _links.value
+        if (current.any { it.url.equals(trimmed, ignoreCase = true) }) return
+        _links.value = current + ItemLink(url = trimmed, title = null)
+        fetchTitleForUrl(trimmed)
+    }
+
+    private fun fetchTitleForUrl(url: String) {
+        viewModelScope.launch {
+            val title = webTitleFetcher.fetchTitle(url)
+            if (!title.isNullOrBlank()) {
+                _links.value = _links.value.map {
+                    if (it.url.equals(url, ignoreCase = true)) it.copy(title = title) else it
+                }
+            }
+        }
+    }
+
+    fun removeLink(url: String) {
+        _links.value = _links.value.filterNot { it.url.equals(url, ignoreCase = true) }
+    }
 
     /** Creates or updates the item (catalog metadata only — entry data lives on the list). */
     fun saveItem(
@@ -134,6 +178,7 @@ class ItemDetailViewModel @Inject constructor(
 
             isSaving.value = true
             val existing = uiState.value.existingItem
+            val currentLinks = _links.value
             if (existing == null) {
                 val item = Item(
                     id = "",
@@ -143,6 +188,7 @@ class ItemDetailViewModel @Inject constructor(
                     type = type,
                     categoryId = selectedCategoryId,
                     sortOrder = itemRepository.getMaxItemSortOrder(household.id) + 1f,
+                    links = currentLinks,
                     createdAt = Instant.EPOCH,
                     updatedAt = Instant.EPOCH
                 )
@@ -163,7 +209,8 @@ class ItemDetailViewModel @Inject constructor(
                         name = name.trim(),
                         notes = notes.trim().ifBlank { null },
                         type = type,
-                        categoryId = selectedCategoryId
+                        categoryId = selectedCategoryId,
+                        links = currentLinks
                     )
                 ).onSuccess {
                     val selected = selectedStoreIds.toSet()

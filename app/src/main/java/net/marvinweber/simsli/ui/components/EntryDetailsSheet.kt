@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -26,6 +27,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import net.marvinweber.simsli.domain.model.ItemLink
+
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Alignment
 
 /** Formats a quantity for display: whole numbers without decimals ("2", not "2.0"). */
 internal fun formatQuantity(quantity: Double?): String = when {
@@ -53,7 +62,9 @@ fun EntryDetailsSheet(
     onDismiss: () -> Unit,
     onSave: (quantityText: String, unit: String, comment: String) -> Unit,
     onRemove: (() -> Unit)? = null,
-    saveButtonText: String = "Save"
+    saveButtonText: String = "Save",
+    note: String? = null,
+    links: List<ItemLink> = emptyList()
 ) {
     var quantityText by remember(stateKey) { mutableStateOf(formatQuantity(quantity)) }
     var unitText by remember(stateKey) { mutableStateOf(unit.orEmpty()) }
@@ -81,6 +92,42 @@ fun EntryDetailsSheet(
                 text = title,
                 style = MaterialTheme.typography.titleMedium
             )
+
+            // Read-only catalog note if present
+            if (!note.isNullOrBlank()) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Description,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "Catalog note",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Text(
+                            text = note,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -113,6 +160,19 @@ fun EntryDetailsSheet(
                 minLines = 2,
                 maxLines = 4
             )
+
+            // Combined links from catalog item.links and inline URLs in comment / note
+            val allLinks = remember(links, commentText, note) {
+                val inlineUrls = (LinkUtils.extractUrls(commentText) + LinkUtils.extractUrls(note)).distinct()
+                val existingUrls = links.map { it.url.lowercase() }.toSet()
+                val additionalLinks = inlineUrls
+                    .filterNot { it.lowercase() in existingUrls }
+                    .map { net.marvinweber.simsli.domain.model.ItemLink(url = it, title = null) }
+                links + additionalLinks
+            }
+            if (allLinks.isNotEmpty()) {
+                ItemLinkChipsRow(links = allLinks)
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),

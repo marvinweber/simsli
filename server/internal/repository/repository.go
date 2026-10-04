@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -570,7 +571,7 @@ func (r *Repository) GetDeltas(ctx context.Context, householdID string, since ti
 
 	// Items
 	itemRows, err := r.db.QueryContext(ctx,
-		"SELECT id, household_id, category_id, name, notes, type, default_unit, sort_order, created_at, updated_at, deleted_at FROM items WHERE household_id = ? AND updated_at > ?",
+		"SELECT id, household_id, category_id, name, notes, type, default_unit, sort_order, links, created_at, updated_at, deleted_at FROM items WHERE household_id = ? AND updated_at > ?",
 		householdID, sinceStr,
 	)
 	if err != nil {
@@ -579,9 +580,9 @@ func (r *Repository) GetDeltas(ctx context.Context, householdID string, since ti
 	defer itemRows.Close()
 	for itemRows.Next() {
 		var i model.Item
-		var catID, du, da sql.NullString
+		var catID, du, da, linksStr sql.NullString
 		var ca, ua string
-		if err := itemRows.Scan(&i.ID, &i.HouseholdID, &catID, &i.Name, &i.Notes, &i.Type, &du, &i.SortOrder, &ca, &ua, &da); err != nil {
+		if err := itemRows.Scan(&i.ID, &i.HouseholdID, &catID, &i.Name, &i.Notes, &i.Type, &du, &i.SortOrder, &linksStr, &ca, &ua, &da); err != nil {
 			return nil, err
 		}
 		if catID.Valid {
@@ -589,6 +590,12 @@ func (r *Repository) GetDeltas(ctx context.Context, householdID string, since ti
 		}
 		if du.Valid {
 			i.DefaultUnit = &du.String
+		}
+		if linksStr.Valid && linksStr.String != "" {
+			_ = json.Unmarshal([]byte(linksStr.String), &i.Links)
+		}
+		if i.Links == nil {
+			i.Links = []model.ItemLink{}
 		}
 		i.CreatedAt, _ = parseTime(ca)
 		i.UpdatedAt, _ = parseTime(ua)
@@ -740,9 +747,15 @@ func (r *Repository) Flush(ctx context.Context, req *model.FlushRequest) error {
 		if it.DeletedAt != nil {
 			daStr = sql.NullString{String: formatTime(*it.DeletedAt), Valid: true}
 		}
+		linksJSON := "[]"
+		if len(it.Links) > 0 {
+			if b, err := json.Marshal(it.Links); err == nil {
+				linksJSON = string(b)
+			}
+		}
 		_, err := tx.ExecContext(ctx,
-			`INSERT INTO items (id, household_id, category_id, name, notes, type, default_unit, sort_order, created_at, updated_at, deleted_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`INSERT INTO items (id, household_id, category_id, name, notes, type, default_unit, sort_order, links, created_at, updated_at, deleted_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			 ON CONFLICT(id) DO UPDATE SET
 			   category_id=excluded.category_id,
 			   name=excluded.name,
@@ -750,9 +763,10 @@ func (r *Repository) Flush(ctx context.Context, req *model.FlushRequest) error {
 			   type=excluded.type,
 			   default_unit=excluded.default_unit,
 			   sort_order=excluded.sort_order,
+			   links=excluded.links,
 			   updated_at=excluded.updated_at,
 			   deleted_at=excluded.deleted_at`,
-			it.ID, req.HouseholdID, it.CategoryID, it.Name, it.Notes, it.Type, it.DefaultUnit, it.SortOrder, formatTime(it.CreatedAt), formatTime(it.UpdatedAt), daStr,
+			it.ID, req.HouseholdID, it.CategoryID, it.Name, it.Notes, it.Type, it.DefaultUnit, it.SortOrder, linksJSON, formatTime(it.CreatedAt), formatTime(it.UpdatedAt), daStr,
 		)
 		if err != nil {
 			return fmt.Errorf("flush item: %w", err)

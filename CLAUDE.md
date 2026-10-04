@@ -43,7 +43,7 @@ Early development, pre-release. The app (offline + Supabase two-way sync + realt
 ```
 Household        { id, name }
 HouseholdMember  { householdId, userId, role }
-Item             { id, householdId, name, notes, type, sortOrder }
+Item             { id, householdId, name, notes, links, type, sortOrder }
 Store            { id, householdId, name, sortOrder }
 ItemStore        { itemId, storeId }          -- many-to-many
 ListEntry        { id, householdId, itemId, quantity, unit, comment, done, completedAt }

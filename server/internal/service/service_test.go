@@ -112,7 +112,19 @@ func TestHouseholdCreationAndSync(t *testing.T) {
 			{ID: "s-1", HouseholdID: hh.ID, Name: "Aldi", SortOrder: 1, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
 		},
 		Items: []model.Item{
-			{ID: "i-1", HouseholdID: hh.ID, Name: "Apples", Notes: "Crisp", Type: "PERMANENT", SortOrder: 1, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
+			{
+				ID:          "i-1",
+				HouseholdID: hh.ID,
+				Name:        "Apples",
+				Notes:       "Crisp",
+				Type:        "PERMANENT",
+				SortOrder:   1,
+				Links: []model.ItemLink{
+					{URL: "https://example.com/apple", Title: &[]string{"Apple info"}[0]},
+				},
+				CreatedAt: time.Now().UTC(),
+				UpdatedAt: time.Now().UTC(),
+			},
 		},
 	}
 
@@ -131,6 +143,9 @@ func TestHouseholdCreationAndSync(t *testing.T) {
 	}
 	if len(deltas.Items) != 1 || deltas.Items[0].Name != "Apples" {
 		t.Errorf("expected 1 item 'Apples', got %v", deltas.Items)
+	}
+	if len(deltas.Items[0].Links) != 1 || deltas.Items[0].Links[0].URL != "https://example.com/apple" || deltas.Items[0].Links[0].Title == nil || *deltas.Items[0].Links[0].Title != "Apple info" {
+		t.Errorf("expected links with 1 link 'https://example.com/apple' and title 'Apple info', got %+v", deltas.Items[0].Links)
 	}
 }
 

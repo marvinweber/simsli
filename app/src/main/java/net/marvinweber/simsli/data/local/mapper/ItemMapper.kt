@@ -11,6 +11,7 @@ fun DbItem.toDomain(): Item = Item(
     type = type,
     categoryId = categoryId,
     sortOrder = sortOrder,
+    links = links,
     createdAt = createdAt,
     updatedAt = updatedAt
 )
@@ -23,6 +24,7 @@ fun Item.toDb(): DbItem = DbItem(
     type = type,
     categoryId = categoryId,
     sortOrder = sortOrder,
+    links = links,
     createdAt = createdAt,
     updatedAt = updatedAt,
     deletedAt = null

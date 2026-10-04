@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +16,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,11 +32,13 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -41,6 +46,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import net.marvinweber.simsli.domain.model.ItemType
+import net.marvinweber.simsli.ui.components.ItemLinkChipsRow
+import net.marvinweber.simsli.ui.components.LinkUtils
 
 /**
  * Create/edit a catalog item: name, store assignments, type, notes.
@@ -62,16 +69,22 @@ fun ItemDetailScreen(
     var selectedStoreIds by rememberSaveable { mutableStateOf<Set<String>>(emptySet()) }
     var selectedCategoryId by rememberSaveable { mutableStateOf<String?>(null) }
     var prefilled by rememberSaveable { mutableStateOf(false) }
+    var showAddLinkDialog by remember { mutableStateOf(false) }
 
     // Prefill the form once when editing an existing item.
     LaunchedEffect(uiState.existingItem) {
         val item = uiState.existingItem ?: return@LaunchedEffect
         if (prefilled) return@LaunchedEffect
+        val notes = item.notes.orEmpty()
+        val stripResult = LinkUtils.stripUrls(notes)
         itemName = item.name
-        itemNotes = item.notes.orEmpty()
+        itemNotes = stripResult.remainingText
         itemType = item.type
         selectedStoreIds = uiState.existingStoreIds
         selectedCategoryId = item.categoryId
+        stripResult.extractedUrls.forEach { url ->
+            viewModel.addLink(url)
+        }
         prefilled = true
     }
 
@@ -221,13 +234,91 @@ fun ItemDetailScreen(
                         // Notes
                         OutlinedTextField(
                             value = itemNotes,
-                            onValueChange = { itemNotes = it },
+                            onValueChange = { newText ->
+                                val stripResult = LinkUtils.stripUrls(newText)
+                                itemNotes = stripResult.remainingText
+                                if (stripResult.extractedUrls.isNotEmpty()) {
+                                    stripResult.extractedUrls.forEach { url ->
+                                        viewModel.addLink(url)
+                                    }
+                                }
+                            },
                             label = { Text("Notes (optional)") },
                             placeholder = { Text("Any additional details") },
                             modifier = Modifier.fillMaxWidth(),
                             minLines = 2,
                             maxLines = 4
                         )
+
+                        // Links section
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Links",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                            TextButton(
+                                onClick = { showAddLinkDialog = true },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.size(4.dp))
+                                Text("Add link", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+
+                        if (uiState.links.isNotEmpty()) {
+                            ItemLinkChipsRow(
+                                links = uiState.links,
+                                onRemove = { link -> viewModel.removeLink(link.url) }
+                            )
+                        } else {
+                            Text(
+                                text = "Paste a link into notes or tap \"Add link\"",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        }
+
+                        if (showAddLinkDialog) {
+                            var linkInput by remember { mutableStateOf("") }
+                            AlertDialog(
+                                onDismissRequest = { showAddLinkDialog = false },
+                                title = { Text("Add link") },
+                                text = {
+                                    OutlinedTextField(
+                                        value = linkInput,
+                                        onValueChange = { linkInput = it },
+                                        label = { Text("URL") },
+                                        placeholder = { Text("https://example.com") },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                },
+                                confirmButton = {
+                                    Button(
+                                        onClick = {
+                                            val trimmed = linkInput.trim()
+                                            if (trimmed.isNotBlank()) {
+                                                viewModel.addLink(trimmed)
+                                            }
+                                            showAddLinkDialog = false
+                                        },
+                                        enabled = linkInput.isNotBlank()
+                                    ) {
+                                        Text("Add")
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showAddLinkDialog = false }) {
+                                        Text("Cancel")
+                                    }
+                                }
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(8.dp))
 

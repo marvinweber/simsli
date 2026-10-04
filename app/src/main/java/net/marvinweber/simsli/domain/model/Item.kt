@@ -11,6 +11,7 @@ data class Item(
     /** Zero or one category (CAT-2); null = uncategorized. */
     val categoryId: String? = null,
     val sortOrder: Float = 0f,
+    val links: List<ItemLink> = emptyList(),
     val createdAt: Instant,
     val updatedAt: Instant
 )
