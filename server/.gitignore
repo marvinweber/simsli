@@ -1,0 +1,5 @@
+simsli-server
+*.db
+*.db-wal
+*.db-shm
+.env

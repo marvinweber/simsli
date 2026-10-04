@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Simsli Server Admin</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    :root { --pico-font-size: 95%; }
+    .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
+    .badge-success { background: #2e7d32; color: white; }
+    .badge-info { background: #0288d1; color: white; }
+    .badge-warning { background: #ed6c02; color: white; }
+    .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .card-stat { padding: 1rem; border-radius: 8px; border: 1px solid var(--pico-muted-border-color); background: var(--pico-card-background-color); text-align: center; }
+    .stat-val { font-size: 1.8rem; font-weight: bold; margin: 0.3rem 0; color: var(--pico-primary); }
+    .token-text { font-family: monospace; font-size: 0.85rem; word-break: break-all; }
+    .modal-box { text-align: center; padding: 1.5rem; }
+    #qrcode { display: flex; justify-content: center; margin: 1rem 0; }
+  </style>
+</head>
+<body>
+  <main class="container" style="padding-top: 2rem; padding-bottom: 3rem;">
+    <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <div>
+        <h1 style="margin-bottom: 0.2rem;">🛒 Simsli Server</h1>
+        <p style="margin: 0; color: var(--pico-muted-color);">Administration & Telemetry</p>
+      </div>
+      <div>
+        <span class="badge {{if eq .ServerInfo.ServerMode "cloud"}}badge-info{{else}}badge-success{{end}}">
+          Mode: {{.ServerInfo.ServerMode}}
+        </span>
+        <span class="badge badge-info">
+          DB: {{.ServerInfo.DatabaseDriver}}
+        </span>
+        <span class="badge {{if .ServerInfo.RegistrationOpen}}badge-success{{else}}badge-warning{{end}}">
+          Reg: {{if .ServerInfo.RegistrationOpen}}Open{{else}}Closed (Invite-only){{end}}
+        </span>
+      </div>
+    </header>
+
+    {{if .Message}}
+      <article style="background: rgba(46, 125, 50, 0.15); border-color: #2e7d32; margin-bottom: 1rem;">
+        {{.Message}}
+      </article>
+    {{end}}
+    {{if .Error}}
+      <article style="background: rgba(211, 47, 47, 0.15); border-color: #d32f2f; margin-bottom: 1rem;">
+        {{.Error}}
+      </article>
+    {{end}}
+
+    <!-- Telemetry Cards -->
+    <div class="grid-stats">
+      <div class="card-stat">
+        <small>Allocated Memory</small>
+        <div class="stat-val">{{printf "%.1f" .AllocMB}} MB</div>
+        <small>Target &lt; 20 MB</small>
+      </div>
+      <div class="card-stat">
+        <small>Active WebSockets</small>
+        <div class="stat-val">{{.ActiveWebSockets}}</div>
+        <small>Connected mobile devices</small>
+      </div>
+      <div class="card-stat">
+        <small>Goroutines</small>
+        <div class="stat-val">{{.NumGoroutine}}</div>
+        <small>Runtime concurrency</small>
+      </div>
+      <div class="card-stat">
+        <small>Households</small>
+        <div class="stat-val">{{.HouseholdCount}}</div>
+        <small>Active shopping groups</small>
+      </div>
+      <div class="card-stat">
+        <small>Registered Users</small>
+        <div class="stat-val">{{.UserCount}}</div>
+        <small>Accounts created</small>
+      </div>
+    </div>
+
+    <!-- Section 1: Pending Logins (Zero-SMTP Mode) -->
+    <article style="margin-bottom: 2rem;">
+      <header style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0;">🔑 Pending Logins (Zero-SMTP Flow)</h3>
+        <small>Instant sign-in for LAN & family</small>
+      </header>
+      {{if .PendingLinks}}
+        <figure>
+          <table role="grid">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Requested At</th>
+                <th>Expires In</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{range .PendingLinks}}
+                <tr>
+                  <td><strong>{{.Email}}</strong></td>
+                  <td>{{formatTime .CreatedAt}}</td>
+                  <td><span class="badge badge-warning">{{formatExpiry .ExpiresAt}}</span></td>
+                  <td>
+                    <button class="outline" style="padding: 0.2rem 0.6rem; font-size: 0.8rem;" 
+                            onclick="copyLink('{{webVerifyURL $.Config.PublicURL .Token}}')">
+                      📋 Copy Link
+                    </button>
+                    <button class="contrast" style="padding: 0.2rem 0.6rem; font-size: 0.8rem;"
+                            onclick="showQR('{{webVerifyURL $.Config.PublicURL .Token}}', '{{.Email}}')">
+                      📱 Show QR Code
+                    </button>
+                  </td>
+                </tr>
+              {{end}}
+            </tbody>
+          </table>
+        </figure>
+      {{else}}
+        <p style="color: var(--pico-muted-color); margin: 1rem 0;">No pending login requests. Request a magic link from the app or generate one below.</p>
+      {{end}}
+
+      <details>
+        <summary>⚡ Generate Magic Link Manually</summary>
+        <form method="POST" action="/magic-link" style="margin-top: 1rem; display: flex; gap: 1rem;">
+          <input type="email" name="email" placeholder="user@example.com" required style="margin: 0; flex: 1;">
+          <button type="submit" style="margin: 0; width: auto;">Generate Link</button>
+        </form>
+      </details>
+    </article>
+
+    <!-- Section 2: Users & Creation -->
+    <article style="margin-bottom: 2rem;">
+      <header style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0;">👥 Registered Users</h3>
+        <details class="dropdown" style="margin: 0;">
+          <summary role="button" class="outline" style="padding: 0.3rem 0.8rem; margin: 0;">+ Create User</summary>
+          <div style="padding: 1rem; min-width: 280px;">
+            <form method="POST" action="/users">
+              <label>User Email:
+                <input type="email" name="email" placeholder="family-member@example.com" required>
+              </label>
+              <button type="submit" style="width: 100%;">Add User</button>
+            </form>
+          </div>
+        </details>
+      </header>
+
+      {{if .Users}}
+        <figure>
+          <table>
+            <thead>
+              <tr>
+                <th>User ID</th>
+                <th>Email</th>
+                <th>Created At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{range .Users}}
+                <tr>
+                  <td class="token-text">{{.ID}}</td>
+                  <td><strong>{{.Email}}</strong></td>
+                  <td>{{formatTime .CreatedAt}}</td>
+                </tr>
+              {{end}}
+            </tbody>
+          </table>
+        </figure>
+      {{else}}
+        <p style="color: var(--pico-muted-color);">No users registered yet.</p>
+      {{end}}
+    </article>
+
+    <!-- Section 3: Households -->
+    <article>
+      <header>
+        <h3 style="margin: 0;">🏠 Active Households</h3>
+      </header>
+      {{if .Households}}
+        <figure>
+          <table>
+            <thead>
+              <tr>
+                <th>Household ID</th>
+                <th>Name</th>
+                <th>Plan</th>
+                <th>Status</th>
+                <th>Created At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{range .Households}}
+                <tr>
+                  <td class="token-text">{{.ID}}</td>
+                  <td><strong>{{.Name}}</strong></td>
+                  <td><span class="badge badge-info">{{.Plan}}</span></td>
+                  <td><span class="badge badge-success">{{.Status}}</span></td>
+                  <td>{{formatTime .CreatedAt}}</td>
+                </tr>
+              {{end}}
+            </tbody>
+          </table>
+        </figure>
+      {{else}}
+        <p style="color: var(--pico-muted-color);">No households created yet.</p>
+      {{end}}
+    </article>
+
+    <!-- QR Code Modal Dialog -->
+    <dialog id="qrModal">
+      <article class="modal-box">
+        <header>
+          <button aria-label="Close" rel="prev" onclick="closeQR()"></button>
+          <h3 id="qrTitle" style="margin: 0;">Scan to Sign In</h3>
+        </header>
+        <p>Scan with your phone's camera to instantly log in:</p>
+        <div id="qrcode"></div>
+        <p id="qrLink" class="token-text" style="font-size: 0.75rem; color: var(--pico-muted-color);"></p>
+        <footer>
+          <button class="secondary" onclick="closeQR()">Close</button>
+        </footer>
+      </article>
+    </dialog>
+  </main>
+
+  <script>
+    function copyLink(url) {
+      navigator.clipboard.writeText(url).then(() => {
+        alert("Copied to clipboard!\n" + url);
+      });
+    }
+
+    let qrCodeInstance = null;
+
+    function showQR(url, email) {
+      document.getElementById("qrTitle").innerText = "Sign In: " + email;
+      document.getElementById("qrLink").innerText = url;
+      const container = document.getElementById("qrcode");
+      container.innerHTML = "";
+      qrCodeInstance = new QRCode(container, {
+        text: url,
+        width: 220,
+        height: 220,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+      document.getElementById("qrModal").setAttribute("open", "true");
+    }
+
+    function closeQR() {
+      document.getElementById("qrModal").removeAttribute("open");
+    }
+  </script>
+</body>
+</html>
