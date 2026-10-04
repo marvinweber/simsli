@@ -1,6 +1,7 @@
 services:
   # Option 1: Default Self-Hosted (Single Container, Embedded SQLite)
   simsli:
+    image: ghcr.io/marvinweber/simsli-server:latest
     build: .
     container_name: simsli-server
     restart: unless-stopped
