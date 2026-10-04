@@ -36,6 +36,9 @@
         <span class="badge badge-info">
           DB: {{.ServerInfo.DatabaseDriver}}
         </span>
+        {{if .Config.AdminKey}}
+          <a href="/logout" role="button" class="outline secondary" style="padding: 0.35rem 0.8rem; font-size: 0.85rem; margin: 0;">Logout</a>
+        {{end}}
       </div>
     </header>
 

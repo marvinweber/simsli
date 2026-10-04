@@ -38,6 +38,9 @@
         <span class="badge {{if .ServerInfo.RegistrationOpen}}badge-success{{else}}badge-warning{{end}}">
           Reg: {{if .ServerInfo.RegistrationOpen}}Open{{else}}Closed (Invite-only){{end}}
         </span>
+        {{if .Config.AdminKey}}
+          <a href="/logout" role="button" class="outline secondary" style="padding: 0.35rem 0.8rem; font-size: 0.85rem; margin: 0;">Logout</a>
+        {{end}}
       </div>
     </header>
 

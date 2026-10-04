@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Simsli Server Login</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: var(--pico-background-color);
+    }
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      margin: 1rem;
+      padding: 2.2rem;
+      border-radius: 10px;
+      border: 1px solid var(--pico-muted-border-color);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+  </style>
+</head>
+<body>
+  <article class="login-card">
+    <header style="text-align: center; margin-bottom: 1.5rem;">
+      <h2 style="margin-bottom: 0.3rem;">🛒 Simsli Admin</h2>
+      <p style="margin: 0; color: var(--pico-muted-color); font-size: 0.95rem;">Enter Admin Key to sign in</p>
+    </header>
+
+    {{if .Error}}
+      <article style="background: rgba(211, 47, 47, 0.15); border-color: #d32f2f; margin-bottom: 1.25rem; padding: 0.75rem; font-size: 0.9rem;">
+        {{.Error}}
+      </article>
+    {{end}}
+
+    <form method="POST" action="/login{{if .Next}}?next={{.Next}}{{end}}">
+      <label for="admin_key">
+        Admin Key
+        <input type="password" id="admin_key" name="admin_key" placeholder="Paste your admin key..." required autofocus>
+      </label>
+      <button type="submit" style="width: 100%; margin-top: 1rem;">Sign In</button>
+    </form>
+  </article>
+</body>
+</html>

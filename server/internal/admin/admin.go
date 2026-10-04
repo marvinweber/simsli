@@ -1,12 +1,17 @@
 package admin
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -18,6 +23,13 @@ import (
 
 //go:embed templates/*
 var templatesFS embed.FS
+
+const sessionCookieName = "simsli_admin_session"
+
+type LoginData struct {
+	Error string
+	Next  string
+}
 
 type DashboardData struct {
 	Config           *config.Config
@@ -92,32 +104,157 @@ func NewHandler(svc *service.Service, hub *realtime.Hub, cfg *config.Config) *Ha
 	}
 }
 
+func (h *Handler) sessionToken() string {
+	secret := h.cfg.JWTSecret
+	if len(secret) == 0 {
+		secret = []byte("simsli-admin-default-secret")
+	}
+	mac := hmac.New(sha256.New, secret)
+	mac.Write([]byte("simsli-admin:" + h.cfg.AdminKey))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func (h *Handler) isAuthenticated(r *http.Request) bool {
+	if h.cfg.AdminKey == "" {
+		return true
+	}
+	if r.Header.Get("X-Admin-Key") == h.cfg.AdminKey {
+		return true
+	}
+	if cookie, err := r.Cookie(sessionCookieName); err == nil && cookie.Value == h.sessionToken() {
+		return true
+	}
+	if qKey := r.URL.Query().Get("key"); qKey != "" && qKey == h.cfg.AdminKey {
+		return true
+	}
+	return false
+}
+
 func (h *Handler) NewRouter() http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if h.cfg.AdminKey != "" {
-				key := r.Header.Get("X-Admin-Key")
-				if key == "" {
-					key = r.URL.Query().Get("key")
-				}
-				if key != h.cfg.AdminKey {
-					http.Error(w, "Unauthorized: Invalid Admin Key", http.StatusUnauthorized)
-					return
-				}
-			}
-			next.ServeHTTP(w, r)
-		})
+	r.Get("/login", h.RenderLogin)
+	r.Post("/login", h.HandleLogin)
+	r.Get("/logout", h.HandleLogout)
+
+	r.Group(func(r chi.Router) {
+		r.Use(h.authMiddleware)
+
+		r.Get("/", h.RenderDashboard)
+		r.Get("/browser", h.RenderBrowser)
+		r.Post("/users", h.CreateUser)
+		r.Post("/magic-link", h.GenerateMagicLink)
+		r.Post("/seed", h.SeedDemoData)
 	})
 
-	r.Get("/", h.RenderDashboard)
-	r.Get("/browser", h.RenderBrowser)
-	r.Post("/users", h.CreateUser)
-	r.Post("/magic-link", h.GenerateMagicLink)
-	r.Post("/seed", h.SeedDemoData)
-
 	return r
+}
+
+func (h *Handler) authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if h.cfg.AdminKey == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		if r.Header.Get("X-Admin-Key") == h.cfg.AdminKey {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		if cookie, err := r.Cookie(sessionCookieName); err == nil && cookie.Value == h.sessionToken() {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		if qKey := r.URL.Query().Get("key"); qKey != "" && qKey == h.cfg.AdminKey {
+			http.SetCookie(w, &http.Cookie{
+				Name:     sessionCookieName,
+				Value:    h.sessionToken(),
+				Path:     "/",
+				HttpOnly: true,
+				SameSite: http.SameSiteLaxMode,
+				MaxAge:   86400 * 30,
+			})
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		if r.Method == http.MethodGet {
+			nextURL := r.URL.RequestURI()
+			http.Redirect(w, r, "/login?next="+url.QueryEscape(nextURL), http.StatusSeeOther)
+			return
+		}
+
+		http.Error(w, "Unauthorized: Invalid Admin Key", http.StatusUnauthorized)
+	})
+}
+
+func (h *Handler) RenderLogin(w http.ResponseWriter, r *http.Request) {
+	if h.cfg.AdminKey == "" || h.isAuthenticated(r) {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	next := r.URL.Query().Get("next")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_ = h.tmpl.ExecuteTemplate(w, "login.html", LoginData{Next: next})
+}
+
+func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		h.renderLoginWithError(w, r, "Invalid form data")
+		return
+	}
+
+	key := r.FormValue("admin_key")
+	if key == "" || key != h.cfg.AdminKey {
+		h.renderLoginWithError(w, r, "Invalid Admin Key")
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    h.sessionToken(),
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   86400 * 30,
+	})
+
+	next := r.FormValue("next")
+	if next == "" {
+		next = r.URL.Query().Get("next")
+	}
+	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") {
+		next = "/"
+	}
+
+	http.Redirect(w, r, next, http.StatusSeeOther)
+}
+
+func (h *Handler) renderLoginWithError(w http.ResponseWriter, r *http.Request, errMsg string) {
+	next := r.FormValue("next")
+	if next == "" {
+		next = r.URL.Query().Get("next")
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusUnauthorized)
+	_ = h.tmpl.ExecuteTemplate(w, "login.html", LoginData{
+		Error: errMsg,
+		Next:  next,
+	})
+}
+
+func (h *Handler) HandleLogout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		MaxAge:   -1,
+		Expires:  time.Unix(0, 0),
+	})
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
 func (h *Handler) RenderDashboard(w http.ResponseWriter, r *http.Request) {
