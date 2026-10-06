@@ -47,7 +47,10 @@ data class ItemDetailUiState(
 sealed class ItemDetailUiEvent {
     data object NavigateBack : ItemDetailUiEvent()
     data class ShowError(val message: String) : ItemDetailUiEvent()
-    data class ShowDuplicateWarning(val itemName: String) : ItemDetailUiEvent()
+    data class ShowDuplicateWarning(
+        val matchedName: String,
+        val matchType: net.marvinweber.simsli.domain.model.ItemMatchType
+    ) : ItemDetailUiEvent()
 }
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -181,13 +184,16 @@ class ItemDetailViewModel @Inject constructor(
 
             val existing = uiState.value.existingItem
             if (!force) {
-                val isDuplicate = itemRepository.isItemNameDuplicate(
+                val match = itemRepository.findDuplicateOrSimilarItem(
                     householdId = household.id,
                     name = trimmedName,
                     excludeItemId = existing?.id
                 )
-                if (isDuplicate) {
-                    _events.value = ItemDetailUiEvent.ShowDuplicateWarning(trimmedName)
+                if (match != null) {
+                    _events.value = ItemDetailUiEvent.ShowDuplicateWarning(
+                        matchedName = match.matchedName,
+                        matchType = match.type
+                    )
                     return@launch
                 }
             }

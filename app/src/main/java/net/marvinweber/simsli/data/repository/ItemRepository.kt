@@ -18,5 +18,11 @@ interface ItemRepository {
 
     suspend fun updateItemSortOrder(itemId: String, sortOrder: Float): Result<Unit>
  
+    suspend fun findDuplicateOrSimilarItem(
+        householdId: String,
+        name: String,
+        excludeItemId: String? = null
+    ): net.marvinweber.simsli.domain.model.ItemMatch?
+
     suspend fun isItemNameDuplicate(householdId: String, name: String, excludeItemId: String? = null): Boolean
 }

@@ -79,6 +79,7 @@ fun ItemDetailScreen(
     var showAddLinkDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var duplicateWarningName by rememberSaveable { mutableStateOf<String?>(null) }
+    var duplicateWarningIsSimilar by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Prefill the form once when editing an existing item.
@@ -111,7 +112,8 @@ fun ItemDetailScreen(
                 }
             }
             is ItemDetailUiEvent.ShowDuplicateWarning -> {
-                duplicateWarningName = event.itemName
+                duplicateWarningName = event.matchedName
+                duplicateWarningIsSimilar = event.matchType == net.marvinweber.simsli.domain.model.ItemMatchType.SIMILAR
                 viewModel.onEventConsumed()
             }
         }
@@ -409,10 +411,12 @@ fun ItemDetailScreen(
 
     duplicateWarningName?.let { name ->
         DuplicateItemWarningDialog(
-            itemName = name,
+            matchedName = name,
+            isSimilar = duplicateWarningIsSimilar,
             isEditing = uiState.existingItem != null,
             onConfirm = {
                 duplicateWarningName = null
+                duplicateWarningIsSimilar = false
                 viewModel.saveItem(
                     name = itemName,
                     notes = itemNotes,
@@ -422,27 +426,41 @@ fun ItemDetailScreen(
                     force = true
                 )
             },
-            onDismiss = { duplicateWarningName = null }
+            onDismiss = {
+                duplicateWarningName = null
+                duplicateWarningIsSimilar = false
+            }
         )
     }
 }
 
 @Composable
 private fun DuplicateItemWarningDialog(
-    itemName: String,
+    matchedName: String,
+    isSimilar: Boolean,
     isEditing: Boolean,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Item already exists") },
+        title = {
+            Text(if (isSimilar) "Similar item found" else "Item already exists")
+        },
         text = {
             Text(
-                if (isEditing) {
-                    "An item named \"$itemName\" already exists in your catalog. Save anyway?"
+                if (isSimilar) {
+                    if (isEditing) {
+                        "A similar item named \"$matchedName\" already exists in your catalog. Save anyway?"
+                    } else {
+                        "A similar item named \"$matchedName\" already exists in your catalog. Add anyway?"
+                    }
                 } else {
-                    "An item named \"$itemName\" already exists in your catalog. Add anyway?"
+                    if (isEditing) {
+                        "An item named \"$matchedName\" already exists in your catalog. Save anyway?"
+                    } else {
+                        "An item named \"$matchedName\" already exists in your catalog. Add anyway?"
+                    }
                 }
             )
         },

@@ -134,19 +134,25 @@ class ItemRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun findDuplicateOrSimilarItem(
+        householdId: String,
+        name: String,
+        excludeItemId: String?
+    ): net.marvinweber.simsli.domain.model.ItemMatch? = withContext(ioDispatcher) {
+        val activeDbItems = itemDao.getActiveItemsByHouseholdOnce(householdId)
+        val activeItems = activeDbItems.map { it.toDomain() }
+        net.marvinweber.simsli.domain.model.ItemSimilarity.findBestMatch(
+            candidateName = name,
+            existingItems = activeItems,
+            excludeItemId = excludeItemId
+        )
+    }
+
     override suspend fun isItemNameDuplicate(
         householdId: String,
         name: String,
         excludeItemId: String?
-    ): Boolean = withContext(ioDispatcher) {
-        val trimmed = name.trim()
-        if (trimmed.isEmpty()) return@withContext false
-        val activeItems = itemDao.getActiveItemsByHouseholdOnce(householdId)
-        activeItems.any { dbItem ->
-            (excludeItemId == null || dbItem.id != excludeItemId) &&
-                dbItem.name.trim().equals(trimmed, ignoreCase = true)
-        }
-    }
+    ): Boolean = findDuplicateOrSimilarItem(householdId, name, excludeItemId) != null
 
     private suspend fun enqueueUpsert(itemId: String) {
         outboxDao.enqueue(

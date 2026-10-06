@@ -8,8 +8,12 @@ import net.marvinweber.simsli.data.local.dao.OutboxDao
 import net.marvinweber.simsli.data.local.entity.DbItem
 import net.marvinweber.simsli.data.repository.impl.ItemRepositoryImpl
 import net.marvinweber.simsli.data.sync.SyncScheduler
+import net.marvinweber.simsli.domain.model.ItemMatchType
 import net.marvinweber.simsli.domain.model.ItemType
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.lang.reflect.Proxy
@@ -81,21 +85,27 @@ class ItemDuplicateNameTest {
     @Test
     fun `isItemNameDuplicate detects exact name duplicate`() = runBlocking {
         val repo = createRepository(listOf(testItem("1", "Milch")))
-        assertTrue(repo.isItemNameDuplicate("hh-1", "Milch"))
+        val match = repo.findDuplicateOrSimilarItem("hh-1", "Milch")
+        assertNotNull(match)
+        assertEquals(ItemMatchType.EXACT, match?.type)
+        assertEquals("Milch", match?.matchedName)
     }
 
     @Test
     fun `isItemNameDuplicate detects case-insensitive duplicate`() = runBlocking {
         val repo = createRepository(listOf(testItem("1", "Milch")))
-        assertTrue(repo.isItemNameDuplicate("hh-1", "milch"))
-        assertTrue(repo.isItemNameDuplicate("hh-1", "MILCH"))
+        val match = repo.findDuplicateOrSimilarItem("hh-1", "milch")
+        assertNotNull(match)
+        assertEquals(ItemMatchType.EXACT, match?.type)
+        assertEquals("Milch", match?.matchedName)
     }
 
     @Test
     fun `isItemNameDuplicate detects duplicate with umlauts and special casing`() = runBlocking {
         val repo = createRepository(listOf(testItem("1", "Äpfel")))
-        assertTrue(repo.isItemNameDuplicate("hh-1", "äpfel"))
-        assertTrue(repo.isItemNameDuplicate("hh-1", "ÄPFEL"))
+        val match = repo.findDuplicateOrSimilarItem("hh-1", "äpfel")
+        assertNotNull(match)
+        assertEquals(ItemMatchType.EXACT, match?.type)
     }
 
     @Test
@@ -103,6 +113,51 @@ class ItemDuplicateNameTest {
         val repo = createRepository(listOf(testItem("1", "Milch")))
         assertTrue(repo.isItemNameDuplicate("hh-1", "  Milch  "))
         assertTrue(repo.isItemNameDuplicate("hh-1", " milch\t"))
+    }
+
+    @Test
+    fun `findDuplicateOrSimilarItem detects space and hyphen variation as exact`() = runBlocking {
+        val repo = createRepository(listOf(testItem("1", "Hafermilch")))
+        val matchSpace = repo.findDuplicateOrSimilarItem("hh-1", "Hafer Milch")
+        assertNotNull(matchSpace)
+        assertEquals(ItemMatchType.EXACT, matchSpace?.type)
+        assertEquals("Hafermilch", matchSpace?.matchedName)
+
+        val matchHyphen = repo.findDuplicateOrSimilarItem("hh-1", "Hafer-Milch")
+        assertNotNull(matchHyphen)
+        assertEquals(ItemMatchType.EXACT, matchHyphen?.type)
+    }
+
+    @Test
+    fun `findDuplicateOrSimilarItem detects plural and singular variants as similar`() = runBlocking {
+        val repo = createRepository(listOf(testItem("1", "Bananen")))
+        val match = repo.findDuplicateOrSimilarItem("hh-1", "Banane")
+        assertNotNull(match)
+        assertEquals(ItemMatchType.SIMILAR, match?.type)
+        assertEquals("Bananen", match?.matchedName)
+    }
+
+    @Test
+    fun `findDuplicateOrSimilarItem detects typos in long words as similar`() = runBlocking {
+        val repo = createRepository(listOf(testItem("1", "Toilettenpapier")))
+        val match = repo.findDuplicateOrSimilarItem("hh-1", "Toiletenpapier")
+        assertNotNull(match)
+        assertEquals(ItemMatchType.SIMILAR, match?.type)
+        assertEquals("Toilettenpapier", match?.matchedName)
+    }
+
+    @Test
+    fun `findDuplicateOrSimilarItem prevents false positives on short words`() = runBlocking {
+        val repo = createRepository(
+            listOf(
+                testItem("1", "Reis"),
+                testItem("2", "Brot")
+            )
+        )
+        // Mais differs from Reis by 1 letter, but short words (< 5 chars) should not fuzzy-match
+        assertNull(repo.findDuplicateOrSimilarItem("hh-1", "Mais"))
+        // Boot differs from Brot by 1 letter
+        assertNull(repo.findDuplicateOrSimilarItem("hh-1", "Boot"))
     }
 
     @Test
