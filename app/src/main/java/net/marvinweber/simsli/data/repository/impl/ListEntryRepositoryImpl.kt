@@ -14,8 +14,10 @@ import net.marvinweber.simsli.data.repository.ListEntryRepository
 import net.marvinweber.simsli.data.sync.SyncContract
 import net.marvinweber.simsli.data.sync.SyncScheduler
 import net.marvinweber.simsli.di.IoDispatcher
+import net.marvinweber.simsli.domain.model.CategoryFilter
 import net.marvinweber.simsli.domain.model.ItemType
 import net.marvinweber.simsli.domain.model.ListEntry
+import net.marvinweber.simsli.domain.model.StoreFilter
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -36,14 +38,20 @@ class ListEntryRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getListEntriesByHouseholdAndStore(householdId: String, storeId: String): Flow<List<ListEntry>> {
-        return listEntryDao.getListEntriesByHouseholdAndStore(householdId, storeId).map { entries ->
-            entries.map { it.toDomain() }
-        }
-    }
-
-    override fun getListEntriesByHouseholdWithoutStore(householdId: String): Flow<List<ListEntry>> {
-        return listEntryDao.getListEntriesByHouseholdWithoutStore(householdId).map { entries ->
+    override fun getListEntriesFiltered(
+        householdId: String,
+        storeFilter: StoreFilter,
+        categoryFilter: CategoryFilter
+    ): Flow<List<ListEntry>> {
+        return listEntryDao.getListEntriesFiltered(
+            householdId = householdId,
+            filterByStore = storeFilter is StoreFilter.ByStore,
+            storeId = (storeFilter as? StoreFilter.ByStore)?.storeId.orEmpty(),
+            noStore = storeFilter is StoreFilter.NoStore,
+            filterByCategory = categoryFilter is CategoryFilter.ByCategory,
+            categoryId = (categoryFilter as? CategoryFilter.ByCategory)?.categoryId.orEmpty(),
+            noCategory = categoryFilter is CategoryFilter.NoCategory
+        ).map { entries ->
             entries.map { it.toDomain() }
         }
     }

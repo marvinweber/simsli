@@ -19,31 +19,36 @@ interface ListEntryDao {
     """)
     fun getListEntriesByHousehold(householdId: String): Flow<List<DbListEntry>>
 
+    /**
+     * One query for every store/category filter combination (LIST-5): the
+     * boolean switches enable the EXISTS/NOT EXISTS/IS NULL clauses, so the
+     * filters compose without a dedicated query per combination.
+     */
     @Query("""
         SELECT le.* FROM list_entries le
         INNER JOIN items i ON le.itemId = i.id
         WHERE le.householdId = :householdId
         AND i.deletedAt IS NULL
-        AND EXISTS (
+        AND (:filterByStore = 0 OR EXISTS (
             SELECT 1 FROM item_stores ist
             WHERE ist.itemId = le.itemId AND ist.storeId = :storeId
-        )
+        ))
+        AND (:noStore = 0 OR NOT EXISTS (
+            SELECT 1 FROM item_stores ist2 WHERE ist2.itemId = le.itemId
+        ))
+        AND (:filterByCategory = 0 OR i.categoryId = :categoryId)
+        AND (:noCategory = 0 OR i.categoryId IS NULL)
         ORDER BY le.done ASC, i.sortOrder ASC
     """)
-    fun getListEntriesByHouseholdAndStore(householdId: String, storeId: String): Flow<List<DbListEntry>>
-
-    /** Entries whose item has no store assignment at all — the "No Store" filter view. */
-    @Query("""
-        SELECT le.* FROM list_entries le
-        INNER JOIN items i ON le.itemId = i.id
-        WHERE le.householdId = :householdId
-        AND i.deletedAt IS NULL
-        AND NOT EXISTS (
-            SELECT 1 FROM item_stores ist WHERE ist.itemId = le.itemId
-        )
-        ORDER BY le.done ASC, i.sortOrder ASC
-    """)
-    fun getListEntriesByHouseholdWithoutStore(householdId: String): Flow<List<DbListEntry>>
+    fun getListEntriesFiltered(
+        householdId: String,
+        filterByStore: Boolean,
+        storeId: String,
+        noStore: Boolean,
+        filterByCategory: Boolean,
+        categoryId: String,
+        noCategory: Boolean
+    ): Flow<List<DbListEntry>>
 
     @Query("SELECT * FROM list_entries WHERE id = :id")
     fun getListEntryById(id: String): Flow<DbListEntry?>

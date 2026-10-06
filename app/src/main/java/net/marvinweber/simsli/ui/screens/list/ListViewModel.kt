@@ -26,11 +26,13 @@ import net.marvinweber.simsli.data.repository.ItemRepository
 import net.marvinweber.simsli.data.repository.ListEntryRepository
 import net.marvinweber.simsli.data.repository.StoreRepository
 import net.marvinweber.simsli.domain.model.Category
+import net.marvinweber.simsli.domain.model.CategoryFilter
 import net.marvinweber.simsli.domain.model.Household
 import net.marvinweber.simsli.domain.model.Item
 import net.marvinweber.simsli.domain.model.ItemType
 import net.marvinweber.simsli.domain.model.ListEntry
 import net.marvinweber.simsli.domain.model.Store
+import net.marvinweber.simsli.domain.model.StoreFilter
 import net.marvinweber.simsli.domain.model.StoreCategory
 import java.time.Instant
 import javax.inject.Inject
@@ -62,21 +64,11 @@ sealed interface AddSelection {
     data class New(val name: String) : AddSelection
 }
 
-/** What the shopping list is filtered to (LIST-5). */
-sealed interface StoreFilter {
-    /** Everything. */
-    data object All : StoreFilter
-
-    /** Only items assigned to this store. */
-    data class ByStore(val storeId: String) : StoreFilter
-
-    /** Only items without any store assignment. */
-    data object NoStore : StoreFilter
-}
-
+/** What the shopping list is filtered to (LIST-5): see [StoreFilter] / [CategoryFilter]. */
 data class ListUiState(
     val household: Household? = null,
     val stores: List<Store> = emptyList(),
+    val categories: List<Category> = emptyList(),
     val activeGroups: List<CategoryGroupUi> = emptyList(),
     val activeEntries: List<ListEntryItem> = emptyList(),
     val recentlyChecked: List<ListEntryItem> = emptyList(),
@@ -111,6 +103,9 @@ class ListViewModel @Inject constructor(
     private val _storeFilter = MutableStateFlow<StoreFilter>(StoreFilter.All)
     val storeFilter: StateFlow<StoreFilter> = _storeFilter.asStateFlow()
 
+    private val _categoryFilter = MutableStateFlow<CategoryFilter>(CategoryFilter.All)
+    val categoryFilter: StateFlow<CategoryFilter> = _categoryFilter.asStateFlow()
+
     /** IDs of active entries currently showing visual tick before moving to recently checked. */
     private val completingEntryIds = MutableStateFlow<Set<String>>(emptySet())
 
@@ -128,6 +123,7 @@ class ListViewModel @Inject constructor(
     private data class ListUiData(
         val household: Household,
         val stores: List<Store>,
+        val categories: List<Category>,
         val activeGroups: List<CategoryGroupUi>,
         val activeEntries: List<ListEntryItem>,
         val recentlyChecked: List<ListEntryItem>,
@@ -137,19 +133,16 @@ class ListViewModel @Inject constructor(
 
     val uiState: StateFlow<ListUiState> = combine(
         householdRepository.getHousehold(),
-        _storeFilter
-    ) { household, storeFilter ->
-        household to storeFilter
-    }.flatMapLatest { (household, storeFilter) ->
+        _storeFilter,
+        _categoryFilter
+    ) { household, storeFilter, categoryFilter ->
+        Triple(household, storeFilter, categoryFilter)
+    }.flatMapLatest { (household, storeFilter, categoryFilter) ->
         if (household == null) {
             flowOf(null)
         } else {
-            val entriesFlow = when (storeFilter) {
-                is StoreFilter.All -> listEntryRepository.getListEntriesByHousehold(household.id)
-                is StoreFilter.ByStore ->
-                    listEntryRepository.getListEntriesByHouseholdAndStore(household.id, storeFilter.storeId)
-                is StoreFilter.NoStore -> listEntryRepository.getListEntriesByHouseholdWithoutStore(household.id)
-            }
+            val entriesFlow =
+                listEntryRepository.getListEntriesFiltered(household.id, storeFilter, categoryFilter)
             val storeCategoriesFlow = when (storeFilter) {
                 is StoreFilter.ByStore -> categoryRepository.getStoreCategories(storeFilter.storeId)
                 else -> flowOf(emptyList<StoreCategory>())
@@ -218,6 +211,7 @@ class ListViewModel @Inject constructor(
                 ListUiData(
                     household = household,
                     stores = stores,
+                    categories = categories,
                     activeGroups = activeGroups,
                     activeEntries = activeEntryItems,
                     recentlyChecked = recentlyChecked,
@@ -239,6 +233,7 @@ class ListViewModel @Inject constructor(
                 ListUiState(
                     household = data.household,
                     stores = data.stores,
+                    categories = data.categories,
                     activeGroups = data.activeGroups,
                     activeEntries = data.activeEntries,
                     recentlyChecked = data.recentlyChecked,
@@ -299,6 +294,16 @@ class ListViewModel @Inject constructor(
 
     fun selectFilter(filter: StoreFilter) {
         _storeFilter.value = filter
+    }
+
+    fun selectCategoryFilter(filter: CategoryFilter) {
+        _categoryFilter.value = filter
+    }
+
+    /** Resets store and category filters at once — the bar's (/) button. */
+    fun clearFilters() {
+        _storeFilter.value = StoreFilter.All
+        _categoryFilter.value = CategoryFilter.All
     }
 
     // --- Check off / undo ---------------------------------------------------------

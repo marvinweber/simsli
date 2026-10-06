@@ -3,17 +3,19 @@ package net.marvinweber.simsli.ui.screens.list
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.ui.res.painterResource
 import net.marvinweber.simsli.R
 import net.marvinweber.simsli.ui.components.SimsliTopAppBarTitle
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,8 +24,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -35,28 +39,37 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.FilterAltOff
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Storefront
 import net.marvinweber.simsli.ui.components.LinkUtils
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -71,7 +84,6 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -84,7 +96,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -95,7 +109,10 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import net.marvinweber.simsli.domain.model.Category
+import net.marvinweber.simsli.domain.model.CategoryFilter
 import net.marvinweber.simsli.domain.model.Store
+import net.marvinweber.simsli.domain.model.StoreFilter
 import net.marvinweber.simsli.ui.components.EntryDetailsSheet
 import net.marvinweber.simsli.ui.components.formatQuantity
 
@@ -116,6 +133,7 @@ fun ListTabContent(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val storeFilter by viewModel.storeFilter.collectAsState()
+    val categoryFilter by viewModel.categoryFilter.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
@@ -164,11 +182,15 @@ fun ListTabContent(
             )
         },
         bottomBar = {
-            StoreFilterBar(
+            ListFilterBar(
                 stores = uiState.stores,
-                selectedFilter = storeFilter,
-                onFilterSelected = viewModel::selectFilter,
-                onAddClick = viewModel::onAddClick
+                categories = uiState.categories,
+                storeFilter = storeFilter,
+                categoryFilter = categoryFilter,
+                onStoreFilterSelected = viewModel::selectFilter,
+                onCategoryFilterSelected = viewModel::selectCategoryFilter,
+                onAddClick = viewModel::onAddClick,
+                onResetFilters = viewModel::clearFilters
             )
         },
         snackbarHost = {
@@ -330,94 +352,297 @@ fun ListTabContent(
 }
 
 /**
- * The store filter line pinned above the navigation bar: horizontally
- * scrollable chips that run against a divider, with the add FAB to the
- * right of it — one continuous bottom area. Chips: All, one per store,
- * and "No Store" for items without any store assignment (LIST-5).
+ * The floating filter bar above the navigation bar (LIST-5): store filter
+ * chip on the left, add FAB centered, category filter chip on the right —
+ * plus a small reset FAB that only shows while any filter is active. Both
+ * chips open dropdown menus; the bar keeps the navigation bar's container
+ * color, but rounded and inset from the screen edges.
  */
 @Composable
-private fun StoreFilterBar(
+private fun ListFilterBar(
     stores: List<Store>,
-    selectedFilter: StoreFilter,
-    onFilterSelected: (StoreFilter) -> Unit,
+    categories: List<Category>,
+    storeFilter: StoreFilter,
+    categoryFilter: CategoryFilter,
+    onStoreFilterSelected: (StoreFilter) -> Unit,
+    onCategoryFilterSelected: (CategoryFilter) -> Unit,
     onAddClick: () -> Unit,
+    onResetFilters: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isFiltered = storeFilter !is StoreFilter.All || categoryFilter !is CategoryFilter.All
+
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainer
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 8.dp, end = 8.dp, bottom = 8.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 2.dp
     ) {
-        // IntrinsicSize.Min: the VerticalDivider wants all available height, so
-        // the Row's height must come from its tallest child (the FAB) instead.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(IntrinsicSize.Min),
+                .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Static (+) FAB on the left
+            FloatingActionButton(
+                onClick = onAddClick,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add items")
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            VerticalDivider(
+                modifier = Modifier.height(28.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Horizontally scrollable filters
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
+                    .horizontalScroll(rememberScrollState()),
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 StoreFilterChip(
-                    text = "All",
-                    selected = selectedFilter is StoreFilter.All,
-                    onClick = { onFilterSelected(StoreFilter.All) }
+                    stores = stores,
+                    selectedFilter = storeFilter,
+                    onFilterSelected = onStoreFilterSelected
                 )
 
-                stores.forEach { store ->
-                    StoreFilterChip(
-                        text = store.name,
-                        selected = selectedFilter is StoreFilter.ByStore &&
-                            selectedFilter.storeId == store.id,
-                        onClick = { onFilterSelected(StoreFilter.ByStore(store.id)) }
-                    )
-                }
-
-                StoreFilterChip(
-                    text = "No Store",
-                    selected = selectedFilter is StoreFilter.NoStore,
-                    onClick = { onFilterSelected(StoreFilter.NoStore) }
+                CategoryFilterChip(
+                    categories = categories,
+                    selectedFilter = categoryFilter,
+                    onFilterSelected = onCategoryFilterSelected
                 )
             }
 
-            VerticalDivider()
-
-            FloatingActionButton(
-                onClick = onAddClick,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            // Static (✕) reset button on the right, only visible when filters are active
+            AnimatedVisibility(
+                visible = isFiltered,
+                enter = fadeIn() + expandHorizontally(expandFrom = Alignment.End),
+                exit = fadeOut() + shrinkHorizontally(shrinkTowards = Alignment.End)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add items")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    VerticalDivider(
+                        modifier = Modifier.height(28.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    FilledTonalIconButton(
+                        onClick = onResetFilters,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Clear filters",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
         }
     }
 }
 
+/** Store filter chip with its dropdown menu (LIST-5): stores, "No Store", "No Filter". */
 @Composable
 private fun StoreFilterChip(
-    text: String,
-    selected: Boolean,
-    onClick: () -> Unit
+    stores: List<Store>,
+    selectedFilter: StoreFilter,
+    onFilterSelected: (StoreFilter) -> Unit
 ) {
-    FilterChip(
-        selected = selected,
-        onClick = onClick,
-        label = { Text(text) },
-        leadingIcon = if (selected) {
-            {
+    FilterMenuChip(
+        label = when (selectedFilter) {
+            is StoreFilter.All -> "Store"
+            is StoreFilter.ByStore -> stores.firstOrNull { it.id == selectedFilter.storeId }?.name ?: "Store"
+            is StoreFilter.NoStore -> "No Store"
+        },
+        selected = selectedFilter !is StoreFilter.All
+    ) { dismiss ->
+        stores.forEach { store ->
+            val isSelected = selectedFilter is StoreFilter.ByStore &&
+                selectedFilter.storeId == store.id
+            DropdownMenuItem(
+                text = { Text(store.name) },
+                leadingIcon = {
+                    MenuLeadingIcon(
+                        icon = Icons.Outlined.Storefront,
+                        isSelected = isSelected
+                    )
+                },
+                onClick = {
+                    onFilterSelected(StoreFilter.ByStore(store.id))
+                    dismiss()
+                }
+            )
+        }
+        DropdownMenuItem(
+            text = { Text("No Store") },
+            leadingIcon = {
+                MenuLeadingIcon(
+                    icon = Icons.Outlined.Block,
+                    isSelected = selectedFilter is StoreFilter.NoStore
+                )
+            },
+            onClick = {
+                onFilterSelected(StoreFilter.NoStore)
+                dismiss()
+            }
+        )
+        DropdownMenuItem(
+            text = { Text("No Filter") },
+            leadingIcon = { MenuLeadingIcon(icon = Icons.Outlined.FilterAltOff, isSelected = false) },
+            onClick = {
+                onFilterSelected(StoreFilter.All)
+                dismiss()
+            }
+        )
+    }
+}
+
+/** Category filter chip with its dropdown menu (LIST-5): categories, "Uncategorized", "No Filter". */
+@Composable
+private fun CategoryFilterChip(
+    categories: List<Category>,
+    selectedFilter: CategoryFilter,
+    onFilterSelected: (CategoryFilter) -> Unit
+) {
+    FilterMenuChip(
+        label = when (selectedFilter) {
+            is CategoryFilter.All -> "Category"
+            is CategoryFilter.ByCategory -> {
+                val category = categories.firstOrNull { it.id == selectedFilter.categoryId }
+                if (category == null) "Category" else buildString {
+                    category.emoji?.let { append(it); append(' ') }
+                    append(category.name)
+                }
+            }
+            is CategoryFilter.NoCategory -> "Uncategorized"
+        },
+        selected = selectedFilter !is CategoryFilter.All
+    ) { dismiss ->
+        categories.forEach { category ->
+            val isSelected = selectedFilter is CategoryFilter.ByCategory &&
+                selectedFilter.categoryId == category.id
+            DropdownMenuItem(
+                text = { Text(category.name) },
+                leadingIcon = {
+                    if (isSelected) {
+                        MenuLeadingIcon(icon = null, isSelected = true)
+                    } else if (!category.emoji.isNullOrBlank()) {
+                        Text(
+                            text = category.emoji,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    } else {
+                        MenuLeadingIcon(icon = null, isSelected = false)
+                    }
+                },
+                onClick = {
+                    onFilterSelected(CategoryFilter.ByCategory(category.id))
+                    dismiss()
+                }
+            )
+        }
+        DropdownMenuItem(
+            text = { Text("Uncategorized") },
+            leadingIcon = {
+                MenuLeadingIcon(
+                    icon = Icons.Outlined.Block,
+                    isSelected = selectedFilter is CategoryFilter.NoCategory
+                )
+            },
+            onClick = {
+                onFilterSelected(CategoryFilter.NoCategory)
+                dismiss()
+            }
+        )
+        DropdownMenuItem(
+            text = { Text("No Filter") },
+            leadingIcon = { MenuLeadingIcon(icon = Icons.Outlined.FilterAltOff, isSelected = false) },
+            onClick = {
+                onFilterSelected(CategoryFilter.All)
+                dismiss()
+            }
+        )
+    }
+}
+
+/**
+ * Filter chip with an anchored dropdown menu; the trailing ▲ indicates the
+ * menu, a leading check marks the selected state.
+ */
+@Composable
+private fun FilterMenuChip(
+    label: String,
+    selected: Boolean,
+    menuContent: @Composable ColumnScope.(dismiss: () -> Unit) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        FilterChip(
+            selected = selected,
+            onClick = { expanded = true },
+            // The weighted halves cap the chip's width, so long selections
+            // (e.g. "Uncategorized") must ellipsize instead of wrapping.
+            label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            leadingIcon = if (selected) {
+                {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            } else {
+                null
+            },
+            trailingIcon = {
                 Icon(
-                    imageVector = Icons.Default.Check,
+                    imageVector = Icons.Default.KeyboardArrowUp,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp)
                 )
             }
-        } else {
-            null
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            menuContent { expanded = false }
         }
-    )
+    }
+}
+
+
+/**
+ * Leading icon of a filter menu row: a check when that option is the active
+ * filter, otherwise the option's own icon ([icon] = null renders an empty
+ * slot to keep rows aligned).
+ */
+@Composable
+private fun MenuLeadingIcon(icon: ImageVector?, isSelected: Boolean) {
+    Box(modifier = Modifier.size(18.dp)) {
+        if (isSelected) {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+        } else if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)

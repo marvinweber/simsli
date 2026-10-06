@@ -1,16 +1,22 @@
 package net.marvinweber.simsli.data.repository
 
 import kotlinx.coroutines.flow.Flow
+import net.marvinweber.simsli.domain.model.CategoryFilter
 import net.marvinweber.simsli.domain.model.ListEntry
+import net.marvinweber.simsli.domain.model.StoreFilter
 
 interface ListEntryRepository {
     fun getListEntriesByHousehold(householdId: String): Flow<List<ListEntry>>
 
-    /** Entries whose item is assigned to the given store. */
-    fun getListEntriesByHouseholdAndStore(householdId: String, storeId: String): Flow<List<ListEntry>>
-
-    /** Entries whose item has no store assignment at all (the "No Store" filter view). */
-    fun getListEntriesByHouseholdWithoutStore(householdId: String): Flow<List<ListEntry>>
+    /**
+     * Entries narrowed by the store and category filters (LIST-5), which compose:
+     * concrete selection, "none" (no assignment at all), or no filtering per dimension.
+     */
+    fun getListEntriesFiltered(
+        householdId: String,
+        storeFilter: StoreFilter,
+        categoryFilter: CategoryFilter
+    ): Flow<List<ListEntry>>
 
     suspend fun createListEntry(listEntry: ListEntry): Result<ListEntry>
 
