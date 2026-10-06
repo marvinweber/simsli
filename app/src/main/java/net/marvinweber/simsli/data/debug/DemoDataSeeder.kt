@@ -78,21 +78,21 @@ class DemoDataSeeder @Inject constructor(
             val haushalt = id(35)
             val sonstiges = id(36)
 
-            // (id index, name, notes, type, category id, store ids) — indices into id() keep the UUIDs fixed.
+            // (id index, name, notes, type, category id, store ids, defaultUnit) — indices into id() keep the UUIDs fixed.
             val itemDefs = listOf(
-                ItemDef(1, "Milch", null, ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi)),
-                ItemDef(2, "Brot", null, ItemType.PERMANENT, backwaren, listOf(rewe, aldi)),
-                ItemDef(3, "Butter", null, ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi)),
-                ItemDef(4, "Haferdrink", "Barista-Edition", ItemType.PERMANENT, milchprodukte, listOf(rewe)),
-                ItemDef(5, "Käse", null, ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi)),
-                ItemDef(6, "Eier", "Freilandhaltung", ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi)),
-                ItemDef(7, "Äpfel", null, ItemType.PERMANENT, obst, listOf(rewe, aldi)),
-                ItemDef(8, "Bananen", null, ItemType.PERMANENT, obst, listOf(aldi)),
-                ItemDef(9, "Kaffee", "Bohnen, dunkle Röstung", ItemType.PERMANENT, grundnahrung, listOf(rewe, aldi)),
-                ItemDef(10, "Nudeln", null, ItemType.PERMANENT, grundnahrung, listOf(aldi)),
-                ItemDef(11, "Tomatenpassata", null, ItemType.PERMANENT, grundnahrung, listOf(rewe, aldi)),
-                ItemDef(12, "Spülmittel", null, ItemType.PERMANENT, haushalt, listOf(rewe, dm)),
-                ItemDef(13, "Toilettenpapier", "dreilagig", ItemType.PERMANENT, haushalt, listOf(aldi, dm)),
+                ItemDef(1, "Milch", null, ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi), defaultUnit = "l"),
+                ItemDef(2, "Brot", null, ItemType.PERMANENT, backwaren, listOf(rewe, aldi), defaultUnit = "pcs"),
+                ItemDef(3, "Butter", null, ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi), defaultUnit = "pack"),
+                ItemDef(4, "Haferdrink", "Barista-Edition", ItemType.PERMANENT, milchprodukte, listOf(rewe), defaultUnit = "l"),
+                ItemDef(5, "Käse", null, ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi), defaultUnit = "g"),
+                ItemDef(6, "Eier", "Freilandhaltung", ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi), defaultUnit = "pack"),
+                ItemDef(7, "Äpfel", null, ItemType.PERMANENT, obst, listOf(rewe, aldi), defaultUnit = "kg"),
+                ItemDef(8, "Bananen", null, ItemType.PERMANENT, obst, listOf(aldi), defaultUnit = "kg"),
+                ItemDef(9, "Kaffee", "Bohnen, dunkle Röstung", ItemType.PERMANENT, grundnahrung, listOf(rewe, aldi), defaultUnit = "pack"),
+                ItemDef(10, "Nudeln", null, ItemType.PERMANENT, grundnahrung, listOf(aldi), defaultUnit = "pack"),
+                ItemDef(11, "Tomatenpassata", null, ItemType.PERMANENT, grundnahrung, listOf(rewe, aldi), defaultUnit = "ml"),
+                ItemDef(12, "Spülmittel", null, ItemType.PERMANENT, haushalt, listOf(rewe, dm), defaultUnit = "pcs"),
+                ItemDef(13, "Toilettenpapier", "dreilagig", ItemType.PERMANENT, haushalt, listOf(aldi, dm), defaultUnit = "pack"),
                 ItemDef(14, "Geburtstagskerzen", null, ItemType.ONE_TIME, sonstiges, listOf(dm)),
                 // Uncategorized on purpose — exercises the implicit "Uncategorized" group (LIST-6).
                 ItemDef(15, "Geschenkpapier", null, ItemType.ONE_TIME, null, listOf(dm))
@@ -136,6 +136,7 @@ class DemoDataSeeder @Inject constructor(
                             notes = def.notes,
                             type = def.type,
                             categoryId = def.categoryId,
+                            defaultUnit = def.defaultUnit,
                             // Staggered like real usage: earlier catalog entries updated longer ago.
                             sortOrder = def.idIndex.toFloat(),
                             createdAt = daysAgo((20 - index).toLong()),
@@ -224,7 +225,8 @@ class DemoDataSeeder @Inject constructor(
         val notes: String?,
         val type: ItemType,
         val categoryId: String?,
-        val storeIds: List<String>
+        val storeIds: List<String>,
+        val defaultUnit: String? = null
     )
 
     private data class EntryDef(

@@ -167,6 +167,7 @@ class ItemDetailViewModel @Inject constructor(
         type: ItemType,
         selectedStoreIds: List<String>,
         selectedCategoryId: String? = null,
+        defaultUnit: String? = null,
         force: Boolean = false
     ) {
         if (isSaving.value) return
@@ -200,6 +201,7 @@ class ItemDetailViewModel @Inject constructor(
 
             isSaving.value = true
             val currentLinks = _links.value
+            val trimmedUnit = defaultUnit?.trim()?.ifBlank { null }
             if (existing == null) {
                 val item = Item(
                     id = "",
@@ -208,6 +210,7 @@ class ItemDetailViewModel @Inject constructor(
                     notes = notes.trim().ifBlank { null },
                     type = type,
                     categoryId = selectedCategoryId,
+                    defaultUnit = trimmedUnit,
                     sortOrder = itemRepository.getMaxItemSortOrder(household.id) + 1f,
                     links = currentLinks,
                     createdAt = Instant.EPOCH,
@@ -231,6 +234,7 @@ class ItemDetailViewModel @Inject constructor(
                         notes = notes.trim().ifBlank { null },
                         type = type,
                         categoryId = selectedCategoryId,
+                        defaultUnit = trimmedUnit,
                         links = currentLinks
                     )
                 ).onSuccess {

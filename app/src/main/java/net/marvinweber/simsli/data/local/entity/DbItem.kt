@@ -16,6 +16,7 @@ data class DbItem(
     val type: ItemType,
     /** Zero or one category (CAT-2); null = uncategorized. */
     val categoryId: String? = null,
+    val defaultUnit: String? = null,
     val sortOrder: Float,
     val links: List<ItemLink> = emptyList(),
     val createdAt: Instant,

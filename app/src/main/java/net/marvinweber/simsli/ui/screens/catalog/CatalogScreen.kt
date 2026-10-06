@@ -167,7 +167,7 @@ private fun ItemsTabContent(
                 title = row.item.name,
                 stateKey = row.item.id,
                 quantity = null,
-                unit = null,
+                unit = row.item.defaultUnit,
                 comment = null,
                 note = row.item.notes,
                 links = row.item.links,

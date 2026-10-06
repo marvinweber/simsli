@@ -10,6 +10,7 @@ import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
 import net.marvinweber.simsli.R
 import net.marvinweber.simsli.ui.components.SimsliTopAppBarTitle
 import androidx.compose.foundation.horizontalScroll
@@ -114,6 +115,7 @@ import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.CategoryFilter
 import net.marvinweber.simsli.domain.model.Store
 import net.marvinweber.simsli.domain.model.StoreFilter
+import net.marvinweber.simsli.domain.model.UnitPresets
 import net.marvinweber.simsli.ui.components.EntryDetailsSheet
 import net.marvinweber.simsli.ui.components.formatQuantity
 
@@ -1116,11 +1118,13 @@ private fun AddItemsSelectedContent(
         closeAfter: Boolean
     ) -> Unit
 ) {
-    var quantityText by remember { mutableStateOf("") }
-    var unitText by remember { mutableStateOf("") }
-    var commentText by remember { mutableStateOf("") }
-    var saveToCatalog by remember { mutableStateOf(false) }
-    var showTypeHelp by remember { mutableStateOf(false) }
+    var quantityText by remember(selection) { mutableStateOf("") }
+    var unitText by remember(selection) {
+        mutableStateOf((selection as? AddSelection.Existing)?.item?.defaultUnit.orEmpty())
+    }
+    var commentText by remember(selection) { mutableStateOf("") }
+    var saveToCatalog by remember(selection) { mutableStateOf(false) }
+    var showTypeHelp by remember(selection) { mutableStateOf(false) }
 
     val name = when (selection) {
         is AddSelection.Existing -> selection.item.name
@@ -1180,6 +1184,22 @@ private fun AddItemsSelectedContent(
                 singleLine = true,
                 modifier = Modifier.weight(1f)
             )
+        }
+
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            UnitPresets.ALL.forEach { preset ->
+                val isSelected = unitText.equals(preset, ignoreCase = true)
+                FilterChip(
+                    selected = isSelected,
+                    onClick = {
+                        unitText = if (isSelected) "" else preset
+                    },
+                    label = { Text(preset) }
+                )
+            }
         }
 
         OutlinedTextField(

@@ -12,6 +12,7 @@ data class ItemDto(
     val notes: String? = null,
     val type: String,
     @SerialName("category_id") val categoryId: String? = null,
+    @SerialName("default_unit") val defaultUnit: String? = null,
     @SerialName("sort_order") val sortOrder: Double,
     @SerialName("links") val links: List<ItemLink> = emptyList(),
     @SerialName("created_at") val createdAt: String,

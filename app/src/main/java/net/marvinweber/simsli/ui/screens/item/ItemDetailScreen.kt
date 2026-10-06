@@ -53,6 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import net.marvinweber.simsli.domain.model.ItemType
+import net.marvinweber.simsli.domain.model.UnitPresets
 import net.marvinweber.simsli.ui.components.ItemLinkChipsRow
 import net.marvinweber.simsli.ui.components.LinkUtils
 
@@ -72,6 +73,7 @@ fun ItemDetailScreen(
 
     var itemName by rememberSaveable { mutableStateOf("") }
     var itemNotes by rememberSaveable { mutableStateOf("") }
+    var itemDefaultUnit by rememberSaveable { mutableStateOf("") }
     var itemType by rememberSaveable { mutableStateOf<ItemType>(ItemType.PERMANENT) }
     var selectedStoreIds by rememberSaveable { mutableStateOf<Set<String>>(emptySet()) }
     var selectedCategoryId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -90,6 +92,7 @@ fun ItemDetailScreen(
         val stripResult = LinkUtils.stripUrls(notes)
         itemName = item.name
         itemNotes = stripResult.remainingText
+        itemDefaultUnit = item.defaultUnit.orEmpty()
         itemType = item.type
         selectedStoreIds = uiState.existingStoreIds
         selectedCategoryId = item.categoryId
@@ -231,6 +234,40 @@ fun ItemDetailScreen(
                             }
                         }
 
+                        // Default unit (optional, ITEM-5)
+                        Text(
+                            text = "Default unit (optional)",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            UnitPresets.ALL.forEach { preset ->
+                                val isSelected = itemDefaultUnit.equals(preset, ignoreCase = true)
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        itemDefaultUnit = if (isSelected) "" else preset
+                                    },
+                                    label = { Text(preset) }
+                                )
+                            }
+                        }
+                        OutlinedTextField(
+                            value = itemDefaultUnit,
+                            onValueChange = { itemDefaultUnit = it },
+                            label = { Text("Custom unit") },
+                            placeholder = { Text("e.g. pcs, pack, kg, bottle …") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text(
+                            text = "Preselected when adding this item to the shopping list.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
                         // Item type
                         Text(
                             text = "Item type",
@@ -363,7 +400,8 @@ fun ItemDetailScreen(
                                     notes = itemNotes,
                                     type = itemType,
                                     selectedStoreIds = selectedStoreIds.toList(),
-                                    selectedCategoryId = selectedCategoryId
+                                    selectedCategoryId = selectedCategoryId,
+                                    defaultUnit = itemDefaultUnit
                                 )
                             },
                             modifier = Modifier.fillMaxWidth(),
@@ -423,6 +461,7 @@ fun ItemDetailScreen(
                     type = itemType,
                     selectedStoreIds = selectedStoreIds.toList(),
                     selectedCategoryId = selectedCategoryId,
+                    defaultUnit = itemDefaultUnit,
                     force = true
                 )
             },

@@ -2,6 +2,7 @@ package net.marvinweber.simsli.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -12,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
@@ -28,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import net.marvinweber.simsli.domain.model.ItemLink
+import net.marvinweber.simsli.domain.model.UnitPresets
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -149,6 +152,22 @@ fun EntryDetailsSheet(
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
+            }
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                UnitPresets.ALL.forEach { preset ->
+                    val isSelected = unitText.equals(preset, ignoreCase = true)
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = {
+                            unitText = if (isSelected) "" else preset
+                        },
+                        label = { Text(preset) }
+                    )
+                }
             }
 
             OutlinedTextField(

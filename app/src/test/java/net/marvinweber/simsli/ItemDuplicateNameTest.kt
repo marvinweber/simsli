@@ -75,6 +75,7 @@ class ItemDuplicateNameTest {
         notes = null,
         type = ItemType.PERMANENT,
         categoryId = null,
+        defaultUnit = null,
         sortOrder = 1f,
         links = emptyList(),
         createdAt = Instant.EPOCH,
