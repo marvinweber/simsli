@@ -15,17 +15,23 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.TopAppBar
+import net.marvinweber.simsli.domain.model.ItemType
+import net.marvinweber.simsli.ui.components.CategorySectionHeader
+import net.marvinweber.simsli.ui.components.LinkUtils
 import net.marvinweber.simsli.ui.components.SimsliTopAppBarOverflowMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -190,7 +196,7 @@ private fun ItemsTabContent(
                     LoadingIndicator()
                 }
             }
-            uiState.items.isEmpty() -> {
+            uiState.totalItemCount == 0 -> {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -221,19 +227,29 @@ private fun ItemsTabContent(
                         .padding(paddingValues),
                     contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
-                    itemsIndexed(uiState.items, key = { _, it -> it.item.id }) { index, row ->
-                        Column(modifier = Modifier.animateItem()) {
-                            CatalogItemRow(
-                                row = row,
-                                onClick = { onNavigateToItemDetail(row.item.id) },
-                                onAddToList = { viewModel.onAddToListClick(row.item.id) }
+                    uiState.groups.forEach { group ->
+                        item(key = "catalog_group_${group.key}") {
+                            CategorySectionHeader(
+                                title = group.title,
+                                emoji = group.emoji,
+                                isImplicit = group.isImplicit,
+                                modifier = Modifier.animateItem()
                             )
-                            if (index < uiState.items.lastIndex) {
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp),
-                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                                    thickness = 0.5.dp
+                        }
+                        itemsIndexed(group.items, key = { _, it -> it.item.id }) { index, row ->
+                            Column(modifier = Modifier.animateItem()) {
+                                CatalogItemRow(
+                                    row = row,
+                                    onClick = { onNavigateToItemDetail(row.item.id) },
+                                    onAddToList = { viewModel.onAddToListClick(row.item.id) }
                                 )
+                                if (index < group.items.lastIndex) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = 16.dp, end = 16.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                                        thickness = 0.5.dp
+                                    )
+                                }
                             }
                         }
                     }
@@ -258,7 +274,7 @@ private fun CatalogItemRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
-                .padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+                .padding(start = 16.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(
@@ -266,18 +282,60 @@ private fun CatalogItemRow(
                     .weight(1f)
                     .padding(vertical = 2.dp)
             ) {
-                Text(
-                    text = row.item.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = row.item.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (row.item.type == ItemType.ONE_TIME) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)
+                        ) {
+                            Text(
+                                text = "One-time",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    if (!row.item.notes.isNullOrBlank()) {
+                        Icon(
+                            imageVector = Icons.Outlined.Description,
+                            contentDescription = "Has note",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                    val hasLinks = row.item.links.isNotEmpty() || LinkUtils.extractUrls(row.item.notes).isNotEmpty()
+                    if (hasLinks) {
+                        Icon(
+                            imageVector = Icons.Default.Link,
+                            contentDescription = "Has link",
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                }
                 if (row.isOnActiveList) {
                     Text(
                         text = "On list",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
+                    )
+                } else if (!row.item.defaultUnit.isNullOrBlank()) {
+                    Text(
+                        text = "Default: ${row.item.defaultUnit}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
             }

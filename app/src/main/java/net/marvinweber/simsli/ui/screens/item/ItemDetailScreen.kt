@@ -16,28 +16,37 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -50,6 +59,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import net.marvinweber.simsli.domain.model.ItemType
@@ -80,6 +91,8 @@ fun ItemDetailScreen(
     var prefilled by rememberSaveable { mutableStateOf(false) }
     var showAddLinkDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var categoryMenuExpanded by remember { mutableStateOf(false) }
+    var storesMenuExpanded by remember { mutableStateOf(false) }
     var duplicateWarningName by rememberSaveable { mutableStateOf<String?>(null) }
     var duplicateWarningIsSimilar by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -178,58 +191,140 @@ fun ItemDetailScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        // Category assignment (single-select, optional)
-                        if (uiState.categories.isNotEmpty()) {
-                            Text(
-                                text = "Category (optional)",
-                                style = MaterialTheme.typography.titleSmall
+                        // Category
+                        Text(
+                            text = "Category",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Box {
+                            val selectedCategory = uiState.categories.find { it.id == selectedCategoryId }
+                            val categoryLabel = if (selectedCategory != null) {
+                                if (!selectedCategory.emoji.isNullOrBlank()) "${selectedCategory.emoji} ${selectedCategory.name}" else selectedCategory.name
+                            } else {
+                                "None (Uncategorized)"
+                            }
+                            FilterChip(
+                                selected = selectedCategoryId != null,
+                                onClick = { categoryMenuExpanded = true },
+                                label = { Text(categoryLabel) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Category,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                trailingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowDown,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                             )
-                            FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            DropdownMenu(
+                                expanded = categoryMenuExpanded,
+                                onDismissRequest = { categoryMenuExpanded = false }
                             ) {
+                                DropdownMenuItem(
+                                    text = { Text("None (Uncategorized)") },
+                                    onClick = {
+                                        selectedCategoryId = null
+                                        categoryMenuExpanded = false
+                                    },
+                                    leadingIcon = {
+                                        if (selectedCategoryId == null) {
+                                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        }
+                                    }
+                                )
                                 uiState.categories.forEach { category ->
-                                    val isSelected = selectedCategoryId == category.id
-                                    FilterChip(
-                                        selected = isSelected,
-                                        onClick = {
-                                            selectedCategoryId = if (isSelected) null else category.id
+                                    DropdownMenuItem(
+                                        text = {
+                                            val catText = if (!category.emoji.isNullOrBlank()) "${category.emoji} ${category.name}" else category.name
+                                            Text(catText)
                                         },
-                                        label = {
-                                            val labelText = if (!category.emoji.isNullOrBlank()) {
-                                                "${category.emoji} ${category.name}"
-                                            } else {
-                                                category.name
+                                        onClick = {
+                                            selectedCategoryId = category.id
+                                            categoryMenuExpanded = false
+                                        },
+                                        leadingIcon = {
+                                            if (selectedCategoryId == category.id) {
+                                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                                             }
-                                            Text(labelText)
                                         }
                                     )
                                 }
                             }
                         }
 
-                        // Store assignment (multi-select)
-                        if (uiState.stores.isNotEmpty()) {
+                        // Stores
+                        Text(
+                            text = "Stores",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        if (uiState.stores.isEmpty()) {
                             Text(
-                                text = "Stores (optional)",
-                                style = MaterialTheme.typography.titleSmall
+                                text = "No stores created yet",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        } else {
                             FlowRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                uiState.stores.forEach { store ->
-                                    FilterChip(
-                                        selected = selectedStoreIds.contains(store.id),
-                                        onClick = {
-                                            selectedStoreIds = if (selectedStoreIds.contains(store.id)) {
-                                                selectedStoreIds - store.id
-                                            } else {
-                                                selectedStoreIds + store.id
-                                            }
-                                        },
-                                        label = { Text(store.name) }
+                                uiState.stores.filter { it.id in selectedStoreIds }.forEach { store ->
+                                    InputChip(
+                                        selected = true,
+                                        onClick = { selectedStoreIds = selectedStoreIds - store.id },
+                                        label = { Text(store.name) },
+                                        trailingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Remove ${store.name}",
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
                                     )
+                                }
+                                val availableStores = uiState.stores.filter { it.id !in selectedStoreIds }
+                                if (availableStores.isNotEmpty()) {
+                                    Box {
+                                        InputChip(
+                                            selected = false,
+                                            onClick = { storesMenuExpanded = true },
+                                            label = { Text(if (selectedStoreIds.isEmpty()) "Add store" else "Add") },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Default.Add,
+                                                    contentDescription = "Add store",
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        )
+                                        DropdownMenu(
+                                            expanded = storesMenuExpanded,
+                                            onDismissRequest = { storesMenuExpanded = false }
+                                        ) {
+                                            availableStores.forEach { store ->
+                                                DropdownMenuItem(
+                                                    leadingIcon = {
+                                                        Icon(
+                                                            imageVector = Icons.Outlined.Storefront,
+                                                            contentDescription = null,
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                    },
+                                                    text = { Text(store.name) },
+                                                    onClick = {
+                                                        selectedStoreIds = selectedStoreIds + store.id
+                                                        storesMenuExpanded = false
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -268,38 +363,48 @@ fun ItemDetailScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
-                        // Item type
-                        Text(
-                            text = "Item type",
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        SingleChoiceSegmentedButtonRow(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            SegmentedButton(
-                                selected = itemType == ItemType.PERMANENT,
-                                onClick = { itemType = ItemType.PERMANENT },
-                                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                        // Item type: only show for existing ONE_TIME items to allow promoting to permanent
+                        if (uiState.existingItem != null && itemType == ItemType.ONE_TIME) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("Permanent")
-                            }
-                            SegmentedButton(
-                                selected = itemType == ItemType.ONE_TIME,
-                                onClick = { itemType = ItemType.ONE_TIME },
-                                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
-                            ) {
-                                Text("One-time")
+                                Column(
+                                    modifier = Modifier.padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Info,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.onTertiaryContainer
+                                        )
+                                        Text(
+                                            text = "One-time item",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                                        )
+                                    }
+                                    Text(
+                                        text = "This item will be deleted with the daily cleanup (24 h) after being checked off on the shopping list.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                    Button(
+                                        onClick = { itemType = ItemType.PERMANENT },
+                                        modifier = Modifier.align(Alignment.End)
+                                    ) {
+                                        Text("Promote to permanent item")
+                                    }
+                                }
                             }
                         }
-                        Text(
-                            text = when (itemType) {
-                                ItemType.PERMANENT -> "Stays in the catalog — add it to the list again any time."
-                                ItemType.ONE_TIME -> "Removed together with its checked-off entry after 24 h — for one-time things."
-                                ItemType.CHECKLIST -> "Legacy type, treated as permanent."
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
 
                         // Notes
                         OutlinedTextField(

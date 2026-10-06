@@ -40,6 +40,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Search
@@ -50,6 +51,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Storefront
 import net.marvinweber.simsli.ui.components.LinkUtils
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Checkbox
 import net.marvinweber.simsli.ui.components.SimsliTopAppBarOverflowMenu
@@ -116,6 +118,7 @@ import net.marvinweber.simsli.domain.model.CategoryFilter
 import net.marvinweber.simsli.domain.model.Store
 import net.marvinweber.simsli.domain.model.StoreFilter
 import net.marvinweber.simsli.domain.model.UnitPresets
+import net.marvinweber.simsli.ui.components.CategorySectionHeader
 import net.marvinweber.simsli.ui.components.EntryDetailsSheet
 import net.marvinweber.simsli.ui.components.formatQuantity
 
@@ -332,6 +335,9 @@ fun ListTabContent(
                 onBackToSearch = viewModel::backToSearch,
                 onAdd = { saveToCatalog, quantity, unit, comment, closeAfter ->
                     viewModel.addSelected(saveToCatalog, quantity, unit, comment, closeAfter)
+                },
+                onAddAndEdit = { quantity, unit, comment ->
+                    viewModel.addAndEditInCatalog(quantity, unit, comment, onNavigateToItemDetail)
                 },
                 onDismiss = viewModel::dismissAddSheet
             )
@@ -686,35 +692,6 @@ private fun EmptyListView() {
     }
 }
 
-@Composable
-private fun CategorySectionHeader(
-    title: String,
-    emoji: String?,
-    isImplicit: Boolean = false,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (!emoji.isNullOrBlank()) {
-            Text(
-                text = emoji,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(end = 8.dp)
-            )
-        }
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = if (isImplicit) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
-        )
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ActiveListEntryRow(
@@ -981,6 +958,11 @@ private fun AddItemsSheet(
         comment: String,
         closeAfter: Boolean
     ) -> Unit,
+    onAddAndEdit: (
+        quantity: String,
+        unit: String,
+        comment: String
+    ) -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberBottomSheetState(
@@ -1004,7 +986,8 @@ private fun AddItemsSheet(
                 selection = selection,
                 isAddInProgress = uiState.isAddInProgress,
                 onBackToSearch = onBackToSearch,
-                onAdd = onAdd
+                onAdd = onAdd,
+                onAddAndEdit = onAddAndEdit
             )
         }
     }
@@ -1116,6 +1099,11 @@ private fun AddItemsSelectedContent(
         unit: String,
         comment: String,
         closeAfter: Boolean
+    ) -> Unit,
+    onAddAndEdit: (
+        quantity: String,
+        unit: String,
+        comment: String
     ) -> Unit
 ) {
     var quantityText by remember(selection) { mutableStateOf("") }
@@ -1242,6 +1230,21 @@ private fun AddItemsSelectedContent(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+            AnimatedVisibility(visible = saveToCatalog) {
+                OutlinedButton(
+                    onClick = { onAddAndEdit(quantityText, unitText, commentText) },
+                    enabled = !isAddInProgress,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Add & edit details in Catalog")
+                }
             }
         }
 

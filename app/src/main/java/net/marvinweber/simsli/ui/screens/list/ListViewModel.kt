@@ -354,11 +354,11 @@ class ListViewModel @Inject constructor(
     // --- Quick-add sheet (LIST-2) -----------------------------------------------------
 
     fun onAddClick() {
-        sheetUi.update { it.copy(addSheetOpen = true, addSelection = null) }
+        sheetUi.update { it.copy(addSheetOpen = true, addSelection = null, isAddInProgress = false) }
     }
 
     fun dismissAddSheet() {
-        sheetUi.update { it.copy(addSheetOpen = false, addQuery = "", addSelection = null) }
+        sheetUi.update { it.copy(addSheetOpen = false, addQuery = "", addSelection = null, isAddInProgress = false) }
     }
 
     fun onAddQueryChange(query: String) {
@@ -425,6 +425,7 @@ class ListViewModel @Inject constructor(
                         name = selection.name,
                         notes = null,
                         type = if (saveToCatalog) ItemType.PERMANENT else ItemType.ONE_TIME,
+                        defaultUnit = if (saveToCatalog) unit.ifBlank { null } else null,
                         sortOrder = itemRepository.getMaxItemSortOrder(household.id) + 1f,
                         createdAt = Instant.EPOCH,
                         updatedAt = Instant.EPOCH
@@ -451,6 +452,54 @@ class ListViewModel @Inject constructor(
                 }
             }.onFailure { error ->
                 _events.emit(ListUiEvent.ShowError("Failed to add item: ${error.message}"))
+                sheetUi.update { it.copy(isAddInProgress = false) }
+            }
+        }
+    }
+
+    /**
+     * Creates a new permanent item in the catalog, adds it to the list with the specified details,
+     * dismisses the quick-add sheet, and invokes [onCreated] with the new item ID to navigate
+     * directly to its details editor in the catalog.
+     */
+    fun addAndEditInCatalog(
+        quantityText: String,
+        unit: String,
+        comment: String,
+        onCreated: (String) -> Unit
+    ) {
+        val selection = sheetUi.value.addSelection as? AddSelection.New ?: return
+        if (sheetUi.value.isAddInProgress) return
+        viewModelScope.launch {
+            val household = uiState.value.household ?: return@launch
+            sheetUi.update { it.copy(isAddInProgress = true) }
+            val item = Item(
+                id = "",
+                householdId = household.id,
+                name = selection.name.trim(),
+                notes = null,
+                type = ItemType.PERMANENT,
+                defaultUnit = unit.ifBlank { null },
+                sortOrder = itemRepository.getMaxItemSortOrder(household.id) + 1f,
+                createdAt = Instant.EPOCH,
+                updatedAt = Instant.EPOCH
+            )
+            itemRepository.createItem(item).onSuccess { created ->
+                listEntryRepository.addToList(
+                    householdId = household.id,
+                    itemId = created.id,
+                    quantity = quantityText.toDoubleOrNull(),
+                    unit = unit.ifBlank { null },
+                    comment = comment.ifBlank { null }
+                ).onSuccess {
+                    dismissAddSheet()
+                    onCreated(created.id)
+                }.onFailure { error ->
+                    _events.emit(ListUiEvent.ShowError("Failed to add item: ${error.message}"))
+                    sheetUi.update { it.copy(isAddInProgress = false) }
+                }
+            }.onFailure { error ->
+                _events.emit(ListUiEvent.ShowError("Failed to create item: ${error.message}"))
                 sheetUi.update { it.copy(isAddInProgress = false) }
             }
         }
