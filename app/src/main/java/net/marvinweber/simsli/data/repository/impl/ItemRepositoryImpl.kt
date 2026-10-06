@@ -134,6 +134,20 @@ class ItemRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun isItemNameDuplicate(
+        householdId: String,
+        name: String,
+        excludeItemId: String?
+    ): Boolean = withContext(ioDispatcher) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return@withContext false
+        val activeItems = itemDao.getActiveItemsByHouseholdOnce(householdId)
+        activeItems.any { dbItem ->
+            (excludeItemId == null || dbItem.id != excludeItemId) &&
+                dbItem.name.trim().equals(trimmed, ignoreCase = true)
+        }
+    }
+
     private suspend fun enqueueUpsert(itemId: String) {
         outboxDao.enqueue(
             DbOutboxEntry(

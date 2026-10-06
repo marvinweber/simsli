@@ -17,4 +17,6 @@ interface ItemRepository {
     suspend fun deleteItem(itemId: String): Result<Unit>
 
     suspend fun updateItemSortOrder(itemId: String, sortOrder: Float): Result<Unit>
+ 
+    suspend fun isItemNameDuplicate(householdId: String, name: String, excludeItemId: String? = null): Boolean
 }

@@ -25,6 +25,9 @@ interface ItemDao {
     @Query("SELECT * FROM items WHERE householdId = :householdId")
     suspend fun getAllIncludingDeleted(householdId: String): List<DbItem>
 
+    @Query("SELECT * FROM items WHERE householdId = :householdId AND deletedAt IS NULL")
+    suspend fun getActiveItemsByHouseholdOnce(householdId: String): List<DbItem>
+
     @Query("""
         UPDATE items
         SET householdId = :newHouseholdId, updatedAt = :updatedAt

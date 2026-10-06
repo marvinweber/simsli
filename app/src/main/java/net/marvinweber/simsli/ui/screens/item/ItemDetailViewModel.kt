@@ -47,6 +47,7 @@ data class ItemDetailUiState(
 sealed class ItemDetailUiEvent {
     data object NavigateBack : ItemDetailUiEvent()
     data class ShowError(val message: String) : ItemDetailUiEvent()
+    data class ShowDuplicateWarning(val itemName: String) : ItemDetailUiEvent()
 }
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -162,7 +163,8 @@ class ItemDetailViewModel @Inject constructor(
         notes: String,
         type: ItemType,
         selectedStoreIds: List<String>,
-        selectedCategoryId: String? = null
+        selectedCategoryId: String? = null,
+        force: Boolean = false
     ) {
         if (isSaving.value) return
         viewModelScope.launch {
@@ -171,19 +173,32 @@ class ItemDetailViewModel @Inject constructor(
                 _events.value = ItemDetailUiEvent.ShowError("No household found")
                 return@launch
             }
-            if (name.isBlank()) {
+            val trimmedName = name.trim()
+            if (trimmedName.isBlank()) {
                 _events.value = ItemDetailUiEvent.ShowError("Item name cannot be empty")
                 return@launch
             }
 
-            isSaving.value = true
             val existing = uiState.value.existingItem
+            if (!force) {
+                val isDuplicate = itemRepository.isItemNameDuplicate(
+                    householdId = household.id,
+                    name = trimmedName,
+                    excludeItemId = existing?.id
+                )
+                if (isDuplicate) {
+                    _events.value = ItemDetailUiEvent.ShowDuplicateWarning(trimmedName)
+                    return@launch
+                }
+            }
+
+            isSaving.value = true
             val currentLinks = _links.value
             if (existing == null) {
                 val item = Item(
                     id = "",
                     householdId = household.id,
-                    name = name.trim(),
+                    name = trimmedName,
                     notes = notes.trim().ifBlank { null },
                     type = type,
                     categoryId = selectedCategoryId,
@@ -206,7 +221,7 @@ class ItemDetailViewModel @Inject constructor(
             } else {
                 itemRepository.updateItem(
                     existing.copy(
-                        name = name.trim(),
+                        name = trimmedName,
                         notes = notes.trim().ifBlank { null },
                         type = type,
                         categoryId = selectedCategoryId,

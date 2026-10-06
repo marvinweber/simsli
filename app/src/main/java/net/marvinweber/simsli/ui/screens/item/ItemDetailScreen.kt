@@ -78,6 +78,7 @@ fun ItemDetailScreen(
     var prefilled by rememberSaveable { mutableStateOf(false) }
     var showAddLinkDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var duplicateWarningName by rememberSaveable { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Prefill the form once when editing an existing item.
@@ -108,6 +109,10 @@ fun ItemDetailScreen(
                     snackbarHostState.showSnackbar(event.message)
                     viewModel.onEventConsumed()
                 }
+            }
+            is ItemDetailUiEvent.ShowDuplicateWarning -> {
+                duplicateWarningName = event.itemName
+                viewModel.onEventConsumed()
             }
         }
     }
@@ -401,6 +406,57 @@ fun ItemDetailScreen(
             onDismiss = { showDeleteDialog = false }
         )
     }
+
+    duplicateWarningName?.let { name ->
+        DuplicateItemWarningDialog(
+            itemName = name,
+            isEditing = uiState.existingItem != null,
+            onConfirm = {
+                duplicateWarningName = null
+                viewModel.saveItem(
+                    name = itemName,
+                    notes = itemNotes,
+                    type = itemType,
+                    selectedStoreIds = selectedStoreIds.toList(),
+                    selectedCategoryId = selectedCategoryId,
+                    force = true
+                )
+            },
+            onDismiss = { duplicateWarningName = null }
+        )
+    }
+}
+
+@Composable
+private fun DuplicateItemWarningDialog(
+    itemName: String,
+    isEditing: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Item already exists") },
+        text = {
+            Text(
+                if (isEditing) {
+                    "An item named \"$itemName\" already exists in your catalog. Save anyway?"
+                } else {
+                    "An item named \"$itemName\" already exists in your catalog. Add anyway?"
+                }
+            )
+        },
+        confirmButton = {
+            Button(onClick = onConfirm) {
+                Text(if (isEditing) "Save anyway" else "Add anyway")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable
