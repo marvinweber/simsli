@@ -21,20 +21,20 @@ Milestone tags are assignments, not promises — moving a feature between milest
 |:-------------------------|:-----------------------|:---------------------|:-----------------------|:---------------|:-------------|:-------------|:----------|
 | 3.1 Auth (AUTH)          | AUTH-1, AUTH-2, AUTH-3 | —                    | —                      | —              | AUTH-4       | —            | —         |
 | 3.2 Household (HH)       | HH-1, HH-2, HH-4, HH-5 | HH-3                 | HH-9                   | —              | HH-6, HH-7   | —            | HH-8      |
-| 3.3 Catalog items (ITEM) | ITEM-1, ITEM-2         | ITEM-4               | ITEM-3, ITEM-5, ITEM-6 | —              | —            | —            | —         |
+| 3.3 Catalog items (ITEM) | ITEM-1, ITEM-2, ITEM-3, ITEM-4 | —            | ITEM-5, ITEM-6         | —              | —            | —            | —         |
 | 3.4 Shopping list (LIST) | LIST-1–7               | —                    | —                      | —              | LIST-8       | —            | —         |
 | 3.5 Stores (STORE)       | STORE-1–3              | —                    | STORE-4, STORE-5, STORE-6 | —           | —            | —            | —         |
 | 3.6 Categories (CAT)     | CAT-1, CAT-2, CAT-3   | —                    | CAT-4                  | —              | —            | —            | —         |
 | 3.7 Sync (SYNC)          | SYNC-1–4               | —                    | —                      | —              | SYNC-5       | —            | —         |
 | 3.8 Device data (DATA)   | DATA-1, DATA-3         | —                    | DATA-2                 | —              | DATA-4       | —            | DATA-5    |
-| 3.9 Screens (SCREENS)    | SCREENS-1, SCREENS-4, SCREENS-6 | SCREENS-2, SCREENS-3 | SCREENS-5, SCREENS-9 | SCREENS-8   | —            | —            | SCREENS-7 |
+| 3.9 Screens (SCREENS)    | SCREENS-1, SCREENS-4, SCREENS-6, SCREENS-9 | SCREENS-2, SCREENS-3 | SCREENS-5 | SCREENS-8   | —            | —            | SCREENS-7 |
 | 3.10 Localization (I18N) | —                      | —                    | I18N-1                 | —              | —            | —            | —         |
 | 3.11 Business (BIZ)      | BIZ-5, BIZ-6           | —                    | —                      | —              | BIZ-1        | BIZ-2, BIZ-3 | —         |
 | 3.12 Dashboard (DASH)    | —                      | —                    | —                      | DASH-1, DASH-2 | —            | —            | —         |
 
 Each feature appears once, under its current status; extensions tagged to later milestones (e.g. HH-2 admin role → v1.5, STORE-1 drag & drop → v1, LIST-5 favorite toggle → v0.1) stay tracked in the §3 entry. DATA-2 ships per path (removal with HH-5 in v0.1, leave/delete with HH-6/7 in v1). BIZ-4 is unlisted — its decision is open (OQ-1).
 
-Last updated: 2026-10-05
+Last updated: 2026-10-06
 
 ---
 
@@ -86,7 +86,7 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 
 - **ITEM-1 Create/edit ✅** — name, notes, links (catalog column storing URLs and fetched page titles; notes field automatically extracts pasted/typed URLs into interactive link chips with native app icon or direct favicon, background title fetching, chip removal, and "+ Add link" dialog), type, category (CAT-2 ✅), store assignments, (📋 v0.1: default unit ITEM-5).
 - **ITEM-2 Item types ✅** — `PERMANENT` (normal case, lives in catalog forever) and `ONE_TIME` (retired together with its checked-off entry at GC). Legacy `CHECKLIST` stays hidden in UI/DB.
-- **ITEM-3 Duplicate-name warning ✅** — creating (or renaming to) a name that already exists in the household (case-insensitive or similar via tiered Levenshtein, plural suffixes, and punctuation/space normalization) warns "already exists / similar item found — add anyway?" showing the matched item.
+- **ITEM-3 Duplicate-name & similarity warning ✅** — creating (or renaming to) an item whose name already exists or is very similar in the household prompts a confirmation dialog ("already exists / similar item found — add/save anyway?") identifying the matched candidate. Uses a tiered similarity heuristic: exact case-insensitive match; punctuation/whitespace normalization (`"Hafer Milch"` ↔ `"Hafermilch"`); short words (< 5 chars, e.g. *Reis, Mais, Brot*) strictly exact match only (preventing false alarms between distinct foods); medium words (5–7 chars) allow 1 edit distance or plural endings (`"Apfel"` ↔ `"Äpfel"`, `"Banane"` ↔ `"Bananen"`); long words (8+ chars) allow up to 2 edit distances with ≥ 80% similarity (`"Toiletenpapier"` ↔ `"Toilettenpapier"`). Confirming saves anyway; cancelling keeps the form open.
 - **ITEM-4 Delete item ✅** — soft delete in repository. Deleting an item removes its active entries in `list_entries` and store assignments in `item_stores` (and enqueues outbox deletions). UI entry point in item detail top bar and bottom action with confirmation dialog.
 - **ITEM-5 Default unit 📋 v0.1** — optional unit preset on the item, preselected when adding to the list, changeable per entry.
 - **ITEM-6 Reference size 📋 v0.1** — optional free-text reference size per item ("1 l", "500 g"), edited at the top of the Store Prices screen (STORE-6). Purely informational — displayed wherever the item's prices are shown ("1,09 € / 1 l"); never translated, no unit logic. Working assumption: a user prices one item in the same reference size across stores.
