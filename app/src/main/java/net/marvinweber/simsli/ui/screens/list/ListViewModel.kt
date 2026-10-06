@@ -25,6 +25,7 @@ import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.data.repository.ItemRepository
 import net.marvinweber.simsli.data.repository.ListEntryRepository
 import net.marvinweber.simsli.data.repository.StoreRepository
+import net.marvinweber.simsli.data.sync.SyncManager
 import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.CategoryFilter
 import net.marvinweber.simsli.domain.model.Household
@@ -97,7 +98,8 @@ class ListViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
     private val listEntryRepository: ListEntryRepository,
     private val categoryRepository: CategoryRepository,
-    private val quickActionManager: net.marvinweber.simsli.ui.navigation.QuickActionManager
+    private val quickActionManager: net.marvinweber.simsli.ui.navigation.QuickActionManager,
+    private val syncManager: SyncManager
 ) : ViewModel() {
 
     private val _storeFilter = MutableStateFlow<StoreFilter>(StoreFilter.All)
@@ -495,6 +497,15 @@ class ListViewModel @Inject constructor(
             listEntryRepository.deleteListEntries(entryIds)
                 .onFailure { error ->
                     _events.emit(ListUiEvent.ShowError("Failed to clear items: ${error.message}"))
+                }
+        }
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            syncManager.syncNow("manual")
+                .onFailure { error ->
+                    _events.emit(ListUiEvent.ShowError("Sync failed: ${error.message}"))
                 }
         }
     }

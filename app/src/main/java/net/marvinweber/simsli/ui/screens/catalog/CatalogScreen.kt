@@ -25,7 +25,8 @@ import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.TopAppBar
+import net.marvinweber.simsli.ui.components.SimsliTopAppBarOverflowMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
@@ -86,12 +87,15 @@ fun CatalogScreen(
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            CenterAlignedTopAppBar(
+            TopAppBar(
                 title = {
                     SimsliTopAppBarTitle(
                         title = "Catalog",
                         isSyncing = isSyncing
                     )
+                },
+                actions = {
+                    SimsliTopAppBarOverflowMenu(onRefresh = viewModel::refresh)
                 }
             )
         }

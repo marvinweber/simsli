@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.data.repository.ItemRepository
 import net.marvinweber.simsli.data.repository.ListEntryRepository
+import net.marvinweber.simsli.data.sync.SyncManager
 import net.marvinweber.simsli.domain.model.Item
 import javax.inject.Inject
 
@@ -35,7 +36,8 @@ data class CatalogUiState(
 class CatalogViewModel @Inject constructor(
     private val householdRepository: HouseholdRepository,
     private val itemRepository: ItemRepository,
-    private val listEntryRepository: ListEntryRepository
+    private val listEntryRepository: ListEntryRepository,
+    private val syncManager: SyncManager
 ) : ViewModel() {
 
     /** The item the add-to-list sheet is open for, if any. */
@@ -87,6 +89,12 @@ class CatalogViewModel @Inject constructor(
                 comment = comment.ifBlank { null }
             )
             addingItemId.value = null
+        }
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            syncManager.syncNow("manual")
         }
     }
 }

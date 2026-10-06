@@ -49,8 +49,9 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Storefront
 import net.marvinweber.simsli.ui.components.LinkUtils
 import androidx.compose.material3.Button
-import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Checkbox
+import net.marvinweber.simsli.ui.components.SimsliTopAppBarOverflowMenu
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -172,12 +173,15 @@ fun ListTabContent(
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            CenterAlignedTopAppBar(
+            TopAppBar(
                 title = {
                     SimsliTopAppBarTitle(
                         title = "Simsli",
                         isSyncing = isSyncing
                     )
+                },
+                actions = {
+                    SimsliTopAppBarOverflowMenu(onRefresh = viewModel::refresh)
                 }
             )
         },
