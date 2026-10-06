@@ -5,6 +5,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import net.marvinweber.simsli.data.local.dao.ItemDao
+import net.marvinweber.simsli.data.local.dao.ItemStoreDao
+import net.marvinweber.simsli.data.local.dao.ListEntryDao
 import net.marvinweber.simsli.data.local.dao.OutboxDao
 import net.marvinweber.simsli.data.local.entity.DbOutboxEntry
 import net.marvinweber.simsli.data.local.mapper.toDomain
@@ -22,6 +24,8 @@ import javax.inject.Singleton
 @Singleton
 class ItemRepositoryImpl @Inject constructor(
     private val itemDao: ItemDao,
+    private val listEntryDao: ListEntryDao,
+    private val itemStoreDao: ItemStoreDao,
     private val outboxDao: OutboxDao,
     private val syncScheduler: SyncScheduler,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
@@ -77,9 +81,40 @@ class ItemRepositoryImpl @Inject constructor(
     override suspend fun deleteItem(itemId: String): Result<Unit> {
         return withContext(ioDispatcher) {
             try {
-                itemDao.delete(itemId, Instant.now())
-                // Local deletes are soft — push the row so deleted_at propagates.
+                val now = Instant.now()
+                // 1. Soft-delete the item itself
+                itemDao.delete(itemId, now)
                 enqueueUpsert(itemId)
+
+                // 2. Remove all list entries for this item
+                val listEntries = listEntryDao.getEntriesByItemIdOnce(itemId)
+                for (entry in listEntries) {
+                    listEntryDao.delete(entry.id)
+                    outboxDao.enqueue(
+                        DbOutboxEntry(
+                            entityType = SyncContract.ENTITY_LIST_ENTRY,
+                            entityId = entry.id,
+                            operation = SyncContract.OP_DELETE,
+                            createdAt = now
+                        )
+                    )
+                }
+
+                // 3. Remove all store assignments for this item
+                val storeIds = itemStoreDao.getStoreIdsForItem(itemId)
+                itemStoreDao.deleteByItemId(itemId)
+                for (storeId in storeIds) {
+                    outboxDao.enqueue(
+                        DbOutboxEntry(
+                            entityType = SyncContract.ENTITY_ITEM_STORE,
+                            entityId = SyncContract.itemStoreEntityId(itemId, storeId),
+                            operation = SyncContract.OP_DELETE,
+                            createdAt = now
+                        )
+                    )
+                }
+
+                syncScheduler.requestSync("item:delete")
                 Result.success(Unit)
             } catch (e: Exception) {
                 Result.failure(e)

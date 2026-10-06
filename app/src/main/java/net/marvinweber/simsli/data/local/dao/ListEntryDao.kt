@@ -72,6 +72,9 @@ interface ListEntryDao {
     @Query("SELECT * FROM list_entries WHERE householdId = :householdId AND itemId = :itemId LIMIT 1")
     suspend fun getEntryByHouseholdAndItemOnce(householdId: String, itemId: String): DbListEntry?
 
+    @Query("SELECT * FROM list_entries WHERE itemId = :itemId")
+    suspend fun getEntriesByItemIdOnce(itemId: String): List<DbListEntry>
+
     /** Checked-off entries past the "Recently checked" TTL — garbage collection removes them everywhere. */
     @Query("""
         SELECT * FROM list_entries

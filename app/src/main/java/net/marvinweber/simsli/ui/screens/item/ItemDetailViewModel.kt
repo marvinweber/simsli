@@ -230,6 +230,22 @@ class ItemDetailViewModel @Inject constructor(
         }
     }
 
+    fun deleteItem() {
+        val id = itemId ?: return
+        if (isSaving.value) return
+        viewModelScope.launch {
+            isSaving.value = true
+            itemRepository.deleteItem(id)
+                .onSuccess {
+                    _events.value = ItemDetailUiEvent.NavigateBack
+                }
+                .onFailure { error ->
+                    isSaving.value = false
+                    _events.value = ItemDetailUiEvent.ShowError("Failed to delete item: ${error.message}")
+                }
+        }
+    }
+
     fun onBack() {
         _events.value = ItemDetailUiEvent.NavigateBack
     }
