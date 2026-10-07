@@ -37,11 +37,13 @@ import androidx.wear.compose.foundation.rotary.RotaryScrollableDefaults
 import androidx.wear.compose.foundation.rotary.rotaryScrollable
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
+import androidx.wear.compose.material3.CheckboxButtonDefaults
 import androidx.wear.compose.material3.Dialog
 import androidx.wear.compose.material3.FilledTonalButton
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.SplitCheckboxButton
 import androidx.wear.compose.material3.Text
 import net.marvinweber.simsli.wear.common.WearShoppingItem
 
@@ -129,24 +131,21 @@ fun StoreShoppingListScreen(
         items(sortedItems, key = { it.entryId }) { item ->
             val detailsText = formatItemDetails(item)
 
-            Button(
-                onClick = {
+            SplitCheckboxButton(
+                checked = item.isDone,
+                onCheckedChange = { checked ->
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onToggleItem(item.entryId, !item.isDone)
+                    onToggleItem(item.entryId, checked)
                 },
-                onLongClick = {
+                toggleContentDescription = if (item.isDone) "Mark as active" else "Mark as done",
+                onContainerClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     detailItem = item
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 3.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (item.isDone) Color(0xFF141618) else Color(0xFF1E2225),
-                    contentColor = if (item.isDone) Color(0xFF888888) else Color.White,
-                    secondaryContentColor = if (item.isDone) Color(0xFF555555) else Color(0xFFB0BEC5),
-                    iconColor = if (item.isDone) Color(0xFF81C784) else Color(0xFFA5D6A7)
-                ),
+                colors = CheckboxButtonDefaults.splitCheckboxButtonColors(),
                 label = {
                     Text(
                         text = item.name,
@@ -165,21 +164,6 @@ fun StoreShoppingListScreen(
                             color = if (item.isDone) Color(0xFF555555) else Color(0xFFB0BEC5),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                },
-                icon = {
-                    if (item.isDone) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = "Completed",
-                            tint = Color(0xFF81C784)
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.RadioButtonUnchecked,
-                            contentDescription = "Active",
-                            tint = Color(0xFFA5D6A7)
                         )
                     }
                 }

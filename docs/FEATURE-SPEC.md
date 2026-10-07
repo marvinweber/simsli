@@ -180,7 +180,7 @@ Lightweight companion app for Wear OS smartwatches designed as a satellite displ
 - **WEAR-4 Wear OS Tile 📋 v1** — glanceable Tile accessible with a single swipe from the watch face: displays the active/selected store, the next pending items, and a one-tap button to open the list.
 - **WEAR-5 Watch Face Complication 📋 v1** — complication displaying the remaining item count (e.g., `🛒 4`) on supported watch faces.
 - **WEAR-6 Aisle category ordering 📋 v1** — shopping list entries on the watch are grouped by category matching the store's configured aisle order (STORE-4).
-- **WEAR-7 Item details popup ✅** — long-pressing an item opens a compact modal dialog showing item name, quantity/unit, comments, and notes, with actions to toggle completion or close.
+- **WEAR-7 Item details popup ✅** — split item rows with dedicated check-off toggle and container tap opening a modal dialog showing item name, quantity/unit, comments, and notes.
 - **WEAR-8 Rotary input support ✅** — smooth list scrolling with item snap behavior via the physical digital crown or rotating bezel.
 - **WEAR-9 Voice Quick-Add 📋 v1.5** — voice input action on the store list allowing speech-to-text item additions directly from the wrist.
 
