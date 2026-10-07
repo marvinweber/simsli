@@ -367,7 +367,7 @@ fun ItemDetailScreen(
                         if (uiState.existingItem != null && itemType == ItemType.ONE_TIME) {
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f),
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Column(
@@ -382,21 +382,21 @@ fun ItemDetailScreen(
                                             imageVector = Icons.Outlined.Info,
                                             contentDescription = null,
                                             modifier = Modifier.size(18.dp),
-                                            tint = MaterialTheme.colorScheme.onTertiaryContainer
+                                            tint = MaterialTheme.colorScheme.primary
                                         )
                                         Text(
                                             text = "One-time item",
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                     }
                                     Text(
                                         text = "This item will be deleted with the daily cleanup (24 h) after being checked off on the shopping list.",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    Button(
+                                    OutlinedButton(
                                         onClick = { itemType = ItemType.PERMANENT },
                                         modifier = Modifier.align(Alignment.End)
                                     ) {
