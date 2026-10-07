@@ -139,5 +139,5 @@ This script:
      ```
    - **Title Convention**: `Simsli x.y.z` (without leading "v", e.g. `Simsli 0.4.0`).
    - **Description**: Begin with an engaging summarizing sentence or paragraph featuring emojis celebrating the release highlights, followed by the categorized user changelog.
-   - **Asset**: Attach `app/build/outputs/apk/foss/release/app-foss-release.apk` (labeled e.g. `Simsli-FOSS-vx.y.z.apk`).
+   - **Asset**: Attach FOSS APK named with convention `simsli-foss-x.y.z-<commithash>.apk` (e.g. `simsli-foss-0.4.0-fbfdcf2.apk`).
    - If `gh` is installed and authenticated, confirm with the user before publishing. If not installed, provide the direct GitHub URL and draft release notes.

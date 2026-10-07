@@ -37,6 +37,18 @@ PHONE_AAB="app/build/outputs/bundle/playRelease/app-play-release.aab"
 WEAR_AAB="wear/build/outputs/bundle/release/wear-release.aab"
 FOSS_APK="app/build/outputs/apk/foss/release/app-foss-release.apk"
 
+# Compute standardized named FOSS APK: simsli-foss-x.y.z-commithash.apk
+MAJOR=$(grep -E '^versionMajor=' version.properties | cut -d= -f2 | tr -d '[:space:]')
+MINOR=$(grep -E '^versionMinor=' version.properties | cut -d= -f2 | tr -d '[:space:]')
+PATCH=$(grep -E '^versionPatch=' version.properties | cut -d= -f2 | tr -d '[:space:]')
+VERSION="$MAJOR.$MINOR.$PATCH"
+COMMIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "head")
+NAMED_FOSS_APK="app/build/outputs/apk/foss/release/simsli-foss-${VERSION}-${COMMIT_HASH}.apk"
+
+if [ -f "$FOSS_APK" ]; then
+    cp "$FOSS_APK" "$NAMED_FOSS_APK"
+fi
+
 MISSING=0
 
 verify_file() {
@@ -66,6 +78,7 @@ verify_file() {
 verify_file "$PHONE_AAB" "Google Play Phone App Bundle"
 verify_file "$WEAR_AAB" "Google Play Wear OS App Bundle"
 verify_file "$FOSS_APK" "FOSS Release APK"
+verify_file "$NAMED_FOSS_APK" "Standardized FOSS Release APK"
 
 if [ "$MISSING" -gt 0 ]; then
     echo ""

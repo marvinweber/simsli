@@ -12,6 +12,8 @@ PATCH=$(grep -E '^versionPatch=' version.properties | cut -d= -f2 | tr -d '[:spa
 VERSION="$MAJOR.$MINOR.$PATCH"
 TAG="v$VERSION"
 TITLE="Simsli $VERSION"
+COMMIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "head")
+ASSET_NAME="simsli-foss-${VERSION}-${COMMIT_HASH}.apk"
 APK_FILE="app/build/outputs/apk/foss/release/app-foss-release.apk"
 
 DRAFT_FLAG=""
@@ -62,7 +64,7 @@ echo "Publishing via gh release create..."
 CMD=(gh release create "$TAG" --title "$TITLE" --notes-file "$NOTES_TMP")
 
 if [ -f "$APK_FILE" ]; then
-    CMD+=("$APK_FILE#Simsli-FOSS-v$VERSION.apk")
+    CMD+=("$APK_FILE#$ASSET_NAME")
 fi
 
 if [ -n "$DRAFT_FLAG" ]; then
