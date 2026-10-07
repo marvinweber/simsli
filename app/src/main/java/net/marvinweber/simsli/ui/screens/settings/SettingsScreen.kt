@@ -1016,11 +1016,16 @@ fun SettingsTabContent(
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
-                                text = if (uiState.wearCompanionStatus.isConnected) {
-                                    val name = uiState.wearCompanionStatus.deviceName
-                                    if (!name.isNullOrBlank()) "Connected • $name" else "Connected"
-                                } else {
-                                    "No watch connected"
+                                text = when {
+                                    uiState.wearCompanionStatus.isConnected -> {
+                                        val name = uiState.wearCompanionStatus.deviceName
+                                        if (!name.isNullOrBlank()) "Connected • $name" else "Connected"
+                                    }
+                                    uiState.wearCompanionStatus.isWatchConnected -> {
+                                        val name = uiState.wearCompanionStatus.deviceName
+                                        if (!name.isNullOrBlank()) "$name • App not installed" else "Watch connected • App not installed"
+                                    }
+                                    else -> "No watch connected"
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (uiState.wearCompanionStatus.isConnected)

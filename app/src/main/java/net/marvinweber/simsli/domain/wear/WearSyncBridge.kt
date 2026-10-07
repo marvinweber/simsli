@@ -10,6 +10,7 @@ import net.marvinweber.simsli.domain.model.Store
 data class WearCompanionStatus(
     val isSupported: Boolean = false,
     val isConnected: Boolean = false,
+    val isWatchConnected: Boolean = false,
     val deviceName: String? = null
 )
 
