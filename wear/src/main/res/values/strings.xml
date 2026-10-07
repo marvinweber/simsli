@@ -1,5 +1,5 @@
 <resources>
     <string name="app_name">Simsli</string>
-    <string name="tile_name">Shopping</string>
+    <string name="tile_name">Simsli - Stores</string>
     <string name="tile_description">Quick access to stores and shopping lists</string>
 </resources>

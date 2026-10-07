@@ -200,9 +200,9 @@ class ShoppingTileService : TileService() {
             return primaryLayout.build()
         }
 
-        // Active items exist: Header shows "Shopping (N)"
+        // Active items exist: Header shows "Stores (N)"
         primaryLayout.setPrimaryLabelTextContent(
-            Text.Builder(this, "Shopping ($allActiveCount)")
+            Text.Builder(this, "Stores ($allActiveCount)")
                 .setTypography(Typography.TYPOGRAPHY_CAPTION2)
                 .setColor(ColorBuilders.argb(0xFFA5D6A7.toInt()))
                 .build()
