@@ -7,7 +7,7 @@ cd "$REPO_ROOT"
 
 echo "=== Simsli Release: Verifying Prerequisites ==="
 
-# 1. Java Runtime Detection (Requires JAVA_HOME to be defined)
+# 1. Java Runtime Check (Requires JAVA_HOME to be defined)
 if [ -z "${JAVA_HOME:-}" ] || [ ! -x "${JAVA_HOME}/bin/java" ]; then
     echo "❌ JAVA_HOME is not defined or invalid!"
     echo "   Please define JAVA_HOME before running this script (e.g. export JAVA_HOME=...)."
@@ -15,17 +15,7 @@ if [ -z "${JAVA_HOME:-}" ] || [ ! -x "${JAVA_HOME}/bin/java" ]; then
 fi
 echo "✅ Java runtime: $JAVA_HOME"
 
-# 2. SSH Agent / Git Signing Check
-echo -n "Checking SSH signing key... "
-if ssh-add -l >/dev/null 2>&1; then
-    KEY_COUNT=$(ssh-add -l | wc -l | tr -d ' ')
-    echo "✅ SSH agent has $KEY_COUNT active identity/identities loaded."
-else
-    echo "⚠️  SSH agent has no loaded identities! Git commit/tag signing will fail."
-    echo "   Please run 'ssh-add' or unlock your SSH key agent before committing/tagging."
-fi
-
-# 3. Keystore Configuration Check
+# 2. Keystore Configuration Check
 echo -n "Checking release signing configuration... "
 KEYSTORE_FOUND=false
 if [ -f "local.properties" ]; then
@@ -46,7 +36,7 @@ if [ "$KEYSTORE_FOUND" = false ]; then
     echo "   Release builds will fail unless signing credentials are provided."
 fi
 
-# 4. Current Version
+# 3. Current Version
 echo -n "Current Version: "
 MAJOR=$(grep -E '^versionMajor=' version.properties | cut -d= -f2 | tr -d '[:space:]')
 MINOR=$(grep -E '^versionMinor=' version.properties | cut -d= -f2 | tr -d '[:space:]')
@@ -54,7 +44,7 @@ PATCH=$(grep -E '^versionPatch=' version.properties | cut -d= -f2 | tr -d '[:spa
 CODE=$(grep -E '^versionCode=' version.properties | cut -d= -f2 | tr -d '[:space:]')
 echo "$MAJOR.$MINOR.$PATCH (versionCode: $CODE)"
 
-# 5. Git Status Check
+# 4. Git Working Tree Status
 DIRTY_COUNT=$(git status --porcelain | wc -l | tr -d ' ')
 if [ "$DIRTY_COUNT" -eq 0 ]; then
     echo "✅ Git working directory is clean."

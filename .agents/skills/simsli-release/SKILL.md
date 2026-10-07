@@ -33,8 +33,7 @@ Run the verification helper:
 ./.agents/skills/simsli-release/scripts/verify-prerequisites.sh
 ```
 Check the output for:
-- ✅ Java runtime / JBR located
-- ✅ SSH key loaded in agent (`ssh-add -l`)
+- ✅ Java runtime configured (`JAVA_HOME`)
 - ✅ Release keystore configured in `local.properties` or environment
 - Review any pending uncommitted changes in git.
 

@@ -46,7 +46,13 @@ verify_file() {
         local SIZE
         SIZE=$(ls -lh "$FILE" | awk '{print $5}')
         local SHA
-        SHA=$(shasum -a 256 "$FILE" | awk '{print $1}')
+        if command -v sha256sum >/dev/null 2>&1; then
+            SHA=$(sha256sum "$FILE" | awk '{print $1}')
+        elif command -v shasum >/dev/null 2>&1; then
+            SHA=$(shasum -a 256 "$FILE" | awk '{print $1}')
+        else
+            SHA="n/a"
+        fi
         echo "✅ $DESC"
         echo "   Path:   $FILE"
         echo "   Size:   $SIZE"
