@@ -31,10 +31,11 @@ Milestone tags are assignments, not promises — moving a feature between milest
 | 3.10 Localization (I18N) | —                      | —                    | I18N-1                 | —              | —            | —            | —         |
 | 3.11 Business (BIZ)      | BIZ-5, BIZ-6           | —                    | —                      | —              | BIZ-1        | BIZ-2, BIZ-3 | —         |
 | 3.12 Dashboard (DASH)    | —                      | —                    | —                      | DASH-1, DASH-2 | —            | —            | —         |
+| 3.13 Wear OS companion (WEAR) | —                 | —                    | —                      | WEAR-1, WEAR-2 | WEAR-3–8     | WEAR-9       | —         |
 
 Each feature appears once, under its current status; extensions tagged to later milestones (e.g. HH-2 admin role → v1.5, STORE-1 drag & drop → v1, LIST-5 favorite toggle → v0.1) stay tracked in the §3 entry. DATA-2 ships per path (removal with HH-5 in v0.1, leave/delete with HH-6/7 in v1). BIZ-4 is unlisted — its decision is open (OQ-1).
 
-Last updated: 2026-10-06
+Last updated: 2026-10-07
 
 ---
 
@@ -59,6 +60,7 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 - **Backup** — full-fidelity JSON export of a household (DATA-4). Import is future (DATA-5).
 - **Favorite filter** — shared toggle (filter bar LIST-5, dashboard DASH-1/DASH-2): **ON**, an item counts for a store only if that store is favorited for it; an item with **no favorites at all** counts for all its stores. **OFF**, favorites are ignored entirely.
 - **Currency** — per household, display-only: chosen from a preset list, its symbol is shown next to store prices. No conversion, no calculations, ever.
+- **Wear OS companion** — lightweight watch app acting as a satellite display and check-off tool for the phone app via Wearable Data Layer; architecturally isolated behind build flavors to maintain 100% FOSS / F-Droid compatibility (§3.13, ADR 0017).
 
 ## 3. Features
 
@@ -168,6 +170,20 @@ Computed over the **active list entries** (recently checked excluded) and indepe
 - **DASH-1 Stores to visit 📋 v0.5** — the minimum set of stores that covers the list. Per item, candidate stores: favorite filter off → all assigned stores; on → favorites if any, else all assigned stores (§2). Deterministic greedy set cover (repeatedly take the store covering the most yet-uncovered items, tie → store sort order) so all devices converge without coordination. Items without any store assignment are counted as uncovered.
 - **DASH-2 Cheapest split 📋 v0.5** — per item with at least one priced store (STORE-6): the cheapest store + price, reference size appended if set (tie → store order); favorite filter on restricts competitors to favorites per §2. Items without any price are listed under "no price" (honest empty state until prices are filled in). **No totals, ever** — entry quantity/unit is never mapped against the reference size.
 
+### 3.13 Wear OS companion (WEAR)
+
+Lightweight companion app for Wear OS smartwatches designed as a satellite display and quick check-off tool while shopping. Relies on the Google Play Services Wearable Data Layer (`play-services-wearable`) for power-efficient Bluetooth sync and local caching, isolated behind build flavors to preserve 100% FOSS / F-Droid compatibility on the core mobile app (ADR 0017). The watch app is strictly a companion (never standalone; no direct server sync, no local accounts).
+
+- **WEAR-1 Store selection 📋 v0.5** — vertical list of household stores showing active item counts for each store (e.g. `Rewe (4)`, `dm (2)`) plus an `All stores` option. Tapping a store opens its shopping list.
+- **WEAR-2 Store shopping list & check-off 📋 v0.5** — compact list for the selected store displaying quantity, unit, and item name. Tapping an item marks it completed (strikethrough + subtle haptic feedback) and synchronizes the check-off state back to the phone.
+- **WEAR-3 Ambient display mode 📋 v1** — low-refresh ambient / always-on display mode while viewing a store list, keeping items visible without display timeouts during shopping.
+- **WEAR-4 Wear OS Tile 📋 v1** — glanceable Tile accessible with a single swipe from the watch face: displays the active/selected store, the next pending items, and a one-tap button to open the list.
+- **WEAR-5 Watch Face Complication 📋 v1** — complication displaying the remaining item count (e.g., `🛒 4`) on supported watch faces.
+- **WEAR-6 Aisle category ordering 📋 v1** — shopping list entries on the watch are grouped by category matching the store's configured aisle order (STORE-4).
+- **WEAR-7 Item details popup 📋 v1** — long-pressing or tapping an item opens a compact dialog showing item notes and comments (LIST-4).
+- **WEAR-8 Rotary input support 📋 v1** — smooth list scrolling via the physical digital crown or rotating bezel.
+- **WEAR-9 Voice Quick-Add 📋 v1.5** — voice input action on the store list allowing speech-to-text item additions directly from the wrist.
+
 ## 4. Data model delta (what this spec adds)
 
 Server (new migrations):
@@ -185,7 +201,7 @@ Local (Room): mirror tables/entities for the above (watermarks + reconcile uncha
 
 ## 5. Out of scope (deliberately not planned)
 
-❌ Item photos · tags (categories cover the need) · unit **conversions** · GPS/store reminders · barcode scanning · iOS/web · **push notifications** 🔭 v2/v3 (FCM + Edge Function is the path) · customizable list views 🔭 (one good view first) · item drag & drop reordering · **ownership transfer** 🔭 v2/v3 (until then the Owner's only exits are HH-7 deletion or staying) · household switcher UI 🔭 v2 (HH-8) · import 🔭 v2 (DATA-5) · restore-household UI 🔭 v2 (retention ships v1, HH-7) · price totals / basket optimization beyond the two dashboard widgets · price/quantity math (entry units are never mapped against reference sizes) · currency conversion · price history · favorites influencing anything beyond the favorite filter (LIST-5 toggle, DASH-1/DASH-2).
+❌ Item photos · tags (categories cover the need) · unit **conversions** · GPS/store reminders · barcode scanning · iOS/web · **push notifications** 🔭 v2/v3 (FCM + Edge Function is the path) · customizable list views 🔭 (one good view first) · item drag & drop reordering · **ownership transfer** 🔭 v2/v3 (until then the Owner's only exits are HH-7 deletion or staying) · household switcher UI 🔭 v2 (HH-8) · import 🔭 v2 (DATA-5) · restore-household UI 🔭 v2 (retention ships v1, HH-7) · price totals / basket optimization beyond the two dashboard widgets · price/quantity math (entry units are never mapped against reference sizes) · currency conversion · price history · favorites influencing anything beyond the favorite filter (LIST-5 toggle, DASH-1/DASH-2) · **standalone watch app (without phone)** · **raw non-GMS Bluetooth socket sync** (ADR 0017).
 
 ## 6. Open questions
 
