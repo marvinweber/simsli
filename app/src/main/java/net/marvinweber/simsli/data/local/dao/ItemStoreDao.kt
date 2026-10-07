@@ -28,6 +28,13 @@ interface ItemStoreDao {
     """)
     suspend fun getAllForHousehold(householdId: String): List<DbItemStore>
 
+    @Query("""
+        SELECT ist.* FROM item_stores ist
+        INNER JOIN items i ON ist.itemId = i.id
+        WHERE i.householdId = :householdId
+    """)
+    fun observeAllForHousehold(householdId: String): Flow<List<DbItemStore>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(itemStore: DbItemStore)
 

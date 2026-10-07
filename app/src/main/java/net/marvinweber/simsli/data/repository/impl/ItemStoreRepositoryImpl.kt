@@ -6,10 +6,13 @@ import net.marvinweber.simsli.data.local.dao.ItemStoreDao
 import net.marvinweber.simsli.data.local.dao.OutboxDao
 import net.marvinweber.simsli.data.local.entity.DbItemStore
 import net.marvinweber.simsli.data.local.entity.DbOutboxEntry
+import net.marvinweber.simsli.data.local.mapper.toDomain
 import net.marvinweber.simsli.data.repository.ItemStoreRepository
 import net.marvinweber.simsli.data.sync.SyncContract
 import net.marvinweber.simsli.data.sync.SyncScheduler
 import net.marvinweber.simsli.di.IoDispatcher
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -68,6 +71,12 @@ class ItemStoreRepositoryImpl @Inject constructor(
     override suspend fun getStoreIdsForItem(itemId: String): List<String> {
         return withContext(ioDispatcher) {
             itemStoreDao.getStoreIdsForItem(itemId)
+        }
+    }
+
+    override fun observeItemStoresByHousehold(householdId: String): Flow<List<net.marvinweber.simsli.domain.model.ItemStore>> {
+        return itemStoreDao.observeAllForHousehold(householdId).map { list ->
+            list.map { it.toDomain() }
         }
     }
 }

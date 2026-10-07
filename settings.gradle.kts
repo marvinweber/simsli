@@ -25,3 +25,4 @@ dependencyResolutionManagement {
 rootProject.name = "Simsli"
 include(":app")
 include(":wear")
+include(":wear-common")

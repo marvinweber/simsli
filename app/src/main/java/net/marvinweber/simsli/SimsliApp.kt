@@ -15,9 +15,13 @@ class SimsliApp : Application() {
     @Inject
     lateinit var realtimeObserver: RealtimeObserver
 
+    @Inject
+    lateinit var wearSyncManager: net.marvinweber.simsli.data.sync.WearSyncManager
+
     override fun onCreate() {
         super.onCreate()
         syncManager.start()
         realtimeObserver.start()
+        wearSyncManager.start()
     }
 }

@@ -51,6 +51,17 @@ android {
         versionName = appVersionName
     }
 
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("play") {
+            dimension = "distribution"
+            isDefault = true
+        }
+        create("foss") {
+            dimension = "distribution"
+        }
+    }
+
     signingConfigs {
         create("release") {
             val keystorePath = localProperties.getProperty("release.keystore.file")
@@ -152,6 +163,13 @@ dependencies {
     // Kotlinx
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
+
+    // Wear Common (shared protocol)
+    implementation(project(":wear-common"))
+
+    // Google Play Services Wearable (play flavor only per ADR 0017)
+    "playImplementation"(libs.play.services.wearable)
+    "playImplementation"(libs.kotlinx.coroutines.play.services)
 
     // Unit Testing
     testImplementation(libs.junit)
