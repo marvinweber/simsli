@@ -31,7 +31,7 @@ Milestone tags are assignments, not promises — moving a feature between milest
 | 3.10 Localization (I18N) | —                      | —                    | I18N-1                 | —              | —            | —            | —         |
 | 3.11 Business (BIZ)      | BIZ-5, BIZ-6           | —                    | —                      | —              | BIZ-1        | BIZ-2, BIZ-3 | —         |
 | 3.12 Dashboard (DASH)    | —                      | —                    | —                      | DASH-1, DASH-2 | —            | —            | —         |
-| 3.13 Wear OS companion (WEAR) | WEAR-1, WEAR-2         | —                    | —                      | —              | WEAR-3–8     | WEAR-9       | —         |
+| 3.13 Wear OS companion (WEAR) | WEAR-1, WEAR-2, WEAR-8 | —                    | —                      | —              | WEAR-3–7     | WEAR-9       | —         |
 
 Each feature appears once, under its current status; extensions tagged to later milestones (e.g. HH-2 admin role → v1.5, STORE-1 drag & drop → v1, LIST-5 favorite toggle → v0.1) stay tracked in the §3 entry. DATA-2 ships per path (removal with HH-5 in v0.1, leave/delete with HH-6/7 in v1). BIZ-4 is unlisted — its decision is open (OQ-1).
 
@@ -181,7 +181,7 @@ Lightweight companion app for Wear OS smartwatches designed as a satellite displ
 - **WEAR-5 Watch Face Complication 📋 v1** — complication displaying the remaining item count (e.g., `🛒 4`) on supported watch faces.
 - **WEAR-6 Aisle category ordering 📋 v1** — shopping list entries on the watch are grouped by category matching the store's configured aisle order (STORE-4).
 - **WEAR-7 Item details popup 📋 v1** — long-pressing or tapping an item opens a compact dialog showing item notes and comments (LIST-4).
-- **WEAR-8 Rotary input support 📋 v1** — smooth list scrolling via the physical digital crown or rotating bezel.
+- **WEAR-8 Rotary input support ✅** — smooth list scrolling with item snap behavior via the physical digital crown or rotating bezel.
 - **WEAR-9 Voice Quick-Add 📋 v1.5** — voice input action on the store list allowing speech-to-text item additions directly from the wrist.
 
 ## 4. Data model delta (what this spec adds)
