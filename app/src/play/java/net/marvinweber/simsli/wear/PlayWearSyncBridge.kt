@@ -103,6 +103,7 @@ class PlayWearSyncBridge @Inject constructor(
                     quantity = entry.quantity,
                     unit = entry.unit,
                     comment = entry.comment,
+                    notes = item?.notes,
                     storeIds = itemToStoreIds[entry.itemId] ?: emptyList(),
                     isDone = entry.done
                 )

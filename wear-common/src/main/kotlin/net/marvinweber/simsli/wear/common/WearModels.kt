@@ -24,6 +24,7 @@ data class WearShoppingItem(
     val quantity: Double? = null,
     val unit: String? = null,
     val comment: String? = null,
+    val notes: String? = null,
     val storeIds: List<String> = emptyList(),
     val isDone: Boolean = false
 )
