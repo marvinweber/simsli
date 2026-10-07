@@ -133,7 +133,11 @@ This script:
    - Paste the user changelog into the release notes.
 
 3. **GitHub Releases**:
-   - Create a new release for tag `vX.Y.Z`.
-   - Title: `Simsli vX.Y.Z`
-   - Body: Paste the user changelog from `CHANGELOG.md`.
-   - Attach binary asset: `app/build/outputs/apk/foss/release/app-foss-release.apk`.
+   - Automated via script:
+     ```bash
+     ./.agents/skills/simsli-release/scripts/create-github-release.sh [--draft]
+     ```
+   - **Title Convention**: `Simsli x.y.z` (without leading "v", e.g. `Simsli 0.4.0`).
+   - **Description**: Begin with an engaging summarizing sentence or paragraph featuring emojis celebrating the release highlights, followed by the categorized user changelog.
+   - **Asset**: Attach `app/build/outputs/apk/foss/release/app-foss-release.apk` (labeled e.g. `Simsli-FOSS-vx.y.z.apk`).
+   - If `gh` is installed and authenticated, confirm with the user before publishing. If not installed, provide the direct GitHub URL and draft release notes.
