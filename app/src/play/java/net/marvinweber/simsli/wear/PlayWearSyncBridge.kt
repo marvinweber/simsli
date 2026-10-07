@@ -5,11 +5,15 @@ import android.util.Log
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.tasks.await
 import net.marvinweber.simsli.domain.model.Item
 import net.marvinweber.simsli.domain.model.ItemStore
 import net.marvinweber.simsli.domain.model.ListEntry
 import net.marvinweber.simsli.domain.model.Store
+import net.marvinweber.simsli.domain.wear.WearCompanionStatus
 import net.marvinweber.simsli.domain.wear.WearSyncBridge
 import net.marvinweber.simsli.wear.common.WEAR_DATA_KEY
 import net.marvinweber.simsli.wear.common.WEAR_DATA_PATH
@@ -25,6 +29,32 @@ private const val TAG = "SimsliWearSync"
 class PlayWearSyncBridge @Inject constructor(
     @ApplicationContext private val context: Context
 ) : WearSyncBridge {
+
+    private val _companionStatus = MutableStateFlow(WearCompanionStatus(isSupported = true))
+    override val companionStatus: StateFlow<WearCompanionStatus> = _companionStatus.asStateFlow()
+
+    override suspend fun checkStatus(): WearCompanionStatus {
+        return try {
+            val nodes = Wearable.getNodeClient(context).connectedNodes.await()
+            val isConnected = nodes.isNotEmpty()
+            val deviceName = nodes.firstOrNull()?.displayName
+            val status = WearCompanionStatus(
+                isSupported = true,
+                isConnected = isConnected,
+                deviceName = deviceName
+            )
+            _companionStatus.value = status
+            status
+        } catch (e: Exception) {
+            val status = WearCompanionStatus(
+                isSupported = true,
+                isConnected = false,
+                deviceName = null
+            )
+            _companionStatus.value = status
+            status
+        }
+    }
 
     override suspend fun publishShoppingData(
         stores: List<Store>,

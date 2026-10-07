@@ -26,6 +26,8 @@ import net.marvinweber.simsli.data.sync.SyncManager
 import net.marvinweber.simsli.di.IoDispatcher
 import net.marvinweber.simsli.domain.model.HouseholdMember
 import net.marvinweber.simsli.domain.model.MemberRole
+import net.marvinweber.simsli.domain.wear.WearCompanionStatus
+import net.marvinweber.simsli.domain.wear.WearSyncBridge
 import javax.inject.Inject
 
 enum class EndpointStatus {
@@ -68,7 +70,8 @@ data class SettingsUiState(
     val joinInput: String? = null,    // non-null → join dialog open, holds the field content
     val showSeedConfirm: Boolean = false, // debug only: confirm before wiping + seeding
     val showSignOutConfirm: Boolean = false,
-    val endpointHealth: EndpointHealth = EndpointHealth()
+    val endpointHealth: EndpointHealth = EndpointHealth(),
+    val wearCompanionStatus: WearCompanionStatus = WearCompanionStatus()
 )
 
 @HiltViewModel
@@ -80,6 +83,7 @@ class SettingsViewModel @Inject constructor(
     private val remoteDataSource: SimsliRemoteDataSource,
     private val tokenStorage: AuthTokenStorage,
     private val syncDiagnostics: SyncDiagnostics,
+    private val wearSyncBridge: WearSyncBridge,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ViewModel() {
 
@@ -116,14 +120,14 @@ class SettingsViewModel @Inject constructor(
     val uiState: StateFlow<SettingsUiState> = combine(
         authRepository.authState,
         householdRepository.getHousehold(),
-        endpointHealth,
+        combine(endpointHealth, wearSyncBridge.companionStatus, ::Pair),
         members,
         combine(
             emailInput, isBusy, statusMessage, renameInput,
             combine(inviteCode, showJoinWarning, joinInput, seedConfirmOpen, signOutConfirmOpen, ::DialogInputs),
             ::LocalInputs
         )
-    ) { authState, household, health, membersList, inputs ->
+    ) { authState, household, (health, wearStatus), membersList, inputs ->
         val currentUserId = (authState as? AuthState.SignedIn)?.userId
         val currentMember = membersList.firstOrNull { it.userId == currentUserId }
         val role = currentMember?.role ?: if (authState is AuthState.SignedIn) null else MemberRole.OWNER
@@ -169,7 +173,8 @@ class SettingsViewModel @Inject constructor(
             inviteCode = inputs.dialog.inviteCode,
             showJoinWarning = inputs.dialog.showJoinWarning,
             joinInput = inputs.dialog.joinInput,
-            endpointHealth = health
+            endpointHealth = health,
+            wearCompanionStatus = wearStatus
         )
     }.stateIn(
         scope = viewModelScope,
@@ -179,6 +184,7 @@ class SettingsViewModel @Inject constructor(
 
     init {
         checkEndpointHealth()
+        checkWearCompanion()
         viewModelScope.launch {
             combine(
                 authRepository.authState,
@@ -203,6 +209,12 @@ class SettingsViewModel @Inject constructor(
                 householdRepository.getMembers(household.id)
                     .onSuccess { members.value = it }
             }
+        }
+    }
+
+    fun checkWearCompanion() {
+        viewModelScope.launch {
+            wearSyncBridge.checkStatus()
         }
     }
 
