@@ -3,6 +3,7 @@ package net.marvinweber.simsli.wear.data
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import androidx.wear.tiles.TileService
 import com.google.android.gms.wearable.DataClient
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
@@ -20,6 +21,7 @@ import net.marvinweber.simsli.wear.common.WEAR_CHECK_ENTRY_PATH
 import net.marvinweber.simsli.wear.common.WEAR_DATA_KEY
 import net.marvinweber.simsli.wear.common.WEAR_DATA_PATH
 import net.marvinweber.simsli.wear.common.WearDataPayload
+import net.marvinweber.simsli.wear.tile.ShoppingTileService
 
 private const val TAG = "SimsliWearRepo"
 
@@ -51,6 +53,7 @@ class WearShoppingRepository(
                             val payload = WearDataPayload.fromJson(json)
                             _dataState.value = payload
                             Log.d(TAG, "Loaded initial data from DataClient with ${payload.items.size} items")
+                            notifyTileUpdate()
                             break
                         }
                     }
@@ -72,6 +75,7 @@ class WearShoppingRepository(
                         val payload = WearDataPayload.fromJson(json)
                         _dataState.value = payload
                         Log.d(TAG, "Received updated payload with ${payload.items.size} items")
+                        notifyTileUpdate()
                     } catch (e: Exception) {
                         Log.e(TAG, "Failed to parse data payload: ${e.message}")
                     }
@@ -88,6 +92,7 @@ class WearShoppingRepository(
                 if (it.entryId == entryId) it.copy(isDone = isDone) else it
             }
             _dataState.value = current.copy(items = updatedItems)
+            notifyTileUpdate()
         }
 
         // Send check/uncheck message to phone
@@ -105,6 +110,14 @@ class WearShoppingRepository(
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to send toggle message to phone: ${e.message}")
             }
+        }
+    }
+
+    private fun notifyTileUpdate() {
+        try {
+            TileService.getUpdater(context).requestUpdate(ShoppingTileService::class.java)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to request tile update: ${e.message}")
         }
     }
 
