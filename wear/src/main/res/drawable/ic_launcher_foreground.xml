@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <group
+        android:pivotX="256"
+        android:pivotY="256"
+        android:scaleX="0.75"
+        android:scaleY="0.75"
+        android:translateX="7"
+        android:translateY="0">
+        <group
+            android:translateX="-26"
+            android:translateY="-17">
+            <!-- Korb -->
+            <path
+                android:fillColor="#F4F8FD"
+                android:pathData="M180,195H410L370,330H205Z" />
+            <!-- Gestell mit kurzem Griff -->
+            <path
+                android:fillColor="#00000000"
+                android:strokeColor="#F4F8FD"
+                android:strokeWidth="26"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round"
+                android:pathData="M135,150H165L205,330H370L410,195H180" />
+            <!-- Räder -->
+            <path
+                android:fillColor="#F4F8FD"
+                android:pathData="M204,385a24,24 0 1,0 48,0a24,24 0 1,0 -48,0" />
+            <path
+                android:fillColor="#F4F8FD"
+                android:pathData="M326,385a24,24 0 1,0 48,0a24,24 0 1,0 -48,0" />
+            <!-- Häkchen -->
+            <path
+                android:fillColor="#00000000"
+                android:strokeColor="#3A66A5"
+                android:strokeWidth="26"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round"
+                android:pathData="M240,262L277,296L345,226" />
+        </group>
+    </group>
+</vector>
