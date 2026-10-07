@@ -80,29 +80,30 @@ class WearShoppingRepository(
         }
     }
 
-    fun checkItem(entryId: String) {
+    fun toggleItem(entryId: String, isDone: Boolean) {
         // Optimistic update locally
         val current = _dataState.value
         if (current != null) {
             val updatedItems = current.items.map {
-                if (it.entryId == entryId) it.copy(isDone = true) else it
+                if (it.entryId == entryId) it.copy(isDone = isDone) else it
             }
             _dataState.value = current.copy(items = updatedItems)
         }
 
-        // Send check-off message to phone
+        // Send check/uncheck message to phone
         scope.launch {
             try {
                 val nodes = Wearable.getNodeClient(context).connectedNodes.await()
-                val payloadBytes = entryId.toByteArray(Charsets.UTF_8)
+                val payloadString = "$entryId:$isDone"
+                val payloadBytes = payloadString.toByteArray(Charsets.UTF_8)
                 for (node in nodes) {
                     Wearable.getMessageClient(context)
                         .sendMessage(node.id, WEAR_CHECK_ENTRY_PATH, payloadBytes)
                         .await()
-                    Log.d(TAG, "Sent check-off message for entry $entryId to phone node ${node.displayName}")
+                    Log.d(TAG, "Sent toggle message ($entryId -> $isDone) to phone node ${node.displayName}")
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to send check-off message to phone: ${e.message}")
+                Log.w(TAG, "Failed to send toggle message to phone: ${e.message}")
             }
         }
     }

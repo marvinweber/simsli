@@ -24,14 +24,20 @@ class PlayWearListenerService : WearableListenerService() {
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
         if (messageEvent.path == WEAR_CHECK_ENTRY_PATH) {
-            val entryId = String(messageEvent.data, Charsets.UTF_8)
-            Log.d(TAG, "Received check-off event from watch for entry: $entryId")
+            val text = String(messageEvent.data, Charsets.UTF_8)
+            val (entryId, done) = if (text.contains(":")) {
+                val parts = text.split(":", limit = 2)
+                parts[0] to parts[1].toBoolean()
+            } else {
+                text to true
+            }
+            Log.d(TAG, "Received toggle event from watch: entry=$entryId, done=$done")
             serviceScope.launch {
-                val result = listEntryRepository.updateListEntryDoneStatus(entryId, true)
+                val result = listEntryRepository.updateListEntryDoneStatus(entryId, done)
                 if (result.isFailure) {
-                    Log.w(TAG, "Failed to mark entry $entryId done: ${result.exceptionOrNull()?.message}")
+                    Log.w(TAG, "Failed to update entry $entryId (done=$done): ${result.exceptionOrNull()?.message}")
                 } else {
-                    Log.d(TAG, "Successfully marked entry $entryId done from watch")
+                    Log.d(TAG, "Successfully updated entry $entryId (done=$done) from watch")
                 }
             }
         } else {

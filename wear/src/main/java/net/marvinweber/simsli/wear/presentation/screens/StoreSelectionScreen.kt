@@ -46,7 +46,7 @@ fun StoreSelectionScreen(
             Text(
                 text = "Connecting to phone…",
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray,
+                color = Color(0xFFAAAAAA),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 8.dp)
             )
@@ -80,15 +80,17 @@ fun StoreSelectionScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp),
-                colors = if (isAllStores) {
-                    ButtonDefaults.filledTonalButtonColors()
-                } else {
-                    ButtonDefaults.buttonColors()
-                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isAllStores) Color(0xFF263238) else Color(0xFF1E2225),
+                    contentColor = Color.White,
+                    secondaryContentColor = if (store.activeCount > 0) Color(0xFF81C784) else Color(0xFF757575),
+                    iconColor = if (isAllStores) Color(0xFFA5D6A7) else Color(0xFF81C784)
+                ),
                 label = {
                     Text(
                         text = store.name,
-                        style = MaterialTheme.typography.labelLarge
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White
                     )
                 },
                 secondaryLabel = {
@@ -100,13 +102,14 @@ fun StoreSelectionScreen(
                     Text(
                         text = countText,
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (store.activeCount > 0) Color(0xFF81C784) else Color.Gray
+                        color = if (store.activeCount > 0) Color(0xFF81C784) else Color(0xFF757575)
                     )
                 },
                 icon = {
                     Icon(
                         imageVector = if (isAllStores) Icons.Default.ShoppingCart else Icons.Default.Storefront,
-                        contentDescription = null
+                        contentDescription = null,
+                        tint = if (isAllStores) Color(0xFFA5D6A7) else Color(0xFF81C784)
                     )
                 }
             )

@@ -6,13 +6,13 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import net.marvinweber.simsli.wear.data.WearShoppingRepository
 import net.marvinweber.simsli.wear.presentation.screens.StoreSelectionScreen
 import net.marvinweber.simsli.wear.presentation.screens.StoreShoppingListScreen
+import net.marvinweber.simsli.wear.presentation.theme.SimsliWearTheme
 import java.net.URLDecoder
 import java.net.URLEncoder
 
@@ -25,7 +25,7 @@ class MainActivity : ComponentActivity() {
         repository = WearShoppingRepository(applicationContext)
 
         setContent {
-            MaterialTheme {
+            SimsliWearTheme {
                 SimsliWearApp(repository = repository)
             }
         }
@@ -71,8 +71,8 @@ fun SimsliWearApp(repository: WearShoppingRepository) {
                 storeId = storeId,
                 storeName = storeName,
                 items = dataPayload?.items ?: emptyList(),
-                onCheckItem = { entryId ->
-                    repository.checkItem(entryId)
+                onToggleItem = { entryId, done ->
+                    repository.toggleItem(entryId, done)
                 }
             )
         }

@@ -34,7 +34,7 @@ fun StoreShoppingListScreen(
     storeId: String?,
     storeName: String,
     items: List<WearShoppingItem>,
-    onCheckItem: (entryId: String) -> Unit
+    onToggleItem: (entryId: String, done: Boolean) -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
 
@@ -95,7 +95,7 @@ fun StoreShoppingListScreen(
                     Text(
                         text = if (activeCount == 0) "All done! 🎉" else "$activeCount remaining",
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (activeCount == 0) Color(0xFF81C784) else Color.LightGray
+                        color = if (activeCount == 0) Color(0xFF81C784) else Color(0xFFB0BEC5)
                     )
                 }
             }
@@ -106,25 +106,24 @@ fun StoreShoppingListScreen(
 
             Button(
                 onClick = {
-                    if (!item.isDone) {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onCheckItem(item.entryId)
-                    }
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onToggleItem(item.entryId, !item.isDone)
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 3.dp),
-                colors = if (item.isDone) {
-                    ButtonDefaults.filledTonalButtonColors()
-                } else {
-                    ButtonDefaults.buttonColors()
-                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (item.isDone) Color(0xFF141618) else Color(0xFF1E2225),
+                    contentColor = if (item.isDone) Color(0xFF888888) else Color.White,
+                    secondaryContentColor = if (item.isDone) Color(0xFF555555) else Color(0xFFB0BEC5),
+                    iconColor = if (item.isDone) Color(0xFF81C784) else Color(0xFFA5D6A7)
+                ),
                 label = {
                     Text(
                         text = item.name,
                         style = MaterialTheme.typography.labelMedium,
                         textDecoration = if (item.isDone) TextDecoration.LineThrough else null,
-                        color = if (item.isDone) Color.Gray else Color.White,
+                        color = if (item.isDone) Color(0xFF888888) else Color.White,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -134,7 +133,7 @@ fun StoreShoppingListScreen(
                         Text(
                             text = it,
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (item.isDone) Color.DarkGray else Color.LightGray,
+                            color = if (item.isDone) Color(0xFF555555) else Color(0xFFB0BEC5),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -150,8 +149,8 @@ fun StoreShoppingListScreen(
                     } else {
                         Icon(
                             imageVector = Icons.Default.RadioButtonUnchecked,
-                            contentDescription = "Mark done",
-                            tint = Color.LightGray
+                            contentDescription = "Active",
+                            tint = Color(0xFFA5D6A7)
                         )
                     }
                 }
