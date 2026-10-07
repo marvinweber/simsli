@@ -9,10 +9,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,7 +25,6 @@ import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -57,13 +54,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
-import androidx.emoji2.emojipicker.EmojiPickerView
 import androidx.hilt.navigation.compose.hiltViewModel
 import net.marvinweber.simsli.domain.model.Category
+import net.marvinweber.simsli.ui.components.EmojiPickerDialog
 
 /**
  * The Categories sub-tab of the Catalog tab (CAT-3).
@@ -374,59 +368,14 @@ private fun CategoryDialog(
     var showEmojiPicker by rememberSaveable { mutableStateOf(false) }
 
     if (showEmojiPicker) {
-        Dialog(
-            onDismissRequest = { showEmojiPicker = false },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth(0.92f)
-                    .fillMaxHeight(0.7f),
-                shape = MaterialTheme.shapes.extraLarge
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Choose Icon",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Row {
-                            if (emoji.isNotBlank()) {
-                                TextButton(onClick = {
-                                    emoji = ""
-                                    showEmojiPicker = false
-                                }) {
-                                    Text("Remove")
-                                }
-                            }
-                            TextButton(onClick = { showEmojiPicker = false }) {
-                                Text("Close")
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    AndroidView(
-                        modifier = Modifier.fillMaxSize(),
-                        factory = { context ->
-                            EmojiPickerView(context).apply {
-                                setOnEmojiPickedListener { item ->
-                                    emoji = item.emoji
-                                    showEmojiPicker = false
-                                }
-                            }
-                        }
-                    )
-                }
-            }
-        }
+        EmojiPickerDialog(
+            initialEmoji = emoji,
+            onPicked = { picked ->
+                emoji = picked.orEmpty()
+                showEmojiPicker = false
+            },
+            onDismiss = { showEmojiPicker = false }
+        )
     }
 
     AlertDialog(

@@ -184,6 +184,77 @@ func TestInviteFlow(t *testing.T) {
 	}
 }
 
+func TestHouseholdIconFlushAndOwnerGate(t *testing.T) {
+	svc, _ := setupTestService(t)
+	ctx := context.Background()
+
+	owner, _ := svc.AdminCreateUser(ctx, "owner@simsli.de")
+	member, _ := svc.AdminCreateUser(ctx, "member@simsli.de")
+	hh, _ := svc.CreateHousehold(ctx, owner.ID, "hh-icon-test", "Icon Household")
+
+	invite, err := svc.CreateInvite(ctx, owner.ID, hh.ID)
+	if err != nil {
+		t.Fatalf("create invite failed: %v", err)
+	}
+	if _, err := svc.AcceptInvite(ctx, member.ID, invite.Token); err != nil {
+		t.Fatalf("accept invite failed: %v", err)
+	}
+
+	icon := "🏠"
+	now := time.Now().UTC()
+	ownerFlush := &model.FlushRequest{
+		HouseholdID: hh.ID,
+		Household:   &model.Household{ID: hh.ID, Name: "Icon Household", Icon: &icon, UpdatedAt: now},
+	}
+	if err := svc.Flush(ctx, owner.ID, ownerFlush); err != nil {
+		t.Fatalf("owner flush with household failed: %v", err)
+	}
+
+	deltas, err := svc.GetDeltas(ctx, owner.ID, hh.ID, time.Time{})
+	if err != nil {
+		t.Fatalf("get deltas failed: %v", err)
+	}
+	if deltas.Household == nil || deltas.Household.Icon == nil || *deltas.Household.Icon != "🏠" {
+		t.Fatalf("expected household icon 🏠 in deltas, got %+v", deltas.Household)
+	}
+
+	// Member flushing a household row must be forbidden
+	memberFlush := &model.FlushRequest{
+		HouseholdID: hh.ID,
+		Household:   &model.Household{ID: hh.ID, Name: "Hijacked", UpdatedAt: now},
+	}
+	if err := svc.Flush(ctx, member.ID, memberFlush); err != ErrForbidden {
+		t.Fatalf("expected ErrForbidden for member household flush, got %v", err)
+	}
+
+	// Member can still flush non-household entities
+	memberItemFlush := &model.FlushRequest{
+		HouseholdID: hh.ID,
+		Items: []model.Item{
+			{ID: "i-m-1", HouseholdID: hh.ID, Name: "Bread", Type: "PERMANENT", CreatedAt: now, UpdatedAt: now},
+		},
+	}
+	if err := svc.Flush(ctx, member.ID, memberItemFlush); err != nil {
+		t.Fatalf("member item flush should succeed, got %v", err)
+	}
+
+	// Legacy flush (icon nil) must preserve the stored icon
+	legacyFlush := &model.FlushRequest{
+		HouseholdID: hh.ID,
+		Household:   &model.Household{ID: hh.ID, Name: "Icon Household", UpdatedAt: now},
+	}
+	if err := svc.Flush(ctx, owner.ID, legacyFlush); err != nil {
+		t.Fatalf("legacy flush failed: %v", err)
+	}
+	deltas, err = svc.GetDeltas(ctx, owner.ID, hh.ID, time.Time{})
+	if err != nil {
+		t.Fatalf("get deltas failed: %v", err)
+	}
+	if deltas.Household == nil || deltas.Household.Icon == nil || *deltas.Household.Icon != "🏠" {
+		t.Fatalf("expected icon preserved after legacy flush, got %+v", deltas.Household)
+	}
+}
+
 func TestSeedDemoData(t *testing.T) {
 	svc, _ := setupTestService(t)
 	ctx := context.Background()

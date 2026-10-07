@@ -9,6 +9,7 @@ data class DbHousehold(
     @PrimaryKey
     val id: String,
     val name: String,
+    val icon: String? = null,
     val createdAt: Instant,
     val updatedAt: Instant,
     val deletedAt: Instant? = null

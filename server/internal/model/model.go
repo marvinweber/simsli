@@ -12,6 +12,7 @@ type User struct {
 type Household struct {
 	ID               string     `json:"id"`
 	Name             string     `json:"name"`
+	Icon             *string    `json:"icon,omitempty"` // nullable emoji; nil on Flush = legacy client, preserve
 	Plan             string     `json:"plan"`
 	Status           string     `json:"status"`
 	CurrentPeriodEnd *time.Time `json:"current_period_end,omitempty"`

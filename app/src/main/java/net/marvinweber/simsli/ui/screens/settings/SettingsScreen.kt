@@ -70,6 +70,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
+import net.marvinweber.simsli.ui.components.EmojiPickerDialog
 import net.marvinweber.simsli.ui.components.SimsliTopAppBarTitle
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -78,8 +79,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -199,24 +203,61 @@ fun SettingsTabContent(
 
         val renameValue = uiState.renameInput
         if (renameValue != null) {
+            // Name + emoji in one dialog, mirroring the category edit dialog (HH-1)
+            val currentIcon = uiState.householdIcon
+            var emoji by rememberSaveable { mutableStateOf(currentIcon ?: "") }
+            var showEmojiPicker by rememberSaveable { mutableStateOf(false) }
+
             AlertDialog(
                 onDismissRequest = viewModel::dismissRename,
                 icon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
-                title = { Text("Rename household") },
+                title = { Text("Edit household") },
                 text = {
-                    OutlinedTextField(
-                        value = renameValue,
-                        onValueChange = viewModel::onRenameChange,
-                        label = { Text("Household name") },
-                        singleLine = true,
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            onClick = { showEmojiPicker = true },
+                            shape = MaterialTheme.shapes.medium,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.size(56.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (emoji.isNotBlank()) {
+                                    Text(
+                                        text = emoji,
+                                        style = MaterialTheme.typography.headlineMedium
+                                    )
+                                } else {
+                                    Text(
+                                        text = "🏠",
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                    )
+                                }
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = renameValue,
+                            onValueChange = viewModel::onRenameChange,
+                            label = { Text("Household name") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
                 },
                 confirmButton = {
                     TextButton(
-                        onClick = viewModel::confirmRename,
-                        enabled = renameValue.isNotBlank() && renameValue != uiState.householdName
+                        onClick = { viewModel.confirmRename(emoji.ifBlank { null }) },
+                        enabled = renameValue.isNotBlank() &&
+                            (renameValue != uiState.householdName || emoji != (currentIcon ?: ""))
                     ) {
                         Text("Save")
                     }
@@ -227,11 +268,21 @@ fun SettingsTabContent(
                     }
                 }
             )
+
+            if (showEmojiPicker) {
+                EmojiPickerDialog(
+                    initialEmoji = emoji,
+                    onPicked = { picked ->
+                        emoji = picked.orEmpty()
+                        showEmojiPicker = false
+                    },
+                    onDismiss = { showEmojiPicker = false }
+                )
+            }
         }
 
         val inviteCode = uiState.inviteCode
-        if (inviteCode != null) {
-            AlertDialog(
+        if (inviteCode != null) {            AlertDialog(
                 onDismissRequest = viewModel::dismissInvite,
                 icon = { Icon(Icons.Outlined.PersonAdd, contentDescription = null) },
                 title = { Text("Invite to household") },
@@ -677,12 +728,20 @@ fun SettingsTabContent(
                                 .background(MaterialTheme.colorScheme.secondaryContainer),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Home,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.size(24.dp)
-                            )
+                            val householdIcon = uiState.householdIcon
+                            if (!householdIcon.isNullOrBlank()) {
+                                Text(
+                                    text = householdIcon,
+                                    style = MaterialTheme.typography.headlineMedium
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Outlined.Home,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(
@@ -734,9 +793,9 @@ fun SettingsTabContent(
                         }
                         IconButton(
                             onClick = { viewModel.startRename(uiState.householdName) },
-                            enabled = !uiState.isBusy
+                            enabled = !uiState.isBusy && uiState.isOwner
                         ) {
-                            Icon(Icons.Outlined.Edit, contentDescription = "Rename household")
+                            Icon(Icons.Outlined.Edit, contentDescription = "Edit household")
                         }
                     }
 

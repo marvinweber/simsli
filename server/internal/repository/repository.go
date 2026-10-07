@@ -262,13 +262,14 @@ func (r *Repository) AddHouseholdMember(ctx context.Context, householdID, userID
 
 func (r *Repository) GetHousehold(ctx context.Context, id string) (*model.Household, error) {
 	row := r.db.QueryRowContext(ctx,
-		"SELECT id, name, plan, status, current_period_end, created_at, updated_at, deleted_at FROM households WHERE id = ?",
+		"SELECT id, name, icon, plan, status, current_period_end, created_at, updated_at, deleted_at FROM households WHERE id = ?",
 		id,
 	)
 	var hh model.Household
 	var cpe, da sql.NullString
+	var icon sql.NullString
 	var ca, ua string
-	if err := row.Scan(&hh.ID, &hh.Name, &hh.Plan, &hh.Status, &cpe, &ca, &ua, &da); err != nil {
+	if err := row.Scan(&hh.ID, &hh.Name, &icon, &hh.Plan, &hh.Status, &cpe, &ca, &ua, &da); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -278,12 +279,15 @@ func (r *Repository) GetHousehold(ctx context.Context, id string) (*model.Househ
 	hh.UpdatedAt, _ = parseTime(ua)
 	hh.CurrentPeriodEnd = parseNullTime(cpe)
 	hh.DeletedAt = parseNullTime(da)
+	if icon.Valid && icon.String != "" {
+		hh.Icon = &icon.String
+	}
 	return &hh, nil
 }
 
 func (r *Repository) ListHouseholds(ctx context.Context, limit, offset int) ([]model.Household, error) {
 	rows, err := r.db.QueryContext(ctx,
-		"SELECT id, name, plan, status, current_period_end, created_at, updated_at, deleted_at FROM households WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT ? OFFSET ?",
+		"SELECT id, name, icon, plan, status, current_period_end, created_at, updated_at, deleted_at FROM households WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT ? OFFSET ?",
 		limit, offset,
 	)
 	if err != nil {
@@ -295,14 +299,18 @@ func (r *Repository) ListHouseholds(ctx context.Context, limit, offset int) ([]m
 	for rows.Next() {
 		var hh model.Household
 		var cpe, da sql.NullString
+		var icon sql.NullString
 		var ca, ua string
-		if err := rows.Scan(&hh.ID, &hh.Name, &hh.Plan, &hh.Status, &cpe, &ca, &ua, &da); err != nil {
+		if err := rows.Scan(&hh.ID, &hh.Name, &icon, &hh.Plan, &hh.Status, &cpe, &ca, &ua, &da); err != nil {
 			return nil, err
 		}
 		hh.CreatedAt, _ = parseTime(ca)
 		hh.UpdatedAt, _ = parseTime(ua)
 		hh.CurrentPeriodEnd = parseNullTime(cpe)
 		hh.DeletedAt = parseNullTime(da)
+		if icon.Valid && icon.String != "" {
+			hh.Icon = &icon.String
+		}
 		list = append(list, hh)
 	}
 	return list, rows.Err()
@@ -514,14 +522,17 @@ func (r *Repository) GetDeltas(ctx context.Context, householdID string, since ti
 	// Household (if updated since)
 	var hh model.Household
 	var hhCa, hhUa string
-	var hhDa sql.NullString
+	var hhDa, hhIcon sql.NullString
 	if err := r.db.QueryRowContext(ctx,
-		"SELECT id, name, created_at, updated_at, deleted_at FROM households WHERE id = ? AND updated_at > ?",
+		"SELECT id, name, icon, created_at, updated_at, deleted_at FROM households WHERE id = ? AND updated_at > ?",
 		householdID, sinceStr,
-	).Scan(&hh.ID, &hh.Name, &hhCa, &hhUa, &hhDa); err == nil {
+	).Scan(&hh.ID, &hh.Name, &hhIcon, &hhCa, &hhUa, &hhDa); err == nil {
 		hh.CreatedAt, _ = parseTime(hhCa)
 		hh.UpdatedAt, _ = parseTime(hhUa)
 		hh.DeletedAt = parseNullTime(hhDa)
+		if hhIcon.Valid && hhIcon.String != "" {
+			hh.Icon = &hhIcon.String
+		}
 		resp.Household = &hh
 	}
 
@@ -689,10 +700,20 @@ func (r *Repository) Flush(ctx context.Context, req *model.FlushRequest) error {
 
 	// Upsert Household if present
 	if req.Household != nil {
-		_, err := tx.ExecContext(ctx,
-			"UPDATE households SET name = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL",
-			req.Household.Name, nowStr, req.Household.ID,
-		)
+		// Icon nil = legacy client without the field: preserve the stored icon.
+		// Icon non-nil: "" clears (NULL), a value sets it.
+		var err error
+		if req.Household.Icon != nil {
+			_, err = tx.ExecContext(ctx,
+				"UPDATE households SET name = ?, icon = NULLIF(?, ''), updated_at = ? WHERE id = ? AND deleted_at IS NULL",
+				req.Household.Name, *req.Household.Icon, nowStr, req.Household.ID,
+			)
+		} else {
+			_, err = tx.ExecContext(ctx,
+				"UPDATE households SET name = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL",
+				req.Household.Name, nowStr, req.Household.ID,
+			)
+		}
 		if err != nil {
 			return fmt.Errorf("flush household: %w", err)
 		}

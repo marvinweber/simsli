@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -21,6 +21,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import net.marvinweber.simsli.ui.screens.catalog.CatalogScreen
 import net.marvinweber.simsli.ui.screens.list.ListTabContent
@@ -47,6 +49,7 @@ fun HomeScreen(
     var selectedTabName by rememberSaveable { mutableStateOf(HomeTab.LIST.name) }
     val selectedTab = HomeTab.entries.firstOrNull { it.name == selectedTabName } ?: HomeTab.LIST
     val isSyncing by viewModel.isSyncing.collectAsState()
+    val household by viewModel.household.collectAsState()
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
         viewModel.quickActions.collect { action ->
@@ -70,16 +73,36 @@ fun HomeScreen(
                         selected = tab == selectedTab,
                         onClick = { selectedTabName = tab.name },
                         icon = {
-                            Icon(
-                                imageVector = when (tab) {
-                                    HomeTab.LIST -> Icons.Default.ShoppingCart
-                                    HomeTab.CATALOG -> Icons.Default.Inventory2
-                                    HomeTab.SETTINGS -> Icons.Default.Settings
-                                },
-                                contentDescription = null
-                            )
+                            // The Settings tab shows the household's identity (SCREENS-1/4):
+                            // its emoji when set, else a person icon — never the gear.
+                            val householdIcon = household?.icon
+                            if (tab == HomeTab.SETTINGS && !householdIcon.isNullOrBlank()) {
+                                Text(
+                                    text = householdIcon,
+                                    fontSize = 24.sp
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = when (tab) {
+                                        HomeTab.LIST -> Icons.Default.ShoppingCart
+                                        HomeTab.CATALOG -> Icons.Default.Inventory2
+                                        HomeTab.SETTINGS -> Icons.Default.Person
+                                    },
+                                    contentDescription = null
+                                )
+                            }
                         },
-                        label = { Text(tab.label) }
+                        label = {
+                            if (tab == HomeTab.SETTINGS) {
+                                Text(
+                                    text = household?.name ?: "Settings",
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            } else {
+                                Text(tab.label)
+                            }
+                        }
                     )
                 }
             }

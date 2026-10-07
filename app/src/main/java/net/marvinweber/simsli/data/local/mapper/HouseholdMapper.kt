@@ -6,6 +6,7 @@ import net.marvinweber.simsli.domain.model.Household
 fun DbHousehold.toDomain(): Household = Household(
     id = id,
     name = name,
+    icon = icon,
     createdAt = createdAt,
     updatedAt = updatedAt
 )
@@ -13,6 +14,7 @@ fun DbHousehold.toDomain(): Household = Household(
 fun Household.toDb(): DbHousehold = DbHousehold(
     id = id,
     name = name,
+    icon = icon,
     createdAt = createdAt,
     updatedAt = updatedAt,
     deletedAt = null

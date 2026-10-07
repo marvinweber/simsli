@@ -248,11 +248,11 @@ func (s *Service) GetUserMemberships(ctx context.Context, userID string) ([]mode
 }
 
 func (s *Service) UpdateHousehold(ctx context.Context, userID, householdID, name string) error {
-	isMember, err := s.repo.IsHouseholdMember(ctx, householdID, userID)
+	isOwner, err := s.repo.IsHouseholdOwner(ctx, householdID, userID)
 	if err != nil {
 		return err
 	}
-	if !isMember {
+	if !isOwner {
 		return ErrForbidden
 	}
 	if err := s.repo.UpdateHousehold(ctx, householdID, name); err != nil {
@@ -350,6 +350,17 @@ func (s *Service) Flush(ctx context.Context, userID string, req *model.FlushRequ
 	}
 	if !isMember {
 		return ErrForbidden
+	}
+
+	// Household edits (rename, icon) are owner-only
+	if req.Household != nil {
+		isOwner, err := s.repo.IsHouseholdOwner(ctx, req.HouseholdID, userID)
+		if err != nil {
+			return err
+		}
+		if !isOwner {
+			return ErrForbidden
+		}
 	}
 
 	// Apply mutations

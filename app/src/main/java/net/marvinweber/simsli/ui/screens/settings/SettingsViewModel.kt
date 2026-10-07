@@ -51,6 +51,7 @@ data class SettingsUiState(
     val isSignedIn: Boolean = false,
     val userEmail: String? = null,
     val householdName: String? = null,
+    val householdIcon: String? = null,
     val householdId: String? = null,
     val memberCount: Int = 1,
     val currentUserRole: MemberRole? = null,
@@ -62,7 +63,7 @@ data class SettingsUiState(
     val emailInput: String = "",
     val isBusy: Boolean = false,
     val statusMessage: String? = null,
-    val renameInput: String? = null,  // non-null → rename dialog open, holds the field content
+    val renameInput: String? = null,  // non-null → edit-household dialog open, holds the name field content
     val inviteCode: String? = null,   // non-null → invite dialog open, shows the generated code
     val showJoinWarning: Boolean = false, // non-null / true → show warning before entering join code
     val joinInput: String? = null,    // non-null → join dialog open, holds the field content
@@ -152,6 +153,7 @@ class SettingsViewModel @Inject constructor(
             isSignedIn = authState is AuthState.SignedIn,
             userEmail = (authState as? AuthState.SignedIn)?.email,
             householdName = household?.name,
+            householdIcon = household?.icon,
             householdId = household?.id,
             memberCount = memberCount,
             currentUserRole = role,
@@ -347,9 +349,14 @@ class SettingsViewModel @Inject constructor(
         renameInput.value = null
     }
 
-    fun confirmRename() {
+    fun confirmRename(icon: String?) {
+        if (!uiState.value.isOwner) {
+            statusMessage.value = "Only the household owner can edit the household"
+            return
+        }
         val newName = renameInput.value?.trim().orEmpty()
         if (newName.isEmpty()) return
+        val normalizedIcon = icon?.trim()?.ifBlank { null }
         viewModelScope.launch {
             isBusy.value = true
             renameInput.value = null
@@ -357,17 +364,19 @@ class SettingsViewModel @Inject constructor(
             val household = householdRepository.getHousehold().first()
             if (household == null) {
                 statusMessage.value = "No household set up yet"
+            } else if (household.name == newName && household.icon == normalizedIcon) {
+                // No change — avoid a pointless write+sync round-trip
             } else {
-                householdRepository.updateHousehold(household.copy(name = newName))
+                householdRepository.updateHousehold(household.copy(name = newName, icon = normalizedIcon))
                     .onSuccess {
                         if (uiState.value.isSignedIn) {
-                            syncManager.syncNow()   // push the rename right away
-                            statusMessage.value = "Household renamed"
+                            syncManager.syncNow()   // push the changes right away
+                            statusMessage.value = "Household updated"
                         } else {
-                            statusMessage.value = "Household renamed — sign in to sync it"
+                            statusMessage.value = "Household updated — sign in to sync it"
                         }
                     }
-                    .onFailure { statusMessage.value = "Rename failed: ${it.message}" }
+                    .onFailure { statusMessage.value = "Update failed: ${it.message}" }
             }
             isBusy.value = false
         }
