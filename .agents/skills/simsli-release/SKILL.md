@@ -15,6 +15,7 @@ This skill guides the deterministic release workflow for Simsli across all modul
 
 ## Prerequisites & Architecture
 
+- **Java Environment**: `JAVA_HOME` must be explicitly defined in your shell environment before executing scripts or Gradle commands (e.g., `export JAVA_HOME="/path/to/jdk"`).
 - **Version Authority**: `version.properties` at repository root controls versioning across `:app` and `:wear`.
 - **Server Version Sync**: Root Gradle tasks (`bumpPatch`, `bumpMinor`, `bumpMajor`) update `version.properties`, `server/Dockerfile` (`ARG VERSION=...`), and `server/internal/config/config.go` (`var Version = "..."`).
 - **Signing**: Keystore settings live in `local.properties` (or env vars `RELEASE_KEYSTORE_*`). Git tags and commits **must** be signed (never use `--no-gpg-sign`).
@@ -115,13 +116,16 @@ This script:
 ---
 
 ### Step 6: Publishing & Distribution
+ 
+ > [!IMPORTANT]
+ > **Do NOT push to remote automatically.** Never run `git push` on your own. Confirm with the user or provide the push commands for them to execute when ready.
 
-1. **Push to Remote**:
-   ```bash
-   git push origin main
-   git push origin vX.Y.Z
-   ```
-   *(Pushing the tag triggers the Docker image build & publish workflow on GitHub Actions.)*
+ 1. **Push to Remote (User Confirmation Required)**:
+    ```bash
+    git push origin main
+    git push origin vX.Y.Z
+    ```
+    *(Pushing the tag triggers the Docker image build & publish workflow on GitHub Actions.)*
 
 2. **Google Play Console**:
    - Open Play Console → Simsli.

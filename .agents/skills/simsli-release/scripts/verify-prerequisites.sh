@@ -7,21 +7,13 @@ cd "$REPO_ROOT"
 
 echo "=== Simsli Release: Verifying Prerequisites ==="
 
-# 1. Java Runtime Detection
+# 1. Java Runtime Detection (Requires JAVA_HOME to be defined)
 if [ -z "${JAVA_HOME:-}" ] || [ ! -x "${JAVA_HOME}/bin/java" ]; then
-    if [ -d "/Applications/Android Studio.app/Contents/jbr/Contents/Home" ]; then
-        export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
-    elif command -v /usr/libexec/java_home >/dev/null 2>&1; then
-        export JAVA_HOME="$(/usr/libexec/java_home 2>/dev/null)"
-    fi
-fi
-
-if [ -n "${JAVA_HOME:-}" ] && [ -x "${JAVA_HOME}/bin/java" ]; then
-    echo "✅ Java runtime: $JAVA_HOME"
-else
-    echo "❌ Java runtime not found! Please set JAVA_HOME or install JDK."
+    echo "❌ JAVA_HOME is not defined or invalid!"
+    echo "   Please define JAVA_HOME before running this script (e.g. export JAVA_HOME=...)."
     exit 1
 fi
+echo "✅ Java runtime: $JAVA_HOME"
 
 # 2. SSH Agent / Git Signing Check
 echo -n "Checking SSH signing key... "

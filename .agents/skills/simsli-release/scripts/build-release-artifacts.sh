@@ -5,13 +5,11 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 cd "$REPO_ROOT"
 
-# Auto-resolve JAVA_HOME
+# Require JAVA_HOME to be defined
 if [ -z "${JAVA_HOME:-}" ] || [ ! -x "${JAVA_HOME}/bin/java" ]; then
-    if [ -d "/Applications/Android Studio.app/Contents/jbr/Contents/Home" ]; then
-        export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
-    elif command -v /usr/libexec/java_home >/dev/null 2>&1; then
-        export JAVA_HOME="$(/usr/libexec/java_home 2>/dev/null)"
-    fi
+    echo "❌ JAVA_HOME is not defined or invalid!"
+    echo "   Please define JAVA_HOME before running this script (e.g. export JAVA_HOME=...)."
+    exit 1
 fi
 
 echo "=== 1/3 Running Tests ==="
