@@ -20,6 +20,10 @@ This skill guides the deterministic release workflow for Simsli across all modul
 - **Server Version Sync**: Root Gradle tasks (`bumpPatch`, `bumpMinor`, `bumpMajor`) update `version.properties`, `server/Dockerfile` (`ARG VERSION=...`), and `server/internal/config/config.go` (`var Version = "..."`).
 - **Signing**: Keystore settings live in `local.properties` (or env vars `RELEASE_KEYSTORE_*`). Git tags and commits **must** be signed (never use `--no-gpg-sign`).
 - **Google Play Dual Bundles**: Phone and Wear OS require separate `.aab` artifacts under the same `applicationId` (`net.marvinweber.simsli`). Google Play requires unique version codes for each artifact: Phone uses `10_000_000 + versionCode` and Wear OS uses `20_000_000 + versionCode` to prevent collisions.
+- **Client & Server Minimum Version Compatibility**:
+  - **Server-side**: `server/internal/config/config.go` maintains `MinAppVersion: getEnv("SIMSLI_MIN_APP_VERSION", "x.y.z")` (broadcast via `/api/version`).
+  - **App-side**: `app/.../AuthTokenStorage.kt` maintains `MIN_SERVER_API_VERSION = 1`, and `SettingsViewModel` checks for version mismatches (`isOutdatedServer` / `isOutdatedApp`).
+  - When changes introduce breaking API/protocol changes or schema migrations, both the minimum required app version on the server (`MinAppVersion`) and the minimum required server version/API on the app must be reviewed and maintained in the same release commit.
 - **Docker CI**: Pushing a tag (`v*`) triggers `.github/workflows/docker-publish.yml` to build and publish the multi-arch server image to GHCR.
 
 ---
@@ -35,6 +39,8 @@ Run the verification helper:
 Check the output for:
 - ✅ Java runtime configured (`JAVA_HOME`)
 - ✅ Release keystore configured in `local.properties` or environment
+- ✅ Server `MinAppVersion` requirement displayed
+- ✅ App `MIN_SERVER_API_VERSION` requirement displayed
 - Review any pending uncommitted changes in git.
 
 ---
@@ -49,14 +55,19 @@ Check the output for:
    - **`major`** (e.g. `0.3.3` -> `1.0.0`): Breaking database or protocol changes, fundamental architecture rewrites.
    - **`minor`** (e.g. `0.3.3` -> `0.4.0`): Major new features or capabilities (e.g. Wear OS companion app, new tabs/screens).
    - **`patch`** (e.g. `0.3.3` -> `0.3.4`): Bug fixes, UI polish, performance improvements.
-3. **Draft a User-Facing Changelog**:
+3. **Client/Server Compatibility Check**:
+   - Inspect changes since the last release for breaking API changes, schema migrations, or new protocol requirements.
+   - Determine if `server/internal/config/config.go` (`MinAppVersion`) needs to be bumped.
+   - Determine if the Android app introduces requirements for a newer minimum server version.
+   - Include any required minimum version adjustments in the proposal for user confirmation.
+4. **Draft a User-Facing Changelog**:
    - Write from the **user's perspective** (not git commit jargon or internal code refactors).
    - Group into clear sections:
      - 🚀 **What's New**: Exciting new capabilities and features.
      - ✨ **Improvements**: Polish, usability tweaks, UI enhancements.
      - 🐛 **Bug Fixes**: Stability, resolved crashes, sync fixes.
-4. **Mandatory Confirmation**:
-   - **Ask the user to review and confirm** both the proposed bump (`patch`, `minor`, `major`) and the draft changelog text before executing any changes.
+5. **Mandatory Confirmation**:
+   - **Ask the user to review and confirm** the proposed bump (`patch`, `minor`, `major`), any `MinAppVersion` changes, and the draft changelog text before executing any changes.
 
 ---
 
@@ -71,10 +82,12 @@ Check the output for:
    - `server/Dockerfile`
    - `server/internal/config/config.go`
 
-2. Update `CHANGELOG.md`:
+2. If minimum version adjustments were approved, verify/update `MinAppVersion` in `server/internal/config/config.go` in the same commit.
+
+3. Update `CHANGELOG.md`:
    - Prepend the approved user release notes under `## [X.Y.Z] - YYYY-MM-DD`.
 
-3. Update `docs/FEATURE-SPEC.md` if any completed features now ship with this release.
+4. Update `docs/FEATURE-SPEC.md` if any completed features now ship with this release.
 
 ---
 

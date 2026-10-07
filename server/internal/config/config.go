@@ -97,7 +97,7 @@ func Load() *Config {
 		Debug:            debug,
 		Version:          getEnv("SIMSLI_VERSION", Version),
 		APIVersion:       1,
-		MinAppVersion:    getEnv("SIMSLI_MIN_APP_VERSION", "0.1.0"),
+		MinAppVersion:    getEnv("SIMSLI_MIN_APP_VERSION", "0.3.0"),
 		SMTPHost:         os.Getenv("SIMSLI_SMTP_HOST"),
 		SMTPPort:         smtpPort,
 		SMTPUser:         os.Getenv("SIMSLI_SMTP_USER"),
