@@ -7,7 +7,6 @@ import kotlinx.serialization.json.Json
 const val WEAR_DATA_PATH = "/simsli/shopping_list"
 const val WEAR_DATA_KEY = "payload"
 const val WEAR_CHECK_ENTRY_PATH = "/simsli/check_entry"
-const val WEAR_CAPABILITY_COMPANION = "simsli_wear_companion"
 
 @Serializable
 data class WearCategory(
