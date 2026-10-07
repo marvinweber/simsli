@@ -31,7 +31,9 @@ android {
         applicationId = "net.marvinweber.simsli"
         minSdk = 30
         targetSdk = 35
-        versionCode = appVersionCode
+        // Google Play multi-device version code standard:
+        // Wear OS range: 20_000_000 + base versionCode
+        versionCode = 20_000_000 + appVersionCode
         versionName = appVersionName
     }
 

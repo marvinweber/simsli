@@ -12,7 +12,7 @@ COPY . .
 
 ARG TARGETOS=linux
 ARG TARGETARCH
-ARG VERSION=0.3.3
+ARG VERSION=0.4.0
 
 # Build static binary (CGO_ENABLED=0 thanks to pure-Go SQLite)
 RUN GOMEMLIMIT=1500MiB GOGC=50 CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -p 1 -ldflags="-s -w -X net.marvinweber.simsli/server/internal/config.Version=${VERSION}" -o /simsli-server ./cmd/simsli

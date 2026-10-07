@@ -42,7 +42,9 @@ MAJOR=$(grep -E '^versionMajor=' version.properties | cut -d= -f2 | tr -d '[:spa
 MINOR=$(grep -E '^versionMinor=' version.properties | cut -d= -f2 | tr -d '[:space:]')
 PATCH=$(grep -E '^versionPatch=' version.properties | cut -d= -f2 | tr -d '[:space:]')
 CODE=$(grep -E '^versionCode=' version.properties | cut -d= -f2 | tr -d '[:space:]')
-echo "$MAJOR.$MINOR.$PATCH (versionCode: $CODE)"
+PHONE_CODE=$((10000000 + CODE))
+WEAR_CODE=$((20000000 + CODE))
+echo "$MAJOR.$MINOR.$PATCH (base: $CODE, phone: $PHONE_CODE, wear: $WEAR_CODE)"
 
 # 4. Git Working Tree Status
 DIRTY_COUNT=$(git status --porcelain | wc -l | tr -d ' ')

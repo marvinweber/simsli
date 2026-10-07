@@ -19,7 +19,7 @@ This skill guides the deterministic release workflow for Simsli across all modul
 - **Version Authority**: `version.properties` at repository root controls versioning across `:app` and `:wear`.
 - **Server Version Sync**: Root Gradle tasks (`bumpPatch`, `bumpMinor`, `bumpMajor`) update `version.properties`, `server/Dockerfile` (`ARG VERSION=...`), and `server/internal/config/config.go` (`var Version = "..."`).
 - **Signing**: Keystore settings live in `local.properties` (or env vars `RELEASE_KEYSTORE_*`). Git tags and commits **must** be signed (never use `--no-gpg-sign`).
-- **Google Play Dual Bundles**: Phone and Wear OS require separate `.aab` artifacts under the same `applicationId` (`net.marvinweber.simsli`).
+- **Google Play Dual Bundles**: Phone and Wear OS require separate `.aab` artifacts under the same `applicationId` (`net.marvinweber.simsli`). Google Play requires unique version codes for each artifact: Phone uses `10_000_000 + versionCode` and Wear OS uses `20_000_000 + versionCode` to prevent collisions.
 - **Docker CI**: Pushing a tag (`v*`) triggers `.github/workflows/docker-publish.yml` to build and publish the multi-arch server image to GHCR.
 
 ---

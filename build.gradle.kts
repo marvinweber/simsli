@@ -108,10 +108,12 @@ tasks.register("currentVersion") {
         if (versionPropsFile.exists()) {
             versionPropsFile.inputStream().use { props.load(it) }
         }
-        val code = props.getProperty("versionCode") ?: "1"
+        val code = (props.getProperty("versionCode") ?: "1").toInt()
         val major = props.getProperty("versionMajor") ?: "0"
         val minor = props.getProperty("versionMinor") ?: "1"
         val patch = props.getProperty("versionPatch") ?: "0"
-        println("Simsli Version: $major.$minor.$patch (versionCode: $code)")
+        val phoneCode = 10_000_000 + code
+        val wearCode = 20_000_000 + code
+        println("Simsli Version: $major.$minor.$patch (base: $code, phone: $phoneCode, wear: $wearCode)")
     }
 }

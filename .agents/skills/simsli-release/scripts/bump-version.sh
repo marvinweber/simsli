@@ -44,8 +44,11 @@ PATCH=$(grep -E '^versionPatch=' version.properties | cut -d= -f2 | tr -d '[:spa
 CODE=$(grep -E '^versionCode=' version.properties | cut -d= -f2 | tr -d '[:space:]')
 FULL_VERSION="$MAJOR.$MINOR.$PATCH"
 
+PHONE_CODE=$((10000000 + CODE))
+WEAR_CODE=$((20000000 + CODE))
+
 echo "=== Version Updated Successfully ==="
-echo "Version:     $FULL_VERSION (versionCode: $CODE)"
+echo "Version:     $FULL_VERSION (base: $CODE, phone: $PHONE_CODE, wear: $WEAR_CODE)"
 echo "App/Wear:    version.properties updated"
 
 # Verify server files

@@ -47,7 +47,9 @@ android {
         applicationId = "net.marvinweber.simsli"
         minSdk = 26
         targetSdk = 36
-        versionCode = appVersionCode
+        // Google Play multi-device version code standard:
+        // Phone range: 10_000_000 + base versionCode
+        versionCode = 10_000_000 + appVersionCode
         versionName = appVersionName
     }
 
