@@ -8,12 +8,14 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
+import net.marvinweber.simsli.data.repository.CategoryRepository
 import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.data.repository.ItemRepository
 import net.marvinweber.simsli.data.repository.ItemStoreRepository
 import net.marvinweber.simsli.data.repository.ListEntryRepository
 import net.marvinweber.simsli.data.repository.StoreRepository
 import net.marvinweber.simsli.di.IoDispatcher
+import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.Item
 import net.marvinweber.simsli.domain.model.ItemStore
 import net.marvinweber.simsli.domain.model.ListEntry
@@ -29,6 +31,7 @@ class WearSyncManager @Inject constructor(
     private val listEntryRepository: ListEntryRepository,
     private val itemRepository: ItemRepository,
     private val itemStoreRepository: ItemStoreRepository,
+    private val categoryRepository: CategoryRepository,
     private val wearSyncBridge: WearSyncBridge,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) {
@@ -49,13 +52,15 @@ class WearSyncManager @Inject constructor(
                         storeRepository.getStoresByHousehold(household.id),
                         listEntryRepository.getListEntriesByHousehold(household.id),
                         itemRepository.getItemsByHousehold(household.id),
-                        itemStoreRepository.observeItemStoresByHousehold(household.id)
-                    ) { stores: List<Store>, entries: List<ListEntry>, items: List<Item>, itemStores: List<ItemStore> ->
+                        itemStoreRepository.observeItemStoresByHousehold(household.id),
+                        categoryRepository.getCategoriesByHousehold(household.id)
+                    ) { stores: List<Store>, entries: List<ListEntry>, items: List<Item>, itemStores: List<ItemStore>, categories: List<Category> ->
                         ShoppingSnapshot(
                             stores = stores,
                             entries = entries,
                             items = items.associateBy { it.id },
-                            itemStores = itemStores
+                            itemStores = itemStores,
+                            categories = categories
                         )
                     }
                 }
@@ -64,7 +69,8 @@ class WearSyncManager @Inject constructor(
                         stores = snapshot.stores,
                         entries = snapshot.entries,
                         items = snapshot.items,
-                        itemStores = snapshot.itemStores
+                        itemStores = snapshot.itemStores,
+                        categories = snapshot.categories
                     )
                 }
         }
@@ -74,6 +80,7 @@ class WearSyncManager @Inject constructor(
         val stores: List<Store>,
         val entries: List<ListEntry>,
         val items: Map<String, Item>,
-        val itemStores: List<ItemStore>
+        val itemStores: List<ItemStore>,
+        val categories: List<Category>
     )
 }

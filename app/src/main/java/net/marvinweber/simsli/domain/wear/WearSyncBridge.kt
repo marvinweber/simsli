@@ -1,6 +1,7 @@
 package net.marvinweber.simsli.domain.wear
 
 import kotlinx.coroutines.flow.StateFlow
+import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.Item
 import net.marvinweber.simsli.domain.model.ItemStore
 import net.marvinweber.simsli.domain.model.ListEntry
@@ -21,6 +22,7 @@ interface WearSyncBridge {
         stores: List<Store>,
         entries: List<ListEntry>,
         items: Map<String, Item>,
-        itemStores: List<ItemStore>
+        itemStores: List<ItemStore>,
+        categories: List<Category>
     )
 }

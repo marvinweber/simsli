@@ -31,7 +31,7 @@ Milestone tags are assignments, not promises — moving a feature between milest
 | 3.10 Localization (I18N) | —                      | —                    | I18N-1                 | —              | —            | —            | —         |
 | 3.11 Business (BIZ)      | BIZ-5, BIZ-6           | —                    | —                      | —              | BIZ-1        | BIZ-2, BIZ-3 | —         |
 | 3.12 Dashboard (DASH)    | —                      | —                    | —                      | DASH-1, DASH-2 | —            | —            | —         |
-| 3.13 Wear OS companion (WEAR) | WEAR-1, WEAR-2, WEAR-7, WEAR-8 | —                    | —                      | —              | WEAR-3–6     | WEAR-9       | —         |
+| 3.13 Wear OS companion (WEAR) | WEAR-1, WEAR-2, WEAR-6–8 | —                    | —                      | —              | WEAR-3–5     | WEAR-9       | —         |
 
 Each feature appears once, under its current status; extensions tagged to later milestones (e.g. HH-2 admin role → v1.5, STORE-1 drag & drop → v1, LIST-5 favorite toggle → v0.1) stay tracked in the §3 entry. DATA-2 ships per path (removal with HH-5 in v0.1, leave/delete with HH-6/7 in v1). BIZ-4 is unlisted — its decision is open (OQ-1).
 
@@ -179,7 +179,7 @@ Lightweight companion app for Wear OS smartwatches designed as a satellite displ
 - **WEAR-3 Ambient display mode 📋 v1** — low-refresh ambient / always-on display mode while viewing a store list, keeping items visible without display timeouts during shopping.
 - **WEAR-4 Wear OS Tile 📋 v1** — glanceable Tile accessible with a single swipe from the watch face: displays the active/selected store, the next pending items, and a one-tap button to open the list.
 - **WEAR-5 Watch Face Complication 📋 v1** — complication displaying the remaining item count (e.g., `🛒 4`) on supported watch faces.
-- **WEAR-6 Aisle category ordering 📋 v1** — shopping list entries on the watch are grouped by category matching the store's configured aisle order (STORE-4).
+- **WEAR-6 Aisle category ordering ✅** — shopping list entries on the watch are grouped by category matching the store's configured aisle order (STORE-4, falling back to household global category order).
 - **WEAR-7 Item details popup ✅** — split item rows with dedicated check-off toggle and container tap opening a modal dialog showing item name, quantity/unit, comments, and notes.
 - **WEAR-8 Rotary input support ✅** — smooth list scrolling with item snap behavior via the physical digital crown or rotating bezel.
 - **WEAR-9 Voice Quick-Add 📋 v1.5** — voice input action on the store list allowing speech-to-text item additions directly from the wrist.

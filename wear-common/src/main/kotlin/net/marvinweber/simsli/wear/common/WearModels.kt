@@ -10,10 +10,18 @@ const val WEAR_CHECK_ENTRY_PATH = "/simsli/check_entry"
 const val WEAR_CAPABILITY_COMPANION = "simsli_wear_companion"
 
 @Serializable
+data class WearCategory(
+    val id: String,
+    val name: String,
+    val emoji: String? = null
+)
+
+@Serializable
 data class WearStoreSummary(
     val id: String?,
     val name: String,
-    val activeCount: Int
+    val activeCount: Int,
+    val orderedCategories: List<WearCategory> = emptyList()
 )
 
 @Serializable
@@ -26,7 +34,9 @@ data class WearShoppingItem(
     val comment: String? = null,
     val notes: String? = null,
     val storeIds: List<String> = emptyList(),
-    val isDone: Boolean = false
+    val isDone: Boolean = false,
+    val categoryId: String? = null,
+    val sortOrder: Float = 0f
 )
 
 @Serializable

@@ -42,15 +42,24 @@ import androidx.wear.compose.material3.Dialog
 import androidx.wear.compose.material3.FilledTonalButton
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.ListHeader
+import androidx.wear.compose.material3.ListSubHeader
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.SplitCheckboxButton
 import androidx.wear.compose.material3.Text
+import net.marvinweber.simsli.wear.common.WearCategory
 import net.marvinweber.simsli.wear.common.WearShoppingItem
+
+private data class WearCategoryGroup(
+    val id: String,
+    val title: String,
+    val items: List<WearShoppingItem>
+)
 
 @Composable
 fun StoreShoppingListScreen(
     storeId: String?,
     storeName: String,
+    categories: List<WearCategory> = emptyList(),
     items: List<WearShoppingItem>,
     onToggleItem: (entryId: String, done: Boolean) -> Unit
 ) {
@@ -64,9 +73,36 @@ fun StoreShoppingListScreen(
         items.filter { it.storeIds.contains(storeId) }
     }
 
-    // Sort: pending first, completed last
-    val sortedItems = storeItems.sortedBy { it.isDone }
-    val activeCount = storeItems.count { !it.isDone }
+    // Partition into active and done
+    val (activeItems, doneItems) = storeItems.partition { !it.isDone }
+    val activeCount = activeItems.size
+
+    // Group active items by category according to the orderedCategories list
+    val categoryMap = categories.associateBy { it.id }
+    val categorizedItems = activeItems.filter { it.categoryId != null && it.categoryId in categoryMap }
+    val uncategorizedItems = activeItems.filter { it.categoryId == null || it.categoryId !in categoryMap }
+
+    val activeGroups = mutableListOf<WearCategoryGroup>()
+    for (category in categories) {
+        val itemsForCategory = categorizedItems
+            .filter { it.categoryId == category.id }
+            .sortedBy { it.sortOrder }
+        if (itemsForCategory.isNotEmpty()) {
+            val title = if (category.emoji != null) "${category.emoji} ${category.name}" else category.name
+            activeGroups.add(WearCategoryGroup(id = category.id, title = title, items = itemsForCategory))
+        }
+    }
+
+    if (uncategorizedItems.isNotEmpty()) {
+        val title = if (categories.isNotEmpty()) "📦 Uncategorized" else "Uncategorized"
+        activeGroups.add(
+            WearCategoryGroup(
+                id = "uncategorized",
+                title = title,
+                items = uncategorizedItems.sortedBy { it.sortOrder }
+            )
+        )
+    }
 
     if (storeItems.isEmpty()) {
         Column(
@@ -128,46 +164,65 @@ fun StoreShoppingListScreen(
             }
         }
 
-        items(sortedItems, key = { it.entryId }) { item ->
-            val detailsText = formatItemDetails(item)
-
-            SplitCheckboxButton(
-                checked = item.isDone,
-                onCheckedChange = { checked ->
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onToggleItem(item.entryId, checked)
-                },
-                toggleContentDescription = if (item.isDone) "Mark as active" else "Mark as done",
-                onContainerClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    detailItem = item
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 3.dp),
-                colors = CheckboxButtonDefaults.splitCheckboxButtonColors(),
-                label = {
-                    Text(
-                        text = item.name,
-                        style = MaterialTheme.typography.labelMedium,
-                        textDecoration = if (item.isDone) TextDecoration.LineThrough else null,
-                        color = if (item.isDone) Color(0xFF888888) else Color.White,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+        activeGroups.forEach { group ->
+            if (activeGroups.size > 1 || (group.id != "uncategorized" && categories.isNotEmpty())) {
+                item(key = "header_${group.id}") {
+                    ListSubHeader(
+                        modifier = Modifier.padding(top = 6.dp, bottom = 2.dp),
+                        label = {
+                            Text(
+                                text = group.title,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFFA5D6A7),
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     )
-                },
-                secondaryLabel = detailsText?.let {
-                    {
+                }
+            }
+
+            items(group.items, key = { it.entryId }) { item ->
+                ShoppingItemRow(
+                    item = item,
+                    onToggle = { done ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onToggleItem(item.entryId, done)
+                    },
+                    onOpenDetail = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        detailItem = item
+                    }
+                )
+            }
+        }
+
+        if (doneItems.isNotEmpty()) {
+            item(key = "header_done") {
+                ListSubHeader(
+                    modifier = Modifier.padding(top = 10.dp, bottom = 2.dp),
+                    label = {
                         Text(
-                            text = it,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (item.isDone) Color(0xFF555555) else Color(0xFFB0BEC5),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            text = "Completed (${doneItems.size})",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF888888)
                         )
                     }
-                }
-            )
+                )
+            }
+
+            items(doneItems, key = { it.entryId }) { item ->
+                ShoppingItemRow(
+                    item = item,
+                    onToggle = { done ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onToggleItem(item.entryId, done)
+                    },
+                    onOpenDetail = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        detailItem = item
+                    }
+                )
+            }
         }
     }
 
@@ -346,6 +401,47 @@ fun StoreShoppingListScreen(
             }
         }
     }
+}
+
+@Composable
+private fun ShoppingItemRow(
+    item: WearShoppingItem,
+    onToggle: (Boolean) -> Unit,
+    onOpenDetail: () -> Unit
+) {
+    val detailsText = formatItemDetails(item)
+
+    SplitCheckboxButton(
+        checked = item.isDone,
+        onCheckedChange = onToggle,
+        toggleContentDescription = if (item.isDone) "Mark as active" else "Mark as done",
+        onContainerClick = onOpenDetail,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+        colors = CheckboxButtonDefaults.splitCheckboxButtonColors(),
+        label = {
+            Text(
+                text = item.name,
+                style = MaterialTheme.typography.labelMedium,
+                textDecoration = if (item.isDone) TextDecoration.LineThrough else null,
+                color = if (item.isDone) Color(0xFF888888) else Color.White,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        },
+        secondaryLabel = detailsText?.let {
+            {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (item.isDone) Color(0xFF555555) else Color(0xFFB0BEC5),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    )
 }
 
 private fun formatQuantityUnit(quantity: Double?, unit: String?): String? {

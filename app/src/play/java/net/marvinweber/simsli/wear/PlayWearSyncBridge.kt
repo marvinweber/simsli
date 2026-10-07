@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.tasks.await
+import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.Item
 import net.marvinweber.simsli.domain.model.ItemStore
 import net.marvinweber.simsli.domain.model.ListEntry
@@ -17,6 +18,7 @@ import net.marvinweber.simsli.domain.wear.WearCompanionStatus
 import net.marvinweber.simsli.domain.wear.WearSyncBridge
 import net.marvinweber.simsli.wear.common.WEAR_DATA_KEY
 import net.marvinweber.simsli.wear.common.WEAR_DATA_PATH
+import net.marvinweber.simsli.wear.common.WearCategory
 import net.marvinweber.simsli.wear.common.WearDataPayload
 import net.marvinweber.simsli.wear.common.WearShoppingItem
 import net.marvinweber.simsli.wear.common.WearStoreSummary
@@ -60,12 +62,21 @@ class PlayWearSyncBridge @Inject constructor(
         stores: List<Store>,
         entries: List<ListEntry>,
         items: Map<String, Item>,
-        itemStores: List<ItemStore>
+        itemStores: List<ItemStore>,
+        categories: List<Category>
     ) {
         try {
             val activeEntries = entries.filter { !it.done }
             val itemToStoreIds = itemStores.groupBy { it.itemId }
                 .mapValues { (_, list) -> list.map { it.storeId } }
+
+            val sortedCategories = categories.sortedBy { it.sortOrder }.map {
+                WearCategory(
+                    id = it.id,
+                    name = it.name,
+                    emoji = it.emoji
+                )
+            }
 
             val storeSummaries = mutableListOf<WearStoreSummary>()
 
@@ -74,11 +85,12 @@ class PlayWearSyncBridge @Inject constructor(
                 WearStoreSummary(
                     id = null,
                     name = "All stores",
-                    activeCount = activeEntries.size
+                    activeCount = activeEntries.size,
+                    orderedCategories = sortedCategories
                 )
             )
 
-            // 2. Individual stores
+            // 2. Individual stores (uses global category order; when STORE-4 lands, custom order goes here)
             for (store in stores) {
                 val count = activeEntries.count { entry ->
                     val assigned = itemToStoreIds[entry.itemId] ?: emptyList()
@@ -88,7 +100,8 @@ class PlayWearSyncBridge @Inject constructor(
                     WearStoreSummary(
                         id = store.id,
                         name = store.name,
-                        activeCount = count
+                        activeCount = count,
+                        orderedCategories = sortedCategories
                     )
                 )
             }
@@ -105,7 +118,9 @@ class PlayWearSyncBridge @Inject constructor(
                     comment = entry.comment,
                     notes = item?.notes,
                     storeIds = itemToStoreIds[entry.itemId] ?: emptyList(),
-                    isDone = entry.done
+                    isDone = entry.done,
+                    categoryId = item?.categoryId,
+                    sortOrder = item?.sortOrder ?: 0f
                 )
             }
 

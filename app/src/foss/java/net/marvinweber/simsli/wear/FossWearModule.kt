@@ -7,6 +7,7 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.Item
 import net.marvinweber.simsli.domain.model.ItemStore
 import net.marvinweber.simsli.domain.model.ListEntry
@@ -27,7 +28,8 @@ class NoOpWearSyncBridge @Inject constructor() : WearSyncBridge {
         stores: List<Store>,
         entries: List<ListEntry>,
         items: Map<String, Item>,
-        itemStores: List<ItemStore>
+        itemStores: List<ItemStore>,
+        categories: List<Category>
     ) {
         // No-op on FOSS build without Google Play Services
     }

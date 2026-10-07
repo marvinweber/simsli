@@ -67,9 +67,12 @@ fun SimsliWearApp(repository: WearShoppingRepository) {
                 rawName
             }
 
+            val storeSummary = dataPayload?.stores?.find { it.id == storeId }
+
             StoreShoppingListScreen(
                 storeId = storeId,
                 storeName = storeName,
+                categories = storeSummary?.orderedCategories ?: emptyList(),
                 items = dataPayload?.items ?: emptyList(),
                 onToggleItem = { entryId, done ->
                     repository.toggleItem(entryId, done)
