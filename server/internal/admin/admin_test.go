@@ -224,4 +224,3 @@ func TestDashboardShowsVersion(t *testing.T) {
 		t.Fatalf("expected dashboard body to contain %q, but got: %s", expectedVersionBadge, body)
 	}
 }
-

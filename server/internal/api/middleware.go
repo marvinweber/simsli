@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"net.marvinweber.simsli/server/internal/auth"
+	"net.marvinweber.simsli/server/internal/service"
 )
 
 type contextKey string
@@ -64,4 +65,12 @@ func DeviceID(r *http.Request) string {
 		return id
 	}
 	return "-"
+}
+
+// ClientInfoFromRequest extracts the client-reported app version used for
+// aggregate usage metrics.
+func ClientInfoFromRequest(r *http.Request) service.ClientInfo {
+	return service.ClientInfo{
+		AppVersion: r.Header.Get("X-Simsli-App-Version"),
+	}
 }

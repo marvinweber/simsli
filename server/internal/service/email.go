@@ -3,8 +3,8 @@ package service
 import (
 	"fmt"
 	"log"
-	"net/smtp"
 	"net.marvinweber.simsli/server/internal/config"
+	"net/smtp"
 )
 
 type EmailSender interface {

@@ -47,10 +47,11 @@ func parseNullTime(s sql.NullString) *time.Time {
 // --- Users ---
 
 func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
-	row := r.db.QueryRowContext(ctx, "SELECT id, email, created_at, updated_at FROM users WHERE email = ?", email)
+	row := r.db.QueryRowContext(ctx, "SELECT id, email, last_seen_at, last_app_version, created_at, updated_at FROM users WHERE email = ?", email)
 	var u model.User
 	var ca, ua string
-	if err := row.Scan(&u.ID, &u.Email, &ca, &ua); err != nil {
+	var lsa, lav sql.NullString
+	if err := row.Scan(&u.ID, &u.Email, &lsa, &lav, &ca, &ua); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -58,14 +59,19 @@ func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*model.U
 	}
 	u.CreatedAt, _ = parseTime(ca)
 	u.UpdatedAt, _ = parseTime(ua)
+	u.LastSeenAt = parseNullTime(lsa)
+	if lav.Valid && lav.String != "" {
+		u.LastAppVersion = &lav.String
+	}
 	return &u, nil
 }
 
 func (r *Repository) GetUserByID(ctx context.Context, id string) (*model.User, error) {
-	row := r.db.QueryRowContext(ctx, "SELECT id, email, created_at, updated_at FROM users WHERE id = ?", id)
+	row := r.db.QueryRowContext(ctx, "SELECT id, email, last_seen_at, last_app_version, created_at, updated_at FROM users WHERE id = ?", id)
 	var u model.User
 	var ca, ua string
-	if err := row.Scan(&u.ID, &u.Email, &ca, &ua); err != nil {
+	var lsa, lav sql.NullString
+	if err := row.Scan(&u.ID, &u.Email, &lsa, &lav, &ca, &ua); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -73,6 +79,10 @@ func (r *Repository) GetUserByID(ctx context.Context, id string) (*model.User, e
 	}
 	u.CreatedAt, _ = parseTime(ca)
 	u.UpdatedAt, _ = parseTime(ua)
+	u.LastSeenAt = parseNullTime(lsa)
+	if lav.Valid && lav.String != "" {
+		u.LastAppVersion = &lav.String
+	}
 	return &u, nil
 }
 
@@ -92,7 +102,7 @@ func (r *Repository) CreateUser(ctx context.Context, user *model.User) error {
 }
 
 func (r *Repository) ListUsers(ctx context.Context, limit, offset int) ([]model.User, error) {
-	rows, err := r.db.QueryContext(ctx, "SELECT id, email, created_at, updated_at FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?", limit, offset)
+	rows, err := r.db.QueryContext(ctx, "SELECT id, email, last_seen_at, last_app_version, created_at, updated_at FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?", limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -102,11 +112,16 @@ func (r *Repository) ListUsers(ctx context.Context, limit, offset int) ([]model.
 	for rows.Next() {
 		var u model.User
 		var ca, ua string
-		if err := rows.Scan(&u.ID, &u.Email, &ca, &ua); err != nil {
+		var lsa, lav sql.NullString
+		if err := rows.Scan(&u.ID, &u.Email, &lsa, &lav, &ca, &ua); err != nil {
 			return nil, err
 		}
 		u.CreatedAt, _ = parseTime(ca)
 		u.UpdatedAt, _ = parseTime(ua)
+		u.LastSeenAt = parseNullTime(lsa)
+		if lav.Valid && lav.String != "" {
+			u.LastAppVersion = &lav.String
+		}
 		users = append(users, u)
 	}
 	return users, rows.Err()
@@ -115,6 +130,84 @@ func (r *Repository) ListUsers(ctx context.Context, limit, offset int) ([]model.
 func (r *Repository) CountUsers(ctx context.Context) (int, error) {
 	var count int
 	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users").Scan(&count)
+	return count, err
+}
+
+// TouchUserVersion records the client-reported app version on the user row.
+// The WHERE clause throttles the write: it only lands when the version changed
+// or the previous last_seen_at is older than an hour, so steady-state refresh
+// traffic writes nothing. Best-effort — errors are ignored by callers.
+func (r *Repository) TouchUserVersion(ctx context.Context, userID, appVersion string) error {
+	now := formatTime(time.Now().UTC())
+	staleBefore := formatTime(time.Now().UTC().Add(-time.Hour))
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users SET last_seen_at = ?, last_app_version = ?
+		 WHERE id = ?
+		   AND (last_app_version IS NULL OR last_app_version != ?
+		        OR last_seen_at IS NULL OR last_seen_at < ?)`,
+		now, appVersion, userID, appVersion, staleBefore,
+	)
+	return err
+}
+
+// GetVersionDistribution aggregates the app versions users last reported.
+func (r *Repository) GetVersionDistribution(ctx context.Context) ([]model.VersionDistribution, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT last_app_version, COUNT(*)
+		 FROM users
+		 WHERE last_app_version IS NOT NULL AND last_app_version != ''
+		 GROUP BY last_app_version
+		 ORDER BY COUNT(*) DESC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var dist []model.VersionDistribution
+	for rows.Next() {
+		var v model.VersionDistribution
+		if err := rows.Scan(&v.AppVersion, &v.Users); err != nil {
+			return nil, err
+		}
+		dist = append(dist, v)
+	}
+	return dist, rows.Err()
+}
+
+// GetMonthlyActivity returns summed checked/added counters per month, newest first.
+func (r *Repository) GetMonthlyActivity(ctx context.Context, limit int) ([]model.MonthlyActivity, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT year, month, SUM(items_checked), SUM(items_added)
+		 FROM household_monthly_stats
+		 GROUP BY year, month
+		 ORDER BY year DESC, month DESC
+		 LIMIT ?`,
+		limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var activity []model.MonthlyActivity
+	for rows.Next() {
+		var a model.MonthlyActivity
+		if err := rows.Scan(&a.Year, &a.Month, &a.Checked, &a.Added); err != nil {
+			return nil, err
+		}
+		activity = append(activity, a)
+	}
+	return activity, rows.Err()
+}
+
+// CountUsersSeenSince counts users whose last reported activity is after t.
+func (r *Repository) CountUsersSeenSince(ctx context.Context, t time.Time) (int, error) {
+	var count int
+	err := r.db.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM users WHERE last_seen_at IS NOT NULL AND last_seen_at >= ?",
+		formatTime(t),
+	).Scan(&count)
 	return count, err
 }
 
@@ -795,11 +888,33 @@ func (r *Repository) Flush(ctx context.Context, req *model.FlushRequest) error {
 	}
 
 	// Upsert List Entries
+	// Usage stats: diff each incoming entry against its stored state so check /
+	// un-check / add transitions land in household_monthly_stats (undo decrements).
+	var statsChecked, statsAdded int
 	for _, le := range req.ListEntries {
 		doneInt := 0
 		if le.Done {
 			doneInt = 1
 		}
+
+		var existingDone sql.NullInt64
+		switch err := tx.QueryRowContext(ctx,
+			"SELECT done FROM list_entries WHERE household_id = ? AND item_id = ?",
+			req.HouseholdID, le.ItemID,
+		).Scan(&existingDone); {
+		case errors.Is(err, sql.ErrNoRows):
+			statsAdded++
+			if le.Done {
+				statsChecked++
+			}
+		case err != nil:
+			return fmt.Errorf("read list_entry state: %w", err)
+		case existingDone.Int64 == 0 && doneInt == 1:
+			statsChecked++
+		case existingDone.Int64 == 1 && doneInt == 0:
+			statsChecked--
+		}
+
 		compAtStr := sql.NullString{}
 		if le.CompletedAt != nil {
 			compAtStr = sql.NullString{String: formatTime(*le.CompletedAt), Valid: true}
@@ -818,6 +933,26 @@ func (r *Repository) Flush(ctx context.Context, req *model.FlushRequest) error {
 		)
 		if err != nil {
 			return fmt.Errorf("flush list_entry: %w", err)
+		}
+	}
+
+	// Apply the accumulated entry stats to this month's row (floored at zero
+	// so concurrent un-check flushes can't drive it negative).
+	if statsChecked != 0 || statsAdded != 0 {
+		now := time.Now().UTC()
+		_, err := tx.ExecContext(ctx,
+			`INSERT INTO household_monthly_stats (household_id, year, month, items_checked, items_added, updated_at)
+			 VALUES (?, ?, ?, ?, ?, ?)
+			 ON CONFLICT(household_id, year, month) DO UPDATE SET
+			   items_checked = CASE
+			     WHEN household_monthly_stats.items_checked + excluded.items_checked < 0 THEN 0
+			     ELSE household_monthly_stats.items_checked + excluded.items_checked END,
+			   items_added = household_monthly_stats.items_added + excluded.items_added,
+			   updated_at = excluded.updated_at`,
+			req.HouseholdID, now.Year(), int(now.Month()), statsChecked, statsAdded, formatTime(now),
+		)
+		if err != nil {
+			return fmt.Errorf("update household monthly stats: %w", err)
 		}
 	}
 
@@ -879,18 +1014,19 @@ func (r *Repository) GetDatabaseDriver() string {
 
 func (r *Repository) BrowseTable(ctx context.Context, table, householdID string, limit, offset int) ([]string, [][]string, int, error) {
 	validTables := map[string]string{
-		"households":        "id = ?",
-		"household_members": "household_id = ?",
-		"stores":            "household_id = ?",
-		"categories":        "household_id = ?",
-		"items":             "household_id = ?",
-		"item_stores":       "item_id IN (SELECT id FROM items WHERE household_id = ?)",
-		"store_categories":  "store_id IN (SELECT id FROM stores WHERE household_id = ?)",
-		"list_entries":      "household_id = ?",
-		"invite_tokens":     "household_id = ?",
-		"users":             "id IN (SELECT user_id FROM household_members WHERE household_id = ?)",
-		"magic_links":       "email IN (SELECT u.email FROM users u JOIN household_members hm ON hm.user_id = u.id WHERE hm.household_id = ?)",
-		"refresh_tokens":    "user_id IN (SELECT user_id FROM household_members WHERE household_id = ?)",
+		"households":              "id = ?",
+		"household_members":       "household_id = ?",
+		"stores":                  "household_id = ?",
+		"categories":              "household_id = ?",
+		"items":                   "household_id = ?",
+		"item_stores":             "item_id IN (SELECT id FROM items WHERE household_id = ?)",
+		"store_categories":        "store_id IN (SELECT id FROM stores WHERE household_id = ?)",
+		"list_entries":            "household_id = ?",
+		"household_monthly_stats": "household_id = ?",
+		"invite_tokens":           "household_id = ?",
+		"users":                   "id IN (SELECT user_id FROM household_members WHERE household_id = ?)",
+		"magic_links":             "email IN (SELECT u.email FROM users u JOIN household_members hm ON hm.user_id = u.id WHERE hm.household_id = ?)",
+		"refresh_tokens":          "user_id IN (SELECT user_id FROM household_members WHERE household_id = ?)",
 	}
 
 	filterClause, ok := validTables[table]
@@ -964,4 +1100,3 @@ func (r *Repository) BrowseTable(ctx context.Context, table, householdID string,
 
 	return cols, result, total, nil
 }
-

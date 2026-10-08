@@ -85,7 +85,77 @@
         <div class="stat-val">{{.UserCount}}</div>
         <small>Accounts created</small>
       </div>
+      <div class="card-stat">
+        <small>Active (24h)</small>
+        <div class="stat-val">{{.Usage.ActiveUsers24h}}</div>
+        <small>Users seen in the last 24 hours</small>
+      </div>
     </div>
+
+    <!-- Usage & Versions -->
+    <article style="margin-bottom: 2rem;">
+      <header>
+        <h3 style="margin: 0;">📈 Usage &amp; Versions</h3>
+      </header>
+      <p style="color: var(--pico-muted-color); margin-top: 0.5rem;">
+        Aggregate usage metrics, updated at most hourly per user. No device-level tracking — versions are
+        self-reported by the app on token refresh.
+      </p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start;">
+        <div>
+          <h4 style="margin-bottom: 0.5rem;">App Versions</h4>
+          {{if .Usage.VersionDistribution}}
+            <figure style="margin: 0;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Version</th>
+                    <th>Users</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {{range .Usage.VersionDistribution}}
+                    <tr>
+                      <td><strong>{{.AppVersion}}</strong></td>
+                      <td>{{.Users}}</td>
+                    </tr>
+                  {{end}}
+                </tbody>
+              </table>
+            </figure>
+          {{else}}
+            <p style="color: var(--pico-muted-color); margin: 0;">No app versions reported yet (needs an app version ≥ this server change).</p>
+          {{end}}
+        </div>
+        <div>
+          <h4 style="margin-bottom: 0.5rem;">Monthly Activity</h4>
+          {{if .Usage.MonthlyActivity}}
+            <figure style="margin: 0;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Month</th>
+                    <th>Checked</th>
+                    <th>Added</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {{range .Usage.MonthlyActivity}}
+                    <tr>
+                      <td>{{formatMonth .Year .Month}}</td>
+                      <td>{{.Checked}}</td>
+                      <td>{{.Added}}</td>
+                    </tr>
+                  {{end}}
+                </tbody>
+              </table>
+            </figure>
+          {{else}}
+            <p style="color: var(--pico-muted-color); margin: 0;">No activity recorded yet.</p>
+          {{end}}
+        </div>
+      </div>
+    </article>
 
     {{if .ServerInfo.DebugMode}}
       <!-- Debug Tools -->
@@ -178,6 +248,7 @@
               <tr>
                 <th>User ID</th>
                 <th>Email</th>
+                <th>App Version</th>
                 <th>Created At</th>
               </tr>
             </thead>
@@ -186,6 +257,7 @@
                 <tr>
                   <td class="token-text">{{.ID}}</td>
                   <td><strong>{{.Email}}</strong></td>
+                  <td>{{if .LastAppVersion}}<span class="badge badge-info">{{.LastAppVersion}}</span>{{else}}<span style="color: var(--pico-muted-color);">—</span>{{end}}</td>
                   <td>{{formatTime .CreatedAt}}</td>
                 </tr>
               {{end}}

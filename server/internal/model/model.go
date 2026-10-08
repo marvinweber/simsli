@@ -7,6 +7,25 @@ type User struct {
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+
+	// Usage metrics, reported by clients and updated at most hourly. Aggregate,
+	// not device-level: one value per account.
+	LastSeenAt     *time.Time `json:"last_seen_at,omitempty"`
+	LastAppVersion *string    `json:"last_app_version,omitempty"`
+}
+
+// VersionDistribution aggregates the app versions users last reported.
+type VersionDistribution struct {
+	AppVersion string `json:"app_version"`
+	Users      int    `json:"users"`
+}
+
+// MonthlyActivity is one household's checked/added counters for one month.
+type MonthlyActivity struct {
+	Year    int `json:"year"`
+	Month   int `json:"month"`
+	Checked int `json:"checked"`
+	Added   int `json:"added"`
 }
 
 type Household struct {
@@ -111,10 +130,10 @@ type InviteToken struct {
 }
 
 type MagicLink struct {
-	Token     string    `json:"token"`
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"created_at"`
-	ExpiresAt time.Time `json:"expires_at"`
+	Token     string     `json:"token"`
+	Email     string     `json:"email"`
+	CreatedAt time.Time  `json:"created_at"`
+	ExpiresAt time.Time  `json:"expires_at"`
 	UsedAt    *time.Time `json:"used_at,omitempty"`
 }
 

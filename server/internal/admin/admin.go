@@ -39,6 +39,7 @@ type DashboardData struct {
 	UserCount        int
 	Households       []model.Household
 	HouseholdCount   int
+	Usage            service.UsageOverview
 	AllocMB          float64
 	NumGoroutine     int
 	ActiveWebSockets int
@@ -84,6 +85,9 @@ func NewHandler(svc *service.Service, hub *realtime.Hub, cfg *config.Config) *Ha
 				return "expired"
 			}
 			return fmt.Sprintf("%dm %ds", int(remaining.Minutes()), int(remaining.Seconds())%60)
+		},
+		"formatMonth": func(year, month int) string {
+			return time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC).Format("2006-01")
 		},
 		"magicLinkURL": func(token string) string {
 			// deep link for mobile or web link
@@ -266,6 +270,7 @@ func (h *Handler) RenderDashboard(w http.ResponseWriter, r *http.Request) {
 	pendingLinks, _ := h.svc.ListPendingMagicLinks(ctx)
 	users, userCount, _ := h.svc.ListUsers(ctx, 50, 0)
 	hhs, hhCount, _ := h.svc.ListHouseholds(ctx, 50, 0)
+	usage := h.svc.GetUsageOverview(ctx)
 
 	data := DashboardData{
 		Config:           h.cfg,
@@ -275,6 +280,7 @@ func (h *Handler) RenderDashboard(w http.ResponseWriter, r *http.Request) {
 		UserCount:        userCount,
 		Households:       hhs,
 		HouseholdCount:   hhCount,
+		Usage:            usage,
 		AllocMB:          float64(m.Alloc) / 1024 / 1024,
 		NumGoroutine:     runtime.NumGoroutine(),
 		ActiveWebSockets: h.hub.ActiveConnectionsCount(),
@@ -311,6 +317,7 @@ func (h *Handler) RenderBrowser(w http.ResponseWriter, r *http.Request) {
 		"stores",
 		"categories",
 		"list_entries",
+		"household_monthly_stats",
 		"item_stores",
 		"store_categories",
 		"invite_tokens",

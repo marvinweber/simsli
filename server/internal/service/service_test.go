@@ -57,7 +57,7 @@ func TestMagicLinkFlow(t *testing.T) {
 		t.Fatalf("request magic link failed: %v", err)
 	}
 
-	tokens, user, err := svc.VerifyMagicLink(ctx, token)
+	tokens, user, err := svc.VerifyMagicLink(ctx, token, ClientInfo{})
 	if err != nil {
 		t.Fatalf("verify magic link failed: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestMagicLinkFlow(t *testing.T) {
 	}
 
 	// Verify token rotation
-	rotated, err := svc.RefreshTokens(ctx, tokens.RefreshToken)
+	rotated, err := svc.RefreshTokens(ctx, tokens.RefreshToken, ClientInfo{})
 	if err != nil {
 		t.Fatalf("refresh tokens failed: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestMagicLinkFlow(t *testing.T) {
 	}
 
 	// Old refresh token must now be rejected
-	_, err = svc.RefreshTokens(ctx, tokens.RefreshToken)
+	_, err = svc.RefreshTokens(ctx, tokens.RefreshToken, ClientInfo{})
 	if err == nil {
 		t.Error("expected rejected old refresh token, got nil")
 	}
@@ -294,5 +294,145 @@ func TestSeedDemoData(t *testing.T) {
 	}
 	if len(deltas.ListEntries) != 11 {
 		t.Errorf("expected 11 entries, got %d", len(deltas.ListEntries))
+	}
+}
+
+func TestTouchUserVersion(t *testing.T) {
+	svc, repo := setupTestService(t)
+	ctx := context.Background()
+
+	user, err := svc.AdminCreateUser(ctx, "version@simsli.de")
+	if err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	// First touch records the version
+	if err := repo.TouchUserVersion(ctx, user.ID, "1.2.3"); err != nil {
+		t.Fatalf("touch failed: %v", err)
+	}
+	got, err := repo.GetUserByID(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("get user failed: %v", err)
+	}
+	if got.LastAppVersion == nil || *got.LastAppVersion != "1.2.3" {
+		t.Errorf("expected version 1.2.3, got %v", got.LastAppVersion)
+	}
+	if got.LastSeenAt == nil {
+		t.Error("expected last_seen_at to be set")
+	}
+	firstSeen := *got.LastSeenAt
+
+	// A touch with the same version inside the throttle window must not write
+	if err := repo.TouchUserVersion(ctx, user.ID, "1.2.3"); err != nil {
+		t.Fatalf("second touch failed: %v", err)
+	}
+	got, _ = repo.GetUserByID(ctx, user.ID)
+	if got.LastSeenAt == nil || !got.LastSeenAt.Equal(firstSeen) {
+		t.Errorf("expected throttled write (last_seen_at unchanged), got %v", got.LastSeenAt)
+	}
+
+	// A version change writes immediately
+	if err := repo.TouchUserVersion(ctx, user.ID, "1.3.0"); err != nil {
+		t.Fatalf("version change touch failed: %v", err)
+	}
+	got, _ = repo.GetUserByID(ctx, user.ID)
+	if got.LastAppVersion == nil || *got.LastAppVersion != "1.3.0" {
+		t.Errorf("expected version 1.3.0, got %v", got.LastAppVersion)
+	}
+
+	// The service-level touch ignores empty versions
+	svc.touchUserVersion(ctx, user.ID, ClientInfo{AppVersion: ""})
+	got, _ = repo.GetUserByID(ctx, user.ID)
+	if got.LastAppVersion == nil || *got.LastAppVersion != "1.3.0" {
+		t.Errorf("empty ClientInfo must not overwrite version, got %v", got.LastAppVersion)
+	}
+}
+
+func TestFlushRecordsMonthlyActivity(t *testing.T) {
+	svc, _ := setupTestService(t)
+	ctx := context.Background()
+
+	user, _ := svc.AdminCreateUser(ctx, "activity@simsli.de")
+	hh, err := svc.CreateHousehold(ctx, user.ID, "hh-activity", "Activity Household")
+	if err != nil {
+		t.Fatalf("create household failed: %v", err)
+	}
+
+	now := time.Now().UTC()
+	entry := func(id string, done bool) model.ListEntry {
+		return model.ListEntry{
+			ID: id, HouseholdID: hh.ID, ItemID: "i-" + id,
+			Done: done, CreatedAt: now, UpdatedAt: now,
+		}
+	}
+
+	// Items backing the entries (list_entries.item_id has an FK to items)
+	if err := svc.Flush(ctx, user.ID, &model.FlushRequest{
+		HouseholdID: hh.ID,
+		Items: []model.Item{
+			{ID: "i-e-1", HouseholdID: hh.ID, Name: "Milk", Type: "PERMANENT", CreatedAt: now, UpdatedAt: now},
+			{ID: "i-e-2", HouseholdID: hh.ID, Name: "Bread", Type: "PERMANENT", CreatedAt: now, UpdatedAt: now},
+			{ID: "i-e-3", HouseholdID: hh.ID, Name: "Candles", Type: "ONE_TIME", CreatedAt: now, UpdatedAt: now},
+			{ID: "i-e-new", HouseholdID: hh.ID, Name: "Coffee", Type: "PERMANENT", CreatedAt: now, UpdatedAt: now},
+		},
+	}); err != nil {
+		t.Fatalf("item flush failed: %v", err)
+	}
+
+	fetchActivity := func() model.MonthlyActivity {
+		t.Helper()
+		overview := svc.GetUsageOverview(ctx)
+		if len(overview.MonthlyActivity) != 1 {
+			t.Fatalf("expected 1 month row, got %+v", overview.MonthlyActivity)
+		}
+		return overview.MonthlyActivity[0]
+	}
+
+	// Add two active entries + one already-done entry (counts checked + added)
+	if err := svc.Flush(ctx, user.ID, &model.FlushRequest{
+		HouseholdID: hh.ID,
+		ListEntries: []model.ListEntry{entry("e-1", false), entry("e-2", false), entry("e-3", true)},
+	}); err != nil {
+		t.Fatalf("flush failed: %v", err)
+	}
+	a := fetchActivity()
+	if a.Added != 3 || a.Checked != 1 {
+		t.Errorf("after add: expected added=3 checked=1, got %+v", a)
+	}
+
+	// Check off one entry
+	if err := svc.Flush(ctx, user.ID, &model.FlushRequest{
+		HouseholdID: hh.ID,
+		ListEntries: []model.ListEntry{entry("e-1", true)},
+	}); err != nil {
+		t.Fatalf("flush failed: %v", err)
+	}
+	a = fetchActivity()
+	if a.Added != 3 || a.Checked != 2 {
+		t.Errorf("after check: expected added=3 checked=2, got %+v", a)
+	}
+
+	// Un-checking (undo) decrements
+	if err := svc.Flush(ctx, user.ID, &model.FlushRequest{
+		HouseholdID: hh.ID,
+		ListEntries: []model.ListEntry{entry("e-1", false)},
+	}); err != nil {
+		t.Fatalf("flush failed: %v", err)
+	}
+	a = fetchActivity()
+	if a.Added != 3 || a.Checked != 1 {
+		t.Errorf("after undo: expected added=3 checked=1, got %+v", a)
+	}
+
+	// Re-checking a freshly re-added (GC'd and recreated) entry counts checked+added
+	if err := svc.Flush(ctx, user.ID, &model.FlushRequest{
+		HouseholdID: hh.ID,
+		ListEntries: []model.ListEntry{entry("e-new", true)},
+	}); err != nil {
+		t.Fatalf("flush failed: %v", err)
+	}
+	a = fetchActivity()
+	if a.Added != 4 || a.Checked != 2 {
+		t.Errorf("after re-add: expected added=4 checked=2, got %+v", a)
 	}
 }

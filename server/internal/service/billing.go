@@ -12,10 +12,10 @@ var (
 type ResourceType string
 
 const (
-	ResourceStores    ResourceType = "stores"
-	ResourceItems     ResourceType = "items"
-	ResourceMembers   ResourceType = "members"
-	ResourceEntries   ResourceType = "entries"
+	ResourceStores  ResourceType = "stores"
+	ResourceItems   ResourceType = "items"
+	ResourceMembers ResourceType = "members"
+	ResourceEntries ResourceType = "entries"
 )
 
 type HouseholdPlan struct {

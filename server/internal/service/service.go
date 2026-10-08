@@ -17,11 +17,18 @@ import (
 )
 
 var (
-	ErrUnauthorized     = errors.New("unauthorized")
-	ErrForbidden        = errors.New("forbidden")
+	ErrUnauthorized       = errors.New("unauthorized")
+	ErrForbidden          = errors.New("forbidden")
 	ErrRegistrationClosed = errors.New("registration is closed on this server")
-	ErrEmailNotAllowed  = errors.New("email address is not allowed on this server")
+	ErrEmailNotAllowed    = errors.New("email address is not allowed on this server")
 )
+
+// ClientInfo carries the client-reported app version (X-Simsli-App-Version
+// header) used for aggregate usage metrics. It is not device-level tracking:
+// the value lands on the user row, throttled to at most one write per hour.
+type ClientInfo struct {
+	AppVersion string
+}
 
 type Service struct {
 	repo    *repository.Repository
@@ -113,7 +120,7 @@ func (s *Service) RequestMagicLink(ctx context.Context, email string) (string, e
 }
 
 // VerifyMagicLink validates the token, logs in / registers the user, and issues a JWT token pair
-func (s *Service) VerifyMagicLink(ctx context.Context, token string) (*auth.TokenPair, *model.User, error) {
+func (s *Service) VerifyMagicLink(ctx context.Context, token string, clientInfo ClientInfo) (*auth.TokenPair, *model.User, error) {
 	ml, err := s.repo.GetMagicLink(ctx, token)
 	if err != nil {
 		return nil, nil, errors.New("invalid or expired magic link")
@@ -162,11 +169,22 @@ func (s *Service) VerifyMagicLink(ctx context.Context, token string) (*auth.Toke
 		return nil, nil, fmt.Errorf("failed to save refresh token: %w", err)
 	}
 
+	s.touchUserVersion(ctx, user.ID, clientInfo)
+
 	return tokens, user, nil
 }
 
+// touchUserVersion records the client-reported app version on the user row.
+// Best-effort: usage metrics must never fail or slow down an auth response.
+func (s *Service) touchUserVersion(ctx context.Context, userID string, clientInfo ClientInfo) {
+	if clientInfo.AppVersion == "" {
+		return
+	}
+	_ = s.repo.TouchUserVersion(ctx, userID, clientInfo.AppVersion)
+}
+
 // RefreshTokens rotates refresh tokens and issues a new access token
-func (s *Service) RefreshTokens(ctx context.Context, rawRefreshToken string) (*auth.TokenPair, error) {
+func (s *Service) RefreshTokens(ctx context.Context, rawRefreshToken string, clientInfo ClientInfo) (*auth.TokenPair, error) {
 	tokenHash := auth.HashToken(rawRefreshToken)
 	rt, err := s.repo.GetRefreshToken(ctx, tokenHash)
 	if err != nil {
@@ -199,6 +217,8 @@ func (s *Service) RefreshTokens(ctx context.Context, rawRefreshToken string) (*a
 	if err := s.repo.CreateRefreshToken(ctx, newRT); err != nil {
 		return nil, err
 	}
+
+	s.touchUserVersion(ctx, user.ID, clientInfo)
 
 	return newTokens, nil
 }
@@ -414,6 +434,24 @@ func (s *Service) AdminCreateUser(ctx context.Context, email string) (*model.Use
 	return user, nil
 }
 
+// UsageOverview bundles the aggregate usage metrics shown on the admin dashboard.
+type UsageOverview struct {
+	VersionDistribution []model.VersionDistribution
+	MonthlyActivity     []model.MonthlyActivity
+	ActiveUsers24h      int
+}
+
+func (s *Service) GetUsageOverview(ctx context.Context) UsageOverview {
+	dist, _ := s.repo.GetVersionDistribution(ctx)
+	activity, _ := s.repo.GetMonthlyActivity(ctx, 12)
+	active, _ := s.repo.CountUsersSeenSince(ctx, time.Now().UTC().Add(-24*time.Hour))
+	return UsageOverview{
+		VersionDistribution: dist,
+		MonthlyActivity:     activity,
+		ActiveUsers24h:      active,
+	}
+}
+
 func generateShortToken(n int) string {
 	const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // omit confusing 0/O, 1/I
 	b := make([]byte, n)
@@ -426,4 +464,3 @@ func generateShortToken(n int) string {
 func (s *Service) BrowseTable(ctx context.Context, table, householdID string, limit, offset int) ([]string, [][]string, int, error) {
 	return s.repo.BrowseTable(ctx, table, householdID, limit, offset)
 }
-

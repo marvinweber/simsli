@@ -107,7 +107,7 @@ func (h *AuthHandler) Verify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokens, user, err := h.svc.VerifyMagicLink(r.Context(), req.Token)
+	tokens, user, err := h.svc.VerifyMagicLink(r.Context(), req.Token, ClientInfoFromRequest(r))
 	if err != nil {
 		writeJSONError(w, http.StatusUnauthorized, err.Error())
 		return
@@ -133,7 +133,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokens, err := h.svc.RefreshTokens(r.Context(), req.RefreshToken)
+	tokens, err := h.svc.RefreshTokens(r.Context(), req.RefreshToken, ClientInfoFromRequest(r))
 	if err != nil {
 		writeJSONError(w, http.StatusUnauthorized, "invalid or expired refresh token")
 		return
