@@ -139,6 +139,27 @@ func (h *HouseholdHandler) GetMembers(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, members)
 }
 
+func (h *HouseholdHandler) GetStats(w http.ResponseWriter, r *http.Request) {
+	user := GetAuthUser(r)
+	if user == nil {
+		writeJSONError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	householdID := chi.URLParam(r, "id")
+	stats, err := h.svc.GetHouseholdStats(r.Context(), user.ID, householdID)
+	if err != nil {
+		if err == service.ErrForbidden {
+			writeJSONError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, stats)
+}
+
 func (h *HouseholdHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
 	user := GetAuthUser(r)
 	if user == nil {

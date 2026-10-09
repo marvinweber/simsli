@@ -28,6 +28,21 @@ type MonthlyActivity struct {
 	Added   int `json:"added"`
 }
 
+// MonthlyStats is the API shape of one month's household activity.
+type MonthlyStats struct {
+	Year         int `json:"year"`
+	Month        int `json:"month"`
+	ItemsChecked int `json:"items_checked"`
+	ItemsAdded   int `json:"items_added"`
+}
+
+// HouseholdStatsResponse serves GET /households/{id}/stats. Only months with
+// recorded activity are included — clients fill zero-activity months to render
+// a continuous timeline.
+type HouseholdStatsResponse struct {
+	Months []MonthlyStats `json:"months"`
+}
+
 type Household struct {
 	ID               string     `json:"id"`
 	Name             string     `json:"name"`

@@ -17,6 +17,7 @@ import net.marvinweber.simsli.data.remote.dto.DeltaResponseDto
 import net.marvinweber.simsli.data.remote.dto.FlushRequestDto
 import net.marvinweber.simsli.data.remote.dto.HouseholdDto
 import net.marvinweber.simsli.data.remote.dto.HouseholdMemberDto
+import net.marvinweber.simsli.data.remote.dto.HouseholdStatsDto
 import net.marvinweber.simsli.data.remote.dto.InviteTokenDto
 import net.marvinweber.simsli.data.remote.dto.MagicLinkRequestDto
 import net.marvinweber.simsli.data.remote.dto.MagicLinkResponseDto
@@ -150,6 +151,15 @@ class SimsliRemoteDataSource @Inject constructor(
     suspend fun getHouseholdMembers(householdId: String): List<HouseholdMemberDto> = withContext(ioDispatcher) {
         val request = Request.Builder()
             .url("${tokenStorage.serverUrl}/api/v1/households/$householdId/members")
+            .get()
+            .buildAuthenticated()
+
+        executeAndDecode(request)
+    }
+
+    suspend fun getHouseholdStats(householdId: String): HouseholdStatsDto = withContext(ioDispatcher) {
+        val request = Request.Builder()
+            .url("${tokenStorage.serverUrl}/api/v1/households/$householdId/stats")
             .get()
             .buildAuthenticated()
 

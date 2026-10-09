@@ -69,6 +69,7 @@ func NewRouter(
 				r.Get("/{id}", hhH.GetHousehold)
 				r.Put("/{id}", hhH.UpdateHousehold)
 				r.Get("/{id}/members", hhH.GetMembers)
+				r.Get("/{id}/stats", hhH.GetStats)
 				r.Delete("/{id}/members/{userId}", hhH.RemoveMember)
 				r.Post("/{id}/invites", hhH.CreateInvite)
 			})

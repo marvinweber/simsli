@@ -21,6 +21,7 @@ import net.marvinweber.simsli.di.IoDispatcher
 import net.marvinweber.simsli.domain.model.Household
 import net.marvinweber.simsli.domain.model.HouseholdMember
 import net.marvinweber.simsli.domain.model.MemberRole
+import net.marvinweber.simsli.domain.model.MonthlyActivity
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -141,6 +142,24 @@ class HouseholdRepositoryImpl @Inject constructor(
                 )
             }
             Result.success(members)
+        } catch (e: SimsliApiException) {
+            Result.failure(IllegalStateException(e.message, e))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun getMonthlyStats(householdId: String): Result<List<MonthlyActivity>> {
+        return try {
+            val stats = remoteDataSource.getHouseholdStats(householdId)
+            Result.success(stats.months.map { dto ->
+                MonthlyActivity(
+                    year = dto.year,
+                    month = dto.month,
+                    itemsAdded = dto.itemsAdded,
+                    itemsChecked = dto.itemsChecked
+                )
+            })
         } catch (e: SimsliApiException) {
             Result.failure(IllegalStateException(e.message, e))
         } catch (e: Exception) {

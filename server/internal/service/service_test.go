@@ -436,3 +436,58 @@ func TestFlushRecordsMonthlyActivity(t *testing.T) {
 		t.Errorf("after re-add: expected added=4 checked=2, got %+v", a)
 	}
 }
+
+func TestGetHouseholdStats(t *testing.T) {
+	svc, _ := setupTestService(t)
+	ctx := context.Background()
+
+	owner, _ := svc.AdminCreateUser(ctx, "stats-owner@simsli.de")
+	outsider, _ := svc.AdminCreateUser(ctx, "stats-outsider@simsli.de")
+	hh, err := svc.CreateHousehold(ctx, owner.ID, "hh-stats", "Stats Household")
+	if err != nil {
+		t.Fatalf("create household failed: %v", err)
+	}
+
+	// No activity yet → empty list, not error
+	stats, err := svc.GetHouseholdStats(ctx, owner.ID, hh.ID)
+	if err != nil {
+		t.Fatalf("get stats failed: %v", err)
+	}
+	if len(stats.Months) != 0 {
+		t.Errorf("expected empty months, got %+v", stats.Months)
+	}
+
+	// Generate activity: item + entry added already done
+	now := time.Now().UTC()
+	if err := svc.Flush(ctx, owner.ID, &model.FlushRequest{
+		HouseholdID: hh.ID,
+		Items: []model.Item{
+			{ID: "i-s1", HouseholdID: hh.ID, Name: "Milk", Type: "PERMANENT", CreatedAt: now, UpdatedAt: now},
+		},
+		ListEntries: []model.ListEntry{
+			{ID: "le-s1", HouseholdID: hh.ID, ItemID: "i-s1", Done: true, CompletedAt: &now, CreatedAt: now, UpdatedAt: now},
+		},
+	}); err != nil {
+		t.Fatalf("flush failed: %v", err)
+	}
+
+	stats, err = svc.GetHouseholdStats(ctx, owner.ID, hh.ID)
+	if err != nil {
+		t.Fatalf("get stats failed: %v", err)
+	}
+	if len(stats.Months) != 1 {
+		t.Fatalf("expected 1 month row, got %+v", stats.Months)
+	}
+	m := stats.Months[0]
+	if m.Year != now.Year() || m.Month != int(now.Month()) {
+		t.Errorf("expected %d-%d, got %d-%d", now.Year(), now.Month(), m.Year, m.Month)
+	}
+	if m.ItemsChecked != 1 || m.ItemsAdded != 1 {
+		t.Errorf("expected checked=1 added=1, got %+v", m)
+	}
+
+	// Non-members are forbidden
+	if _, err := svc.GetHouseholdStats(ctx, outsider.ID, hh.ID); err != ErrForbidden {
+		t.Errorf("expected ErrForbidden for outsider, got %v", err)
+	}
+}

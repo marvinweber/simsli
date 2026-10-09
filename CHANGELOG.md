@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- **Household Statistics**: New "Statistics" entry in Settings → Household opens a monthly activity timeline (git-graph style: month on the left rail, two rounded bars per month for items added and items checked). Scrolls continuously into the past; bar lengths scale to the busiest visible month.
 - **Server Usage Metrics**: The server now records aggregate usage data — last-seen time and app version per account (updated at most hourly, no device tracking) and per-household monthly totals of checked/added list items. Both are visible on the admin dashboard ("Usage & Versions"); documented in the privacy policy and ADR 0018.
 
 ## [0.4.0] - 2026-10-07

@@ -293,6 +293,25 @@ func (s *Service) GetHouseholdMembers(ctx context.Context, userID, householdID s
 	return s.repo.GetHouseholdMembers(ctx, householdID)
 }
 
+func (s *Service) GetHouseholdStats(ctx context.Context, userID, householdID string) (*model.HouseholdStatsResponse, error) {
+	isMember, err := s.repo.IsHouseholdMember(ctx, householdID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !isMember {
+		return nil, ErrForbidden
+	}
+
+	months, err := s.repo.GetHouseholdStats(ctx, householdID)
+	if err != nil {
+		return nil, err
+	}
+	if months == nil {
+		months = []model.MonthlyStats{}
+	}
+	return &model.HouseholdStatsResponse{Months: months}, nil
+}
+
 func (s *Service) RemoveHouseholdMember(ctx context.Context, requesterUserID, householdID, targetUserID string) error {
 	isOwner, err := s.repo.IsHouseholdOwner(ctx, householdID, requesterUserID)
 	if err != nil {

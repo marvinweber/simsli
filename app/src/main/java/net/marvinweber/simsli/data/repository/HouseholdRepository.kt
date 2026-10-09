@@ -2,6 +2,7 @@ package net.marvinweber.simsli.data.repository
 
 import net.marvinweber.simsli.domain.model.Household
 import net.marvinweber.simsli.domain.model.HouseholdMember
+import net.marvinweber.simsli.domain.model.MonthlyActivity
 import kotlinx.coroutines.flow.Flow
 
 interface HouseholdRepository {
@@ -21,6 +22,12 @@ interface HouseholdRepository {
 
     /** Returns all members of the household [householdId]. */
     suspend fun getMembers(householdId: String): Result<List<HouseholdMember>>
+
+    /**
+     * Returns the household's monthly shopping activity (items added/checked),
+     * newest month first. Only months with recorded activity are included.
+     */
+    suspend fun getMonthlyStats(householdId: String): Result<List<MonthlyActivity>>
 
     /** Removes [userId] from [householdId]. Only callable by the household owner. */
     suspend fun removeMember(householdId: String, userId: String): Result<Unit>

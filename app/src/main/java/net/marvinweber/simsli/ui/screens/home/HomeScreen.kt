@@ -44,6 +44,7 @@ enum class HomeTab(val label: String) {
 fun HomeScreen(
     onNavigateToItemDetail: (String?) -> Unit,
     onNavigateToHouseholdMembers: () -> Unit = {},
+    onNavigateToHouseholdStatistics: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     var selectedTabName by rememberSaveable { mutableStateOf(HomeTab.LIST.name) }
@@ -130,7 +131,8 @@ fun HomeScreen(
                 HomeTab.SETTINGS -> tabStateHolder.SaveableStateProvider(HomeTab.SETTINGS.name) {
                     SettingsTabContent(
                         isSyncing = isSyncing,
-                        onNavigateToHouseholdMembers = onNavigateToHouseholdMembers
+                        onNavigateToHouseholdMembers = onNavigateToHouseholdMembers,
+                        onNavigateToHouseholdStatistics = onNavigateToHouseholdStatistics
                     )
                 }
             }

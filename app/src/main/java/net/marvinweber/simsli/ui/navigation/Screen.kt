@@ -11,6 +11,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import net.marvinweber.simsli.ui.screens.household.HouseholdMembersScreen
+import net.marvinweber.simsli.ui.screens.household.HouseholdStatisticsScreen
 import net.marvinweber.simsli.ui.screens.home.HomeScreen
 import net.marvinweber.simsli.ui.screens.item.ItemDetailScreen
 
@@ -21,6 +22,7 @@ sealed class Screen(val route: String) {
     }
     data object Onboarding : Screen("onboarding")
     data object HouseholdMembers : Screen("household_members")
+    data object HouseholdStatistics : Screen("household_statistics")
 }
 
 /**
@@ -70,6 +72,9 @@ fun SimsliNavHost(
                 },
                 onNavigateToHouseholdMembers = {
                     navController.navigate(Screen.HouseholdMembers.route)
+                },
+                onNavigateToHouseholdStatistics = {
+                    navController.navigate(Screen.HouseholdStatistics.route)
                 }
             )
         }
@@ -85,6 +90,13 @@ fun SimsliNavHost(
         }
         composable(Screen.HouseholdMembers.route) {
             HouseholdMembersScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+        composable(Screen.HouseholdStatistics.route) {
+            HouseholdStatisticsScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 }

@@ -211,6 +211,30 @@ func (r *Repository) CountUsersSeenSince(ctx context.Context, t time.Time) (int,
 	return count, err
 }
 
+// GetHouseholdStats returns the household's monthly activity rows, newest
+// first. Months without recorded activity are absent — the client renders a
+// continuous timeline by filling them with zeros.
+func (r *Repository) GetHouseholdStats(ctx context.Context, householdID string) ([]model.MonthlyStats, error) {
+	rows, err := r.db.QueryContext(ctx,
+		"SELECT year, month, items_checked, items_added FROM household_monthly_stats WHERE household_id = ? ORDER BY year DESC, month DESC",
+		householdID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stats []model.MonthlyStats
+	for rows.Next() {
+		var m model.MonthlyStats
+		if err := rows.Scan(&m.Year, &m.Month, &m.ItemsChecked, &m.ItemsAdded); err != nil {
+			return nil, err
+		}
+		stats = append(stats, m)
+	}
+	return stats, rows.Err()
+}
+
 // --- Magic Links ---
 
 func (r *Repository) CreateMagicLink(ctx context.Context, link *model.MagicLink) error {
