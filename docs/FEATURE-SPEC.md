@@ -35,7 +35,7 @@ Milestone tags are assignments, not promises — moving a feature between milest
 
 Each feature appears once, under its current status; extensions tagged to later milestones (e.g. HH-2 admin role → v1.5, STORE-1 drag & drop → v1, LIST-5 favorite toggle → v0.1) stay tracked in the §3 entry. DATA-2 ships per path (removal with HH-5 in v0.1, leave/delete with HH-6/7 in v1). BIZ-4 is unlisted — its decision is open (OQ-1).
 
-Last updated: 2026-10-08
+Last updated: 2026-10-10
 
 ---
 
@@ -124,8 +124,8 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 ### 3.7 Sync (SYNC)
 
 - **SYNC-1 Triggers ✅** — sign-in/session restore; debounced (500 ms) requests after every local write; Realtime WebSocket invalidation events on `list_entries`, `items`, `stores`, `categories`, `store_categories` (foreground only: connection active while app is in foreground, closed on backgrounding/close) ✅; manual "Sync now".
-- **SYNC-2 Pipeline ✅** — resolveHousehold → flushOutbox (push current row state) → watermark delta pulls (`updated_at`, microsecond precision) → GC. Join tables without `updated_at` (`item_stores` ✅, `store_categories` ✅) reconcile by full set comparison.
-- **SYNC-3 Conflict resolution ✅** — last write wins per row (no payloads; the current local row state is pushed).
+- **SYNC-2 Pipeline ✅** — resolveHousehold → flushOutbox (push current row state) → watermark delta pulls (`updated_at`, microsecond precision) → GC. Join tables without `updated_at` (`item_stores` ✅, `store_categories` ✅) reconcile by full set comparison. The server stamps flushed rows' `updated_at` with its own clock (ADR 0019) — both sides of the delta comparison share the server clock, so device clock skew can no longer hide writes from other devices.
+- **SYNC-3 Conflict resolution ✅** — last write wins per row (no payloads; the current local row state is pushed; arrival order decides, ADR 0019).
 - **SYNC-4 Realtime-as-trigger ✅** — realtime events only request a sync; the watermark pull is transport and backstop.
 - **SYNC-5 Offline/pending indicator 📋 v1** — subtle, honest indicator when the device is offline or has unsynced writes (outbox pending); clears when sync completes. No modal nagging.
 

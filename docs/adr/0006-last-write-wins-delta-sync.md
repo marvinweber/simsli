@@ -1,6 +1,6 @@
 # ADR 0006: Last-write-wins delta sync without payloads
 
-- **Status:** Accepted
+- **Status:** Accepted (the client-stamped-timestamp aspect was superseded by ADR 0019 — server-stamped `updated_at`; LWW-without-payloads unchanged)
 - **Date:** 2026-09-26 (recorded retroactively — decision predates this ADR)
 
 ## Context

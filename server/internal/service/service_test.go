@@ -491,3 +491,89 @@ func TestGetHouseholdStats(t *testing.T) {
 		t.Errorf("expected ErrForbidden for outsider, got %v", err)
 	}
 }
+
+// ADR 0019 regression test: a flush carrying a stale client-stamped updated_at
+// (lagging device clock, stale outbox push re-sending old state) must still be
+// visible to devices whose watermark already sits past that timestamp. The
+// server re-stamps updated_at with server time; without that, the delta query
+// (updated_at > since) never selects the row and the write is lost forever.
+func TestFlushWithStaleClientTimestampRemainsVisible(t *testing.T) {
+	svc, _ := setupTestService(t)
+	ctx := context.Background()
+
+	user, err := svc.AdminCreateUser(ctx, "user1@simsli.de")
+	if err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	hh, err := svc.CreateHousehold(ctx, user.ID, "hh-drift-1", "Drift Household")
+	if err != nil {
+		t.Fatalf("create household failed: %v", err)
+	}
+
+	// Client clock years behind the server (or a stale outbox row): the pushed
+	// updated_at is far below any watermark another device could hold.
+	stale := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	flushReq := &model.FlushRequest{
+		HouseholdID: hh.ID,
+		Items: []model.Item{
+			{ID: "i-1", HouseholdID: hh.ID, Name: "Milk", Type: "PERMANENT", SortOrder: 1, CreatedAt: stale, UpdatedAt: stale},
+		},
+		ListEntries: []model.ListEntry{
+			{ID: "e-1", HouseholdID: hh.ID, ItemID: "i-1", Done: true, CompletedAt: &stale, CreatedAt: stale, UpdatedAt: stale},
+		},
+	}
+	if err := svc.Flush(ctx, user.ID, flushReq); err != nil {
+		t.Fatalf("flush failed: %v", err)
+	}
+
+	// A device whose watermark is "recently" (i.e. past the stale timestamp)
+	// pulls: the rows must be delivered, and their updated_at must be server
+	// time, not the stale client value.
+	since := time.Now().UTC().Add(-time.Minute)
+	deltas, err := svc.GetDeltas(ctx, user.ID, hh.ID, since)
+	if err != nil {
+		t.Fatalf("get deltas failed: %v", err)
+	}
+
+	var item *model.Item
+	for i := range deltas.Items {
+		if deltas.Items[i].ID == "i-1" {
+			item = &deltas.Items[i]
+		}
+	}
+	if item == nil {
+		t.Fatal("expected flushed item in deltas despite stale client updated_at")
+	}
+	if !item.UpdatedAt.After(stale) {
+		t.Errorf("expected item updated_at re-stamped to server time, got %v", item.UpdatedAt)
+	}
+	if !item.CreatedAt.Equal(stale) {
+		t.Errorf("expected created_at preserved from client, got %v", item.CreatedAt)
+	}
+
+	var entry *model.ListEntry
+	for i := range deltas.ListEntries {
+		if deltas.ListEntries[i].ID == "e-1" {
+			entry = &deltas.ListEntries[i]
+		}
+	}
+	if entry == nil {
+		t.Fatal("expected flushed list entry in deltas despite stale client updated_at")
+	}
+	if !entry.Done {
+		t.Error("expected entry done=true")
+	}
+	if !entry.UpdatedAt.After(stale) {
+		t.Errorf("expected entry updated_at re-stamped to server time, got %v", entry.UpdatedAt)
+	}
+	if entry.CompletedAt == nil || !entry.CompletedAt.Equal(stale) {
+		t.Errorf("expected completed_at preserved from client, got %v", entry.CompletedAt)
+	}
+
+	// The delta response's server_time must also be past the re-stamped rows,
+	// so the pulling device's next watermark does not fall behind them.
+	if !deltas.ServerTime.After(entry.UpdatedAt) && !deltas.ServerTime.Equal(entry.UpdatedAt) {
+		t.Errorf("expected server_time %v >= entry updated_at %v", deltas.ServerTime, entry.UpdatedAt)
+	}
+}

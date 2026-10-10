@@ -813,7 +813,17 @@ func (r *Repository) Flush(ctx context.Context, req *model.FlushRequest) error {
 	}
 	defer tx.Rollback()
 
-	nowStr := formatTime(time.Now().UTC())
+	now := time.Now().UTC()
+	nowStr := formatTime(now)
+
+	// ADR 0019: delta visibility compares row updated_at against watermarks that
+	// are issued in server time, so a client-stamped updated_at (lagging device
+	// clock, stale outbox push re-sending old state) can land at or below
+	// another device's watermark — making the write invisible to it forever.
+	// Every upsert below therefore binds nowStr as updated_at, in both the
+	// INSERT and the ON CONFLICT branch; the client-supplied updated_at is
+	// never stored. created_at and completed_at keep their client values:
+	// they are display/GC data, not delta-filter criteria.
 
 	// Upsert Household if present
 	if req.Household != nil {
@@ -848,9 +858,9 @@ func (r *Repository) Flush(ctx context.Context, req *model.FlushRequest) error {
 			 ON CONFLICT(id) DO UPDATE SET
 			   name=excluded.name,
 			   sort_order=excluded.sort_order,
-			   updated_at=excluded.updated_at,
+			   updated_at=?,
 			   deleted_at=excluded.deleted_at`,
-			s.ID, req.HouseholdID, s.Name, s.SortOrder, formatTime(s.CreatedAt), formatTime(s.UpdatedAt), daStr,
+			s.ID, req.HouseholdID, s.Name, s.SortOrder, formatTime(s.CreatedAt), nowStr, daStr, nowStr,
 		)
 		if err != nil {
 			return fmt.Errorf("flush store: %w", err)
@@ -870,9 +880,9 @@ func (r *Repository) Flush(ctx context.Context, req *model.FlushRequest) error {
 			   name=excluded.name,
 			   emoji=excluded.emoji,
 			   sort_order=excluded.sort_order,
-			   updated_at=excluded.updated_at,
+			   updated_at=?,
 			   deleted_at=excluded.deleted_at`,
-			c.ID, req.HouseholdID, c.Name, c.Emoji, c.SortOrder, formatTime(c.CreatedAt), formatTime(c.UpdatedAt), daStr,
+			c.ID, req.HouseholdID, c.Name, c.Emoji, c.SortOrder, formatTime(c.CreatedAt), nowStr, daStr, nowStr,
 		)
 		if err != nil {
 			return fmt.Errorf("flush category: %w", err)
@@ -902,9 +912,9 @@ func (r *Repository) Flush(ctx context.Context, req *model.FlushRequest) error {
 			   default_unit=excluded.default_unit,
 			   sort_order=excluded.sort_order,
 			   links=excluded.links,
-			   updated_at=excluded.updated_at,
+			   updated_at=?,
 			   deleted_at=excluded.deleted_at`,
-			it.ID, req.HouseholdID, it.CategoryID, it.Name, it.Notes, it.Type, it.DefaultUnit, it.SortOrder, linksJSON, formatTime(it.CreatedAt), formatTime(it.UpdatedAt), daStr,
+			it.ID, req.HouseholdID, it.CategoryID, it.Name, it.Notes, it.Type, it.DefaultUnit, it.SortOrder, linksJSON, formatTime(it.CreatedAt), nowStr, daStr, nowStr,
 		)
 		if err != nil {
 			return fmt.Errorf("flush item: %w", err)
@@ -952,8 +962,8 @@ func (r *Repository) Flush(ctx context.Context, req *model.FlushRequest) error {
 			   comment=excluded.comment,
 			   done=excluded.done,
 			   completed_at=excluded.completed_at,
-			   updated_at=excluded.updated_at`,
-			le.ID, req.HouseholdID, le.ItemID, le.Quantity, le.Unit, le.Comment, doneInt, compAtStr, le.CreatedBy, formatTime(le.CreatedAt), formatTime(le.UpdatedAt),
+			   updated_at=?`,
+			le.ID, req.HouseholdID, le.ItemID, le.Quantity, le.Unit, le.Comment, doneInt, compAtStr, le.CreatedBy, formatTime(le.CreatedAt), nowStr, nowStr,
 		)
 		if err != nil {
 			return fmt.Errorf("flush list_entry: %w", err)
