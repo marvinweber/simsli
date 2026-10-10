@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- **Update Notice**: When the server requires a newer app version than installed, a one-time dialog now asks you to update — continuing on an outdated version may lead to unexpected behavior and unreliable syncing.
+
 ### Fixed
 - **Sync drift eliminated**: the server now stamps flushed rows with its own clock instead of trusting the sending device's timestamp (ADR 0019). Previously, a device with a lagging clock (or a stale outbox push) could write timestamps below other devices' sync watermarks — those changes were silently never delivered to them (reported as "my list shows items unticked that are ticked elsewhere"). Combined with the new full-resync recovery below.
 

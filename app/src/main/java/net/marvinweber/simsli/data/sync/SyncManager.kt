@@ -8,6 +8,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -40,10 +41,12 @@ import net.marvinweber.simsli.data.remote.dto.StoreCategoryDto
 import net.marvinweber.simsli.data.remote.dto.StoreDto
 import net.marvinweber.simsli.data.remote.mapper.toDb
 import net.marvinweber.simsli.data.remote.mapper.toDto
+import net.marvinweber.simsli.BuildConfig
 import net.marvinweber.simsli.data.repository.AuthRepository
 import net.marvinweber.simsli.data.repository.AuthState
 import net.marvinweber.simsli.di.ApplicationScope
 import net.marvinweber.simsli.di.IoDispatcher
+import net.marvinweber.simsli.domain.AppVersionCheck
 import net.marvinweber.simsli.domain.model.ItemType
 import java.time.Duration
 import java.time.Instant
@@ -62,6 +65,13 @@ import javax.inject.Singleton
  *
  * Runs are serialized; a failed run leaves its state consistent for a retry.
  */
+
+/** Raised when the server reports a `min_app_version` newer than the installed app. */
+data class AppUpdateNotice(
+    val minAppVersion: String,
+    val appVersion: String
+)
+
 @Singleton
 class SyncManager @Inject constructor(
     private val authRepository: AuthRepository,
@@ -90,6 +100,44 @@ class SyncManager @Inject constructor(
     val isSyncing: StateFlow<Boolean> = pendingSyncs
         .map { it > 0 }
         .stateIn(externalScope, SharingStarted.Eagerly, false)
+
+    /** Update notice state, set once per process when a min-app-version mismatch is detected. */
+    private val _appUpdateNotice = MutableStateFlow<AppUpdateNotice?>(null)
+
+    /** Non-null while the "please update" notice should be visible. */
+    val appUpdateNotice: StateFlow<AppUpdateNotice?> = _appUpdateNotice.asStateFlow()
+
+    private var minVersionChecked = false
+
+    @Volatile
+    private var updateNoticeDismissed = false
+
+    /** Dismisses the update notice for the rest of the process lifetime. */
+    fun dismissAppUpdateNotice() {
+        updateNoticeDismissed = true
+        _appUpdateNotice.value = null
+    }
+
+    /**
+     * Once per process, after the first successful server contact: compares the
+     * server-advertised `min_app_version` against the installed version and raises
+     * the update notice when the app is behind. Never fails the surrounding sync.
+     */
+    private suspend fun checkMinAppVersion() {
+        if (minVersionChecked || updateNoticeDismissed) return
+        minVersionChecked = true
+        try {
+            val info = remoteDataSource.getServerInfo()
+            if (AppVersionCheck.isOutdated(info.minAppVersion, BuildConfig.VERSION_NAME)) {
+                diag.w(TAG, "Server requires min app version ${info.minAppVersion}, running ${BuildConfig.VERSION_NAME}")
+                _appUpdateNotice.value = AppUpdateNotice(info.minAppVersion, BuildConfig.VERSION_NAME)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            diag.d(TAG, "Min-version check skipped: server info unavailable (${e.message})")
+        }
+    }
 
     /** Watches auth state and syncs after every sign-in (including session restore at app start). */
     fun start() {
@@ -135,6 +183,7 @@ class SyncManager @Inject constructor(
                         flushOutbox(userId)
                         pullDeltas()
                         gcExpiredEntries()
+                        checkMinAppVersion()
                         Result.success(Unit).also {
                             // Outbox size after the run: in a refill loop this never reaches 0.
                             diag.d(
@@ -191,6 +240,7 @@ class SyncManager @Inject constructor(
                         resolveHousehold(userId)
                         pullDeltas()
                         gcExpiredEntries()
+                        checkMinAppVersion()
                         Result.success(Unit).also {
                             diag.d(TAG, "Full resync ($trigger) finished in ${System.currentTimeMillis() - startedAt}ms")
                         }

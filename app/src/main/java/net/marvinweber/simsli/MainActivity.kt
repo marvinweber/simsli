@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import net.marvinweber.simsli.data.repository.AuthRepository
+import net.marvinweber.simsli.ui.components.AppUpdateDialog
 import net.marvinweber.simsli.ui.navigation.SimsliNavHost
 import net.marvinweber.simsli.ui.theme.SimsliTheme
 import javax.inject.Inject
@@ -40,6 +41,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val navController = rememberNavController()
                     SimsliNavHost(navController = navController)
+                    AppUpdateDialog()
                 }
             }
         }
