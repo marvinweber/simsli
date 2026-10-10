@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sync drift eliminated**: the server now stamps flushed rows with its own clock instead of trusting the sending device's timestamp (ADR 0019). Previously, a device with a lagging clock (or a stale outbox push) could write timestamps below other devices' sync watermarks — those changes were silently never delivered to them (reported as "my list shows items unticked that are ticked elsewhere"). Combined with the new full-resync recovery below.
 
 ### Added
+- **Full Resync**: New "Full resync" action in Settings → Cloud Sync (with confirmation dialog). Uploads pending changes, wipes local data, and re-downloads the complete household state from the server — the recovery path if the list ever shows state that normal syncing can't correct (e.g. updates whose timestamps fell below the sync watermark were never re-sent).
 - **Household Statistics**: New "Statistics" entry in Settings → Household opens a monthly activity timeline (git-graph style: month on the left rail, two rounded bars per month for items added and items checked). Scrolls continuously into the past; bar lengths scale to the busiest visible month.
 - **Server Usage Metrics**: The server now records aggregate usage data — last-seen time and app version per account (updated at most hourly, no device tracking) and per-household monthly totals of checked/added list items. Both are visible on the admin dashboard ("Usage & Versions"); documented in the privacy policy and ADR 0018.
 

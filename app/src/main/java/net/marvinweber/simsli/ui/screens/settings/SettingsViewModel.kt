@@ -69,6 +69,7 @@ data class SettingsUiState(
     val joinInput: String? = null,    // non-null → join dialog open, holds the field content
     val showSeedConfirm: Boolean = false, // debug only: confirm before wiping + seeding
     val showSignOutConfirm: Boolean = false,
+    val showFullResyncConfirm: Boolean = false,
     val endpointHealth: EndpointHealth = EndpointHealth()
 )
 
@@ -93,6 +94,7 @@ class SettingsViewModel @Inject constructor(
     private val joinInput = MutableStateFlow<String?>(null)
     private val seedConfirmOpen = MutableStateFlow(false)
     private val signOutConfirmOpen = MutableStateFlow(false)
+    private val fullResyncConfirmOpen = MutableStateFlow(false)
     private val endpointHealth = MutableStateFlow(EndpointHealth())
     private val members = MutableStateFlow<List<HouseholdMember>>(emptyList())
 
@@ -111,7 +113,7 @@ class SettingsViewModel @Inject constructor(
         val isBusy: Boolean,
         val statusMessage: String?,
         val renameInput: String?,
-        val dialog: DialogInputs
+        val dialog: Pair<DialogInputs, Boolean>
     )
 
     val uiState: StateFlow<SettingsUiState> = combine(
@@ -121,7 +123,10 @@ class SettingsViewModel @Inject constructor(
         members,
         combine(
             emailInput, isBusy, statusMessage, renameInput,
-            combine(inviteCode, showJoinWarning, joinInput, seedConfirmOpen, signOutConfirmOpen, ::DialogInputs),
+            combine(
+                combine(inviteCode, showJoinWarning, joinInput, seedConfirmOpen, signOutConfirmOpen, ::DialogInputs),
+                fullResyncConfirmOpen
+            ) { dialog, fullResync -> dialog to fullResync },
             ::LocalInputs
         )
     ) { authState, household, health, membersList, inputs ->
@@ -166,11 +171,12 @@ class SettingsViewModel @Inject constructor(
             isBusy = inputs.isBusy,
             statusMessage = inputs.statusMessage,
             renameInput = inputs.renameInput,
-            showSeedConfirm = inputs.dialog.seedConfirmOpen,
-            showSignOutConfirm = inputs.dialog.signOutConfirmOpen,
-            inviteCode = inputs.dialog.inviteCode,
-            showJoinWarning = inputs.dialog.showJoinWarning,
-            joinInput = inputs.dialog.joinInput,
+            showSeedConfirm = inputs.dialog.first.seedConfirmOpen,
+            showSignOutConfirm = inputs.dialog.first.signOutConfirmOpen,
+            showFullResyncConfirm = inputs.dialog.second,
+            inviteCode = inputs.dialog.first.inviteCode,
+            showJoinWarning = inputs.dialog.first.showJoinWarning,
+            joinInput = inputs.dialog.first.joinInput,
             endpointHealth = health
         )
     }.stateIn(
@@ -333,6 +339,33 @@ class SettingsViewModel @Inject constructor(
                     refreshHouseholdData()
                 }
                 .onFailure { statusMessage.value = "Sync failed: ${it.message}" }
+            isBusy.value = false
+        }
+    }
+
+    /** Recovery for suspected sync drift: re-downloads the full household state from the server. */
+    fun startFullResync() {
+        fullResyncConfirmOpen.value = true
+    }
+
+    fun dismissFullResync() {
+        fullResyncConfirmOpen.value = false
+    }
+
+    fun confirmFullResync() {
+        fullResyncConfirmOpen.value = false
+        viewModelScope.launch {
+            if (!uiState.value.isSignedIn) {
+                statusMessage.value = "Not signed in — sync needs an account."
+                return@launch
+            }
+            isBusy.value = true
+            syncManager.fullResync("manual")
+                .onSuccess {
+                    statusMessage.value = "Full resync complete — data re-downloaded from the server"
+                    refreshHouseholdData()
+                }
+                .onFailure { statusMessage.value = "Full resync failed: ${it.message}" }
             isBusy.value = false
         }
     }

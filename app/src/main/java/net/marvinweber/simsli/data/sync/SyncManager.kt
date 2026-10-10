@@ -161,6 +161,57 @@ class SyncManager @Inject constructor(
     }
 
     /**
+     * Full resync: pushes pending local writes, then wipes local data and
+     * re-downloads everything from the server. The watermarks go down with the
+     * wipe, so the next pull starts from EPOCH — the server state becomes the
+     * local state, recovering from any delta-sync drift.
+     *
+     * The flush runs first and its failure aborts the resync before the wipe —
+     * a failed flush must not destroy unsynced writes.
+     */
+    suspend fun fullResync(trigger: String = "manual"): Result<Unit> {
+        pendingSyncs.update { it + 1 }
+        val startedAt = System.currentTimeMillis()
+        try {
+            return mutex.withLock {
+                withContext(ioDispatcher) {
+                    try {
+                        val userId = authRepository.currentUserId()
+                            ?: return@withContext Result.success(Unit) // signed out — nothing to resync
+
+                        diag.d(TAG, "Full resync ($trigger) started")
+                        resolveHousehold(userId)
+                        enqueueInitialUploadIfNeeded()
+                        flushOutbox(userId)
+                        diag.d(TAG, "Full resync: wiping local data, re-pulling from server")
+                        db.clearAllTables()
+                        // resolveHousehold re-pulls the remote household record (the wipe
+                        // removed the local one); pullDeltas sees no watermarks and pulls
+                        // everything since EPOCH.
+                        resolveHousehold(userId)
+                        pullDeltas()
+                        gcExpiredEntries()
+                        Result.success(Unit).also {
+                            diag.d(TAG, "Full resync ($trigger) finished in ${System.currentTimeMillis() - startedAt}ms")
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        diag.w(
+                            TAG,
+                            "Full resync ($trigger) failed after ${System.currentTimeMillis() - startedAt}ms: " +
+                                "${e.javaClass.simpleName}: ${e.message}"
+                        )
+                        Result.failure(e)
+                    }
+                }
+            }
+        } finally {
+            pendingSyncs.update { (it - 1).coerceAtLeast(0) }
+        }
+    }
+
+    /**
      * Wipes all local app data — every Room table, including outbox and watermarks.
      */
     suspend fun wipeLocalData() {

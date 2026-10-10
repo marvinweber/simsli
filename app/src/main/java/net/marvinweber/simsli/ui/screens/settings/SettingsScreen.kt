@@ -484,6 +484,35 @@ fun SettingsTabContent(
             )
         }
 
+        if (uiState.showFullResyncConfirm) {
+            AlertDialog(
+                onDismissRequest = viewModel::dismissFullResync,
+                icon = {
+                    Icon(
+                        Icons.Outlined.CloudQueue,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                },
+                title = { Text("Full resync?") },
+                text = {
+                    Text(
+                        "Pending changes are uploaded first, then local data is wiped and everything is re-downloaded from the server. The server state wins."
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = viewModel::confirmFullResync) {
+                        Text("Resync")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = viewModel::dismissFullResync) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
         if (uiState.showSeedConfirm) {
             AlertDialog(
                 onDismissRequest = viewModel::dismissSeedDemo,
@@ -1064,6 +1093,39 @@ fun SettingsTabContent(
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text("Sync now")
                             }
+                        }
+                    }
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = "Full resync",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Wipes local data and re-downloads everything from the server — recovery if the list ever looks wrong",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        TextButton(
+                            onClick = viewModel::startFullResync,
+                            enabled = uiState.isSignedIn && !uiState.isBusy && !isSyncing,
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Resync")
                         }
                     }
                 }
