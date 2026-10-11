@@ -1,14 +1,56 @@
-name: Publish Server Docker Image
+name: CI & Publish Server Docker Image
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
       - '[0-9]+.[0-9]+.[0-9]+*'
+  pull_request:
+    branches:
+      - main
 
 jobs:
+  test-server:
+    name: Backend Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+
+      - name: Run Go tests
+        working-directory: server
+        run: go test -v ./...
+
+  test-android:
+    name: Android Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run Android unit tests
+        run: ./gradlew test
+
   build-and-push:
     name: Build and Push Docker Image
+    needs: [test-server, test-android]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
