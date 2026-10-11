@@ -2,6 +2,8 @@ package net.marvinweber.simsli.ui.screens.stores
 
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -195,13 +197,18 @@ fun StoresTabContent(
                     )
                 }
                 uiState.stores.isEmpty() && uiState.storeGroups.isEmpty() -> {
-                    Text(
-                        text = "No stores yet. Tap + to add one.",
-                        style = MaterialTheme.typography.bodyLarge,
+                    Box(
                         modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(16.dp)
-                    )
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No stores yet. Tap + to add one.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
                 }
                 else -> {
                     StoresList(

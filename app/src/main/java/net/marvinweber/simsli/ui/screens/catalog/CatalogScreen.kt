@@ -33,6 +33,11 @@ import net.marvinweber.simsli.domain.model.ItemType
 import net.marvinweber.simsli.ui.components.CategorySectionHeader
 import net.marvinweber.simsli.ui.components.LinkUtils
 import net.marvinweber.simsli.ui.components.SimsliTopAppBarOverflowMenu
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
@@ -79,7 +84,7 @@ enum class CatalogTab(
  * the household lives here independent of whether it is currently on the
  * list. Tap to edit, + to add to the list, FAB to create a new item.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun CatalogScreen(
     onNavigateToItemDetail: (String?) -> Unit,
@@ -134,18 +139,33 @@ fun CatalogScreen(
                 }
             }
 
-            when (selectedTab) {
-                CatalogTab.ITEMS -> tabStateHolder.SaveableStateProvider(CatalogTab.ITEMS.name) {
-                    ItemsTabContent(
-                        onNavigateToItemDetail = onNavigateToItemDetail,
-                        viewModel = viewModel
+            val pullToRefreshState = rememberPullToRefreshState()
+            PullToRefreshBox(
+                isRefreshing = isSyncing,
+                onRefresh = viewModel::refresh,
+                state = pullToRefreshState,
+                modifier = Modifier.fillMaxSize(),
+                indicator = {
+                    PullToRefreshDefaults.LoadingIndicator(
+                        state = pullToRefreshState,
+                        isRefreshing = isSyncing,
+                        modifier = Modifier.align(Alignment.TopCenter)
                     )
                 }
-                CatalogTab.CATEGORIES -> tabStateHolder.SaveableStateProvider(CatalogTab.CATEGORIES.name) {
-                    CategoriesTabContent()
-                }
-                CatalogTab.STORES -> tabStateHolder.SaveableStateProvider(CatalogTab.STORES.name) {
-                    StoresTabContent()
+            ) {
+                when (selectedTab) {
+                    CatalogTab.ITEMS -> tabStateHolder.SaveableStateProvider(CatalogTab.ITEMS.name) {
+                        ItemsTabContent(
+                            onNavigateToItemDetail = onNavigateToItemDetail,
+                            viewModel = viewModel
+                        )
+                    }
+                    CatalogTab.CATEGORIES -> tabStateHolder.SaveableStateProvider(CatalogTab.CATEGORIES.name) {
+                        CategoriesTabContent()
+                    }
+                    CatalogTab.STORES -> tabStateHolder.SaveableStateProvider(CatalogTab.STORES.name) {
+                        StoresTabContent()
+                    }
                 }
             }
         }
@@ -200,7 +220,8 @@ private fun ItemsTabContent(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(paddingValues),
+                        .padding(paddingValues)
+                        .verticalScroll(rememberScrollState()),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(

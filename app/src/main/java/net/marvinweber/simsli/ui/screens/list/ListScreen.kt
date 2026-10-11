@@ -60,6 +60,9 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
@@ -239,11 +242,25 @@ fun ListTabContent(
             )
         }
     ) { paddingValues ->
-        Column(
+        val pullToRefreshState = rememberPullToRefreshState()
+        PullToRefreshBox(
+            isRefreshing = isSyncing,
+            onRefresh = viewModel::refresh,
+            state = pullToRefreshState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(paddingValues),
+            indicator = {
+                PullToRefreshDefaults.LoadingIndicator(
+                    state = pullToRefreshState,
+                    isRefreshing = isSyncing,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
+            }
         ) {
+            Column(
+                modifier = Modifier.fillMaxSize()
+            ) {
             if (uiState.isLoading) {
                 LoadingView()
             } else if (uiState.activeEntries.isEmpty() && uiState.recentlyChecked.isEmpty()) {
@@ -327,6 +344,7 @@ fun ListTabContent(
                     }
                 }
             }
+        }
         }
 
         if (uiState.isAddSheetOpen) {
@@ -717,7 +735,9 @@ private fun LoadingView() {
 @Composable
 private fun EmptyListView() {
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
         contentAlignment = Alignment.Center
     ) {
         Column(
