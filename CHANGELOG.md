@@ -4,17 +4,27 @@ All notable changes to the Simsli shopping list app, Wear OS companion, and serv
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-### Added
-- **Update Notice**: When the server requires a newer app version than installed, a one-time dialog now asks you to update — continuing on an outdated version may lead to unexpected behavior and unreliable syncing.
+## [0.5.0] - 2026-10-11
+### 🚀 What's New
+- **Store Groups**: Organize multiple stores under store groups (e.g. "Supermarkets" or "Drugstores"). Items assigned to a group automatically appear for all member stores, with support for per-store exclusions.
+- **Redesigned Navigation & Dashboard Tab**: Experience a streamlined three-tab layout:
+  - **Dashboard**: A new home tab introducing upcoming smart shopping features (fewest stops and price comparisons).
+  - **Shopping List**: Your active and recently checked items with inline store and category filtering.
+  - **Catalog**: Centralized management for Items, Categories, and Stores.
+  - **Household Chip**: Access your household settings and details right from the top bar with custom emoji branding.
+- **Household Statistics Timeline**: Track your household's shopping habits with a visual monthly timeline showing items added and checked off over time.
+- **Household Emoji**: Give your household a personal touch by choosing a custom emoji icon displayed across the app.
 
-### Fixed
-- **Sync drift eliminated**: the server now stamps flushed rows with its own clock instead of trusting the sending device's timestamp (ADR 0019). Previously, a device with a lagging clock (or a stale outbox push) could write timestamps below other devices' sync watermarks — those changes were silently never delivered to them (reported as "my list shows items unticked that are ticked elsewhere"). Combined with the new full-resync recovery below.
+### ✨ Improvements
+- **Pull-to-Refresh**: Swipe down on the Shopping List and Catalog tabs to instantly trigger a sync refresh with smooth Material 3 Expressive animations.
+- **Full Resync**: Added a "Full resync" action in Settings → Cloud Sync to completely wipe local cache and re-download fresh data from the server if discrepancies occur.
+- **Server Usage Metrics**: Server administrators can now view aggregate usage metrics (active accounts, app versions, and monthly household activity) directly in the Admin Dashboard.
+- **Update Notice**: When the server requires a newer app version than installed, a one-time advisory dialog prompts you to update to ensure seamless syncing.
+- **Direct Changelog Access**: Easily view release notes and app update history directly from Settings → About.
 
-### Added
-- **Full Resync**: New "Full resync" action in Settings → Cloud Sync (with confirmation dialog). Uploads pending changes, wipes local data, and re-downloads the complete household state from the server — the recovery path if the list ever shows state that normal syncing can't correct (e.g. updates whose timestamps fell below the sync watermark were never re-sent).
-- **Household Statistics**: New "Statistics" entry in Settings → Household opens a monthly activity timeline (git-graph style: month on the left rail, two rounded bars per month for items added and items checked). Scrolls continuously into the past; bar lengths scale to the busiest visible month.
-- **Server Usage Metrics**: The server now records aggregate usage data — last-seen time and app version per account (updated at most hourly, no device tracking) and per-household monthly totals of checked/added list items. Both are visible on the admin dashboard ("Usage & Versions"); documented in the privacy policy and ADR 0018.
+### 🐛 Bug Fixes
+- **Clock-Skew Sync Drift Eliminated**: The server now stamps all synced changes with server time instead of relying on individual device clocks, preventing missed updates when device times differ (ADR 0019).
+- **Smartwatch Companion Detection**: Improved Wear OS companion app detection by verifying device capabilities via CapabilityClient instead of raw node connection state.
 
 ## [0.4.0] - 2026-10-07
 ### 🚀 What's New

@@ -15,6 +15,9 @@ TITLE="Simsli $VERSION"
 COMMIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "head")
 ASSET_NAME="simsli-foss-${VERSION}-${COMMIT_HASH}.apk"
 APK_FILE="app/build/outputs/apk/foss/release/app-foss-release.apk"
+if [ ! -f "$APK_FILE" ] && [ -f "app/build/outputs/apk/foss/release/app-foss-release-unsigned.apk" ]; then
+    APK_FILE="app/build/outputs/apk/foss/release/app-foss-release-unsigned.apk"
+fi
 
 DRAFT_FLAG=""
 if [[ "${1:-}" == "--draft" ]]; then

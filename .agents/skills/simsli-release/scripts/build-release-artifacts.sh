@@ -36,6 +36,9 @@ echo "=== 3/3 Verifying Artifacts ==="
 PHONE_AAB="app/build/outputs/bundle/playRelease/app-play-release.aab"
 WEAR_AAB="wear/build/outputs/bundle/release/wear-release.aab"
 FOSS_APK="app/build/outputs/apk/foss/release/app-foss-release.apk"
+if [ ! -f "$FOSS_APK" ] && [ -f "app/build/outputs/apk/foss/release/app-foss-release-unsigned.apk" ]; then
+    FOSS_APK="app/build/outputs/apk/foss/release/app-foss-release-unsigned.apk"
+fi
 
 # Compute standardized named FOSS APK: simsli-foss-x.y.z-commithash.apk
 MAJOR=$(grep -E '^versionMajor=' version.properties | cut -d= -f2 | tr -d '[:space:]')
