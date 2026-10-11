@@ -22,19 +22,60 @@ interface ListEntryDao {
     /**
      * One query for every store/category filter combination (LIST-5): the
      * boolean switches enable the EXISTS/NOT EXISTS/IS NULL clauses, so the
-     * filters compose without a dedicated query per combination.
+     * filters compose without a dedicated query per combination. Store filters
+     * test the derived effective store set (STORE-7): MEMBER rows ∪ stores of
+     * selected groups − EXCLUDED rows.
      */
     @Query("""
         SELECT le.* FROM list_entries le
         INNER JOIN items i ON le.itemId = i.id
         WHERE le.householdId = :householdId
         AND i.deletedAt IS NULL
-        AND (:filterByStore = 0 OR EXISTS (
-            SELECT 1 FROM item_stores ist
-            WHERE ist.itemId = le.itemId AND ist.storeId = :storeId
+        AND (:filterByStore = 0 OR (
+            (EXISTS (
+                SELECT 1 FROM item_stores ist
+                WHERE ist.itemId = le.itemId AND ist.storeId = :storeId AND ist.membership = 'MEMBER'
+            ) OR EXISTS (
+                SELECT 1 FROM item_store_groups isg
+                WHERE isg.itemId = le.itemId
+                  AND isg.groupId = (SELECT s.groupId FROM stores s WHERE s.id = :storeId)
+            ))
+            AND NOT EXISTS (
+                SELECT 1 FROM item_stores ex
+                WHERE ex.itemId = le.itemId AND ex.storeId = :storeId AND ex.membership = 'EXCLUDED'
+            )
         ))
-        AND (:noStore = 0 OR NOT EXISTS (
-            SELECT 1 FROM item_stores ist2 WHERE ist2.itemId = le.itemId
+        AND (:filterByGroup = 0 OR (
+            EXISTS (
+                SELECT 1 FROM item_stores ist
+                INNER JOIN stores s ON s.id = ist.storeId
+                WHERE ist.itemId = le.itemId AND ist.membership = 'MEMBER' AND s.groupId = :groupId
+                  AND NOT EXISTS (
+                      SELECT 1 FROM item_stores ex2
+                      WHERE ex2.itemId = le.itemId AND ex2.storeId = ist.storeId AND ex2.membership = 'EXCLUDED'
+                  )
+            ) OR (
+                EXISTS (
+                    SELECT 1 FROM item_store_groups isg
+                    WHERE isg.itemId = le.itemId AND isg.groupId = :groupId
+                )
+                AND EXISTS (
+                    SELECT 1 FROM stores s3 WHERE s3.groupId = :groupId AND s3.deletedAt IS NULL
+                      AND NOT EXISTS (
+                          SELECT 1 FROM item_stores ex3
+                          WHERE ex3.itemId = le.itemId AND ex3.storeId = s3.id AND ex3.membership = 'EXCLUDED'
+                      )
+                )
+            )
+        ))
+        AND (:noStore = 0 OR (
+            NOT EXISTS (
+                SELECT 1 FROM item_stores ist2
+                WHERE ist2.itemId = le.itemId AND ist2.membership = 'MEMBER'
+            )
+            AND NOT EXISTS (
+                SELECT 1 FROM item_store_groups isg2 WHERE isg2.itemId = le.itemId
+            )
         ))
         AND (:filterByCategory = 0 OR i.categoryId = :categoryId)
         AND (:noCategory = 0 OR i.categoryId IS NULL)
@@ -44,6 +85,8 @@ interface ListEntryDao {
         householdId: String,
         filterByStore: Boolean,
         storeId: String,
+        filterByGroup: Boolean,
+        groupId: String,
         noStore: Boolean,
         filterByCategory: Boolean,
         categoryId: String,

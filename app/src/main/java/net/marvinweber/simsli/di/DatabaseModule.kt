@@ -12,10 +12,12 @@ import net.marvinweber.simsli.data.local.dao.CategoryDao
 import net.marvinweber.simsli.data.local.dao.HouseholdDao
 import net.marvinweber.simsli.data.local.dao.ItemDao
 import net.marvinweber.simsli.data.local.dao.ItemStoreDao
+import net.marvinweber.simsli.data.local.dao.ItemStoreGroupDao
 import net.marvinweber.simsli.data.local.dao.ListEntryDao
 import net.marvinweber.simsli.data.local.dao.OutboxDao
 import net.marvinweber.simsli.data.local.dao.StoreCategoryDao
 import net.marvinweber.simsli.data.local.dao.StoreDao
+import net.marvinweber.simsli.data.local.dao.StoreGroupDao
 import net.marvinweber.simsli.data.local.dao.SyncStateDao
 import javax.inject.Singleton
 
@@ -47,6 +49,16 @@ object DatabaseModule {
     @Provides
     fun provideItemStoreDao(database: SimsliDatabase): ItemStoreDao {
         return database.itemStoreDao()
+    }
+
+    @Provides
+    fun provideStoreGroupDao(database: SimsliDatabase): StoreGroupDao {
+        return database.storeGroupDao()
+    }
+
+    @Provides
+    fun provideItemStoreGroupDao(database: SimsliDatabase): ItemStoreGroupDao {
+        return database.itemStoreGroupDao()
     }
 
     @Provides

@@ -7,5 +7,6 @@ import kotlinx.serialization.Serializable
 data class ItemStoreDto(
     @SerialName("item_id") val itemId: String,
     @SerialName("store_id") val storeId: String,
+    val membership: String = "MEMBER",
     @SerialName("created_at") val createdAt: String
 )

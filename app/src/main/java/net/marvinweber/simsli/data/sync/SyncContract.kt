@@ -18,6 +18,8 @@ object SyncContract {
     const val ENTITY_LIST_ENTRY = "list_entry"
     const val ENTITY_CATEGORY = "category"
     const val ENTITY_STORE_CATEGORY = "store_category"
+    const val ENTITY_STORE_GROUP = "store_group"
+    const val ENTITY_ITEM_STORE_GROUP = "item_store_group"
 
     // Outbox operations
     const val OP_UPSERT = "UPSERT"
@@ -29,6 +31,7 @@ object SyncContract {
     const val TABLE_ITEMS = "items"
     const val TABLE_LIST_ENTRIES = "list_entries"
     const val TABLE_CATEGORIES = "categories"
+    const val TABLE_STORE_GROUPS = "store_groups"
 
     // Marker key to ensure initial local upload is only performed once
     const val KEY_INITIAL_UPLOAD_DONE = "_initial_upload_done"
@@ -36,6 +39,13 @@ object SyncContract {
     fun itemStoreEntityId(itemId: String, storeId: String): String = "$itemId:$storeId"
 
     fun parseItemStoreEntityId(entityId: String): Pair<String, String>? {
+        val parts = entityId.split(':', limit = 2)
+        return if (parts.size == 2) parts[0] to parts[1] else null
+    }
+
+    fun itemStoreGroupEntityId(itemId: String, groupId: String): String = "$itemId:$groupId"
+
+    fun parseItemStoreGroupEntityId(entityId: String): Pair<String, String>? {
         val parts = entityId.split(':', limit = 2)
         return if (parts.size == 2) parts[0] to parts[1] else null
     }

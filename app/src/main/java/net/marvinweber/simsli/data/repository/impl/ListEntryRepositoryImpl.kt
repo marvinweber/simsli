@@ -47,6 +47,8 @@ class ListEntryRepositoryImpl @Inject constructor(
             householdId = householdId,
             filterByStore = storeFilter is StoreFilter.ByStore,
             storeId = (storeFilter as? StoreFilter.ByStore)?.storeId.orEmpty(),
+            filterByGroup = storeFilter is StoreFilter.ByGroup,
+            groupId = (storeFilter as? StoreFilter.ByGroup)?.groupId.orEmpty(),
             noStore = storeFilter is StoreFilter.NoStore,
             filterByCategory = categoryFilter is CategoryFilter.ByCategory,
             categoryId = (categoryFilter as? CategoryFilter.ByCategory)?.categoryId.orEmpty(),

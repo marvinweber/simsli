@@ -7,10 +7,12 @@ import kotlinx.serialization.Serializable
 data class DeltaResponseDto(
     val household: HouseholdDto? = null,
     val stores: List<StoreDto>? = null,
+    @SerialName("store_groups") val storeGroups: List<StoreGroupDto>? = null,
     val categories: List<CategoryDto>? = null,
     @SerialName("store_categories") val storeCategories: List<StoreCategoryDto>? = null,
     val items: List<ItemDto>? = null,
     @SerialName("item_stores") val itemStores: List<ItemStoreDto>? = null,
+    @SerialName("item_store_groups") val itemStoreGroups: List<ItemStoreGroupDto>? = null,
     @SerialName("list_entries") val listEntries: List<ListEntryDto>? = null,
     @SerialName("server_time") val serverTime: String
 )
@@ -20,15 +22,20 @@ data class FlushRequestDto(
     @SerialName("household_id") val householdId: String,
     val household: HouseholdDto? = null,
     val stores: List<StoreDto>? = null,
+    @SerialName("store_groups") val storeGroups: List<StoreGroupDto>? = null,
     val categories: List<CategoryDto>? = null,
     @SerialName("store_categories") val storeCategories: List<StoreCategoryDto>? = null,
     val items: List<ItemDto>? = null,
     @SerialName("item_stores") val itemStores: List<ItemStoreDto>? = null,
+    @SerialName("item_store_groups") val itemStoreGroups: List<ItemStoreGroupDto>? = null,
     @SerialName("list_entries") val listEntries: List<ListEntryDto>? = null,
     @SerialName("deleted_stores") val deletedStores: List<String>? = null,
     @SerialName("deleted_categories") val deletedCategories: List<String>? = null,
     @SerialName("deleted_items") val deletedItems: List<String>? = null,
-    @SerialName("deleted_entries") val deletedEntries: List<String>? = null
+    @SerialName("deleted_entries") val deletedEntries: List<String>? = null,
+    @SerialName("deleted_item_stores") val deletedItemStores: List<String>? = null,
+    @SerialName("deleted_store_categories") val deletedStoreCategories: List<String>? = null,
+    @SerialName("deleted_item_store_groups") val deletedItemStoreGroups: List<String>? = null
 )
 
 @Serializable

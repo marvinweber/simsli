@@ -4,16 +4,21 @@ import net.marvinweber.simsli.data.local.entity.DbCategory
 import net.marvinweber.simsli.data.local.entity.DbHousehold
 import net.marvinweber.simsli.data.local.entity.DbItem
 import net.marvinweber.simsli.data.local.entity.DbItemStore
+import net.marvinweber.simsli.data.local.entity.DbItemStoreGroup
 import net.marvinweber.simsli.data.local.entity.DbListEntry
 import net.marvinweber.simsli.data.local.entity.DbStore
 import net.marvinweber.simsli.data.local.entity.DbStoreCategory
+import net.marvinweber.simsli.data.local.entity.DbStoreGroup
 import net.marvinweber.simsli.data.remote.dto.CategoryDto
 import net.marvinweber.simsli.data.remote.dto.HouseholdDto
 import net.marvinweber.simsli.data.remote.dto.ItemDto
 import net.marvinweber.simsli.data.remote.dto.ItemStoreDto
+import net.marvinweber.simsli.data.remote.dto.ItemStoreGroupDto
 import net.marvinweber.simsli.data.remote.dto.ListEntryDto
 import net.marvinweber.simsli.data.remote.dto.StoreCategoryDto
 import net.marvinweber.simsli.data.remote.dto.StoreDto
+import net.marvinweber.simsli.data.remote.dto.StoreGroupDto
+import net.marvinweber.simsli.data.local.mapper.toMembershipOrDefault
 import net.marvinweber.simsli.domain.model.ItemType
 import java.time.Instant
 import java.time.OffsetDateTime
@@ -60,6 +65,7 @@ fun StoreDto.toDb(): DbStore = DbStore(
     householdId = householdId,
     name = name,
     sortOrder = sortOrder.toFloat(),
+    groupId = groupId,
     createdAt = createdAt.toInstantOrEpoch(),
     updatedAt = updatedAt.toInstantOrEpoch(),
     deletedAt = deletedAt.toInstantOrNull()
@@ -70,9 +76,42 @@ fun DbStore.toDto(): StoreDto = StoreDto(
     householdId = householdId,
     name = name,
     sortOrder = sortOrder.toDouble(),
+    groupId = groupId,
     createdAt = createdAt.toString(),
     updatedAt = updatedAt.toString(),
     deletedAt = deletedAt?.toString()
+)
+
+fun StoreGroupDto.toDb(): DbStoreGroup = DbStoreGroup(
+    id = id,
+    householdId = householdId,
+    name = name,
+    sortOrder = sortOrder.toFloat(),
+    createdAt = createdAt.toInstantOrEpoch(),
+    updatedAt = updatedAt.toInstantOrEpoch(),
+    deletedAt = deletedAt.toInstantOrNull()
+)
+
+fun DbStoreGroup.toDto(): StoreGroupDto = StoreGroupDto(
+    id = id,
+    householdId = householdId,
+    name = name,
+    sortOrder = sortOrder.toDouble(),
+    createdAt = createdAt.toString(),
+    updatedAt = updatedAt.toString(),
+    deletedAt = deletedAt?.toString()
+)
+
+fun ItemStoreGroupDto.toDb(): DbItemStoreGroup = DbItemStoreGroup(
+    itemId = itemId,
+    groupId = groupId,
+    createdAt = createdAt.toInstantOrEpoch()
+)
+
+fun DbItemStoreGroup.toDto(): ItemStoreGroupDto = ItemStoreGroupDto(
+    itemId = itemId,
+    groupId = groupId,
+    createdAt = createdAt.toString()
 )
 
 fun ItemDto.toDb(): DbItem = DbItem(
@@ -108,12 +147,14 @@ fun DbItem.toDto(): ItemDto = ItemDto(
 fun ItemStoreDto.toDb(): DbItemStore = DbItemStore(
     itemId = itemId,
     storeId = storeId,
+    membership = membership.toMembershipOrDefault().name,
     createdAt = createdAt.toInstantOrEpoch()
 )
 
 fun DbItemStore.toDto(): ItemStoreDto = ItemStoreDto(
     itemId = itemId,
     storeId = storeId,
+    membership = membership,
     createdAt = createdAt.toString()
 )
 

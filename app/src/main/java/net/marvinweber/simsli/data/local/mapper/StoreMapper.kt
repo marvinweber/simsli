@@ -8,6 +8,7 @@ fun DbStore.toDomain(): Store = Store(
     householdId = householdId,
     name = name,
     sortOrder = sortOrder,
+    groupId = groupId,
     createdAt = createdAt,
     updatedAt = updatedAt
 )
@@ -17,6 +18,7 @@ fun Store.toDb(): DbStore = DbStore(
     householdId = householdId,
     name = name,
     sortOrder = sortOrder,
+    groupId = groupId,
     createdAt = createdAt,
     updatedAt = updatedAt,
     deletedAt = null

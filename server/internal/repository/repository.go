@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -653,9 +654,31 @@ func (r *Repository) GetDeltas(ctx context.Context, householdID string, since ti
 		resp.Household = &hh
 	}
 
+	// Store groups
+	sgRows, err := r.db.QueryContext(ctx,
+		"SELECT id, household_id, name, sort_order, created_at, updated_at, deleted_at FROM store_groups WHERE household_id = ? AND updated_at > ?",
+		householdID, sinceStr,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query store_groups: %w", err)
+	}
+	defer sgRows.Close()
+	for sgRows.Next() {
+		var sg model.StoreGroup
+		var ca, ua string
+		var da sql.NullString
+		if err := sgRows.Scan(&sg.ID, &sg.HouseholdID, &sg.Name, &sg.SortOrder, &ca, &ua, &da); err != nil {
+			return nil, err
+		}
+		sg.CreatedAt, _ = parseTime(ca)
+		sg.UpdatedAt, _ = parseTime(ua)
+		sg.DeletedAt = parseNullTime(da)
+		resp.StoreGroups = append(resp.StoreGroups, sg)
+	}
+
 	// Stores
 	storeRows, err := r.db.QueryContext(ctx,
-		"SELECT id, household_id, name, sort_order, created_at, updated_at, deleted_at FROM stores WHERE household_id = ? AND updated_at > ?",
+		"SELECT id, household_id, name, sort_order, group_id, created_at, updated_at, deleted_at FROM stores WHERE household_id = ? AND updated_at > ?",
 		householdID, sinceStr,
 	)
 	if err != nil {
@@ -665,9 +688,12 @@ func (r *Repository) GetDeltas(ctx context.Context, householdID string, since ti
 	for storeRows.Next() {
 		var s model.Store
 		var ca, ua string
-		var da sql.NullString
-		if err := storeRows.Scan(&s.ID, &s.HouseholdID, &s.Name, &s.SortOrder, &ca, &ua, &da); err != nil {
+		var da, groupID sql.NullString
+		if err := storeRows.Scan(&s.ID, &s.HouseholdID, &s.Name, &s.SortOrder, &groupID, &ca, &ua, &da); err != nil {
 			return nil, err
+		}
+		if groupID.Valid {
+			s.GroupID = &groupID.String
 		}
 		s.CreatedAt, _ = parseTime(ca)
 		s.UpdatedAt, _ = parseTime(ua)
@@ -768,9 +794,9 @@ func (r *Repository) GetDeltas(ctx context.Context, householdID string, since ti
 		resp.ListEntries = append(resp.ListEntries, le)
 	}
 
-	// Full-reconcile tables (item_stores, store_categories)
+	// Full-reconcile tables (item_stores, store_categories, item_store_groups)
 	isRows, err := r.db.QueryContext(ctx,
-		"SELECT item_id, store_id, created_at FROM item_stores WHERE item_id IN (SELECT id FROM items WHERE household_id = ?)",
+		"SELECT item_id, store_id, membership, created_at FROM item_stores WHERE item_id IN (SELECT id FROM items WHERE household_id = ?)",
 		householdID,
 	)
 	if err != nil {
@@ -780,7 +806,7 @@ func (r *Repository) GetDeltas(ctx context.Context, householdID string, since ti
 	for isRows.Next() {
 		var is model.ItemStore
 		var ca string
-		if err := isRows.Scan(&is.ItemID, &is.StoreID, &ca); err != nil {
+		if err := isRows.Scan(&is.ItemID, &is.StoreID, &is.Membership, &ca); err != nil {
 			return nil, err
 		}
 		is.CreatedAt, _ = parseTime(ca)
@@ -801,6 +827,24 @@ func (r *Repository) GetDeltas(ctx context.Context, householdID string, since ti
 			return nil, err
 		}
 		resp.StoreCategories = append(resp.StoreCategories, sc)
+	}
+
+	isgRows, err := r.db.QueryContext(ctx,
+		"SELECT item_id, group_id, created_at FROM item_store_groups WHERE item_id IN (SELECT id FROM items WHERE household_id = ?)",
+		householdID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query item_store_groups: %w", err)
+	}
+	defer isgRows.Close()
+	for isgRows.Next() {
+		var isg model.ItemStoreGroup
+		var ca string
+		if err := isgRows.Scan(&isg.ItemID, &isg.GroupID, &ca); err != nil {
+			return nil, err
+		}
+		isg.CreatedAt, _ = parseTime(ca)
+		resp.ItemStoreGroups = append(resp.ItemStoreGroups, isg)
 	}
 
 	return resp, nil
@@ -846,6 +890,27 @@ func (r *Repository) Flush(ctx context.Context, req *model.FlushRequest) error {
 		}
 	}
 
+	// Upsert Store Groups
+	for _, sg := range req.StoreGroups {
+		daStr := sql.NullString{}
+		if sg.DeletedAt != nil {
+			daStr = sql.NullString{String: formatTime(*sg.DeletedAt), Valid: true}
+		}
+		_, err := tx.ExecContext(ctx,
+			`INSERT INTO store_groups (id, household_id, name, sort_order, created_at, updated_at, deleted_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?)
+			 ON CONFLICT(id) DO UPDATE SET
+			   name=excluded.name,
+			   sort_order=excluded.sort_order,
+			   updated_at=?,
+			   deleted_at=excluded.deleted_at`,
+			sg.ID, req.HouseholdID, sg.Name, sg.SortOrder, formatTime(sg.CreatedAt), nowStr, daStr, nowStr,
+		)
+		if err != nil {
+			return fmt.Errorf("flush store_group: %w", err)
+		}
+	}
+
 	// Upsert Stores
 	for _, s := range req.Stores {
 		daStr := sql.NullString{}
@@ -853,14 +918,15 @@ func (r *Repository) Flush(ctx context.Context, req *model.FlushRequest) error {
 			daStr = sql.NullString{String: formatTime(*s.DeletedAt), Valid: true}
 		}
 		_, err := tx.ExecContext(ctx,
-			`INSERT INTO stores (id, household_id, name, sort_order, created_at, updated_at, deleted_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?)
+			`INSERT INTO stores (id, household_id, name, sort_order, group_id, created_at, updated_at, deleted_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 			 ON CONFLICT(id) DO UPDATE SET
 			   name=excluded.name,
 			   sort_order=excluded.sort_order,
+			   group_id=excluded.group_id,
 			   updated_at=?,
 			   deleted_at=excluded.deleted_at`,
-			s.ID, req.HouseholdID, s.Name, s.SortOrder, formatTime(s.CreatedAt), nowStr, daStr, nowStr,
+			s.ID, req.HouseholdID, s.Name, s.SortOrder, s.GroupID, formatTime(s.CreatedAt), nowStr, daStr, nowStr,
 		)
 		if err != nil {
 			return fmt.Errorf("flush store: %w", err)
@@ -990,14 +1056,34 @@ func (r *Repository) Flush(ctx context.Context, req *model.FlushRequest) error {
 		}
 	}
 
-	// Upsert ItemStores (reconciled)
+	// Upsert ItemStores (reconciled). Empty membership = legacy client → MEMBER;
+	// anything outside the known set falls back to MEMBER rather than failing
+	// the whole flush (mixed-version households).
 	for _, is := range req.ItemStores {
+		membership := is.Membership
+		switch membership {
+		case "MEMBER", "EXCLUDED", "METADATA":
+		default:
+			membership = "MEMBER"
+		}
 		_, err := tx.ExecContext(ctx,
-			"INSERT INTO item_stores (item_id, store_id, created_at) VALUES (?, ?, ?) ON CONFLICT(item_id, store_id) DO NOTHING",
-			is.ItemID, is.StoreID, formatTime(is.CreatedAt),
+			`INSERT INTO item_stores (item_id, store_id, membership, created_at) VALUES (?, ?, ?, ?)
+			 ON CONFLICT(item_id, store_id) DO UPDATE SET membership=excluded.membership`,
+			is.ItemID, is.StoreID, membership, formatTime(is.CreatedAt),
 		)
 		if err != nil {
 			return fmt.Errorf("flush item_store: %w", err)
+		}
+	}
+
+	// Upsert ItemStoreGroups (reconciled)
+	for _, isg := range req.ItemStoreGroups {
+		_, err := tx.ExecContext(ctx,
+			"INSERT INTO item_store_groups (item_id, group_id, created_at) VALUES (?, ?, ?) ON CONFLICT(item_id, group_id) DO NOTHING",
+			isg.ItemID, isg.GroupID, formatTime(isg.CreatedAt),
+		)
+		if err != nil {
+			return fmt.Errorf("flush item_store_group: %w", err)
 		}
 	}
 
@@ -1039,6 +1125,47 @@ func (r *Repository) Flush(ctx context.Context, req *model.FlushRequest) error {
 		}
 	}
 
+	// Join-row deletions travel as composite ids ("itemId:storeId", …): the
+	// flushing client deleted the row, so there is nothing to push but the key.
+	// Without these, the full reconcile on other devices would resurrect the
+	// deleted pairs on every pull (ADR 0020). Household-scoped via the parent.
+	for _, composite := range req.DeletedItemStores {
+		itemID, storeID, ok := strings.Cut(composite, ":")
+		if !ok {
+			continue
+		}
+		_, err := tx.ExecContext(ctx,
+			"DELETE FROM item_stores WHERE item_id = ? AND store_id = ? AND item_id IN (SELECT id FROM items WHERE household_id = ?)",
+			itemID, storeID, req.HouseholdID)
+		if err != nil {
+			return err
+		}
+	}
+	for _, composite := range req.DeletedStoreCategories {
+		storeID, categoryID, ok := strings.Cut(composite, ":")
+		if !ok {
+			continue
+		}
+		_, err := tx.ExecContext(ctx,
+			"DELETE FROM store_categories WHERE store_id = ? AND category_id = ? AND store_id IN (SELECT id FROM stores WHERE household_id = ?)",
+			storeID, categoryID, req.HouseholdID)
+		if err != nil {
+			return err
+		}
+	}
+	for _, composite := range req.DeletedItemStoreGroups {
+		itemID, groupID, ok := strings.Cut(composite, ":")
+		if !ok {
+			continue
+		}
+		_, err := tx.ExecContext(ctx,
+			"DELETE FROM item_store_groups WHERE item_id = ? AND group_id = ? AND item_id IN (SELECT id FROM items WHERE household_id = ?)",
+			itemID, groupID, req.HouseholdID)
+		if err != nil {
+			return err
+		}
+	}
+
 	return tx.Commit()
 }
 
@@ -1051,6 +1178,8 @@ func (r *Repository) BrowseTable(ctx context.Context, table, householdID string,
 		"households":              "id = ?",
 		"household_members":       "household_id = ?",
 		"stores":                  "household_id = ?",
+		"store_groups":            "household_id = ?",
+		"item_store_groups":       "item_id IN (SELECT id FROM items WHERE household_id = ?)",
 		"categories":              "household_id = ?",
 		"items":                   "household_id = ?",
 		"item_stores":             "item_id IN (SELECT id FROM items WHERE household_id = ?)",

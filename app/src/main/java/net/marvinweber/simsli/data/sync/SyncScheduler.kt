@@ -13,7 +13,7 @@ import javax.inject.Singleton
  * Keeps repositories free of a SyncManager dependency (no cycle).
  */
 @Singleton
-class SyncScheduler @Inject constructor(
+open class SyncScheduler @Inject constructor(
     private val diag: SyncDiagnostics
 ) {
 
@@ -24,7 +24,7 @@ class SyncScheduler @Inject constructor(
     val requests: SharedFlow<Unit> = _requests.asSharedFlow()
 
     /** [reason] identifies the poke source — logged so sync loops can be attributed. */
-    fun requestSync(reason: String) {
+    open fun requestSync(reason: String) {
         diag.d(TAG, "requestSync($reason)")
         _requests.tryEmit(Unit)
     }

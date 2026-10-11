@@ -10,5 +10,6 @@ import java.time.Instant
 data class DbItemStore(
     val itemId: String,
     val storeId: String,
+    val membership: String = "MEMBER",
     val createdAt: Instant
 )

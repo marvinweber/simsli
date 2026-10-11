@@ -12,8 +12,16 @@ interface ItemStoreDao {
     @Query("SELECT * FROM item_stores WHERE itemId = :itemId")
     fun getItemStores(itemId: String): Flow<List<DbItemStore>>
 
-    @Query("SELECT storeId FROM item_stores WHERE itemId = :itemId")
-    suspend fun getStoreIdsForItem(itemId: String): List<String>
+    /** Explicitly assigned stores only — group coverage is not in this table (STORE-7). */
+    @Query("SELECT storeId FROM item_stores WHERE itemId = :itemId AND membership = 'MEMBER'")
+    suspend fun getMemberStoreIdsForItem(itemId: String): List<String>
+
+    /** All rows regardless of membership — for selection prefill and full cascades. */
+    @Query("SELECT * FROM item_stores WHERE itemId = :itemId")
+    suspend fun getRowsForItem(itemId: String): List<DbItemStore>
+
+    @Query("SELECT storeId FROM item_stores WHERE itemId = :itemId AND membership = 'EXCLUDED'")
+    suspend fun getExcludedStoreIdsForItem(itemId: String): List<String>
 
     @Query("SELECT itemId FROM item_stores WHERE storeId = :storeId")
     suspend fun getItemIdsForStore(storeId: String): List<String>

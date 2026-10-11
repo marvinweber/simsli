@@ -577,3 +577,167 @@ func TestFlushWithStaleClientTimestampRemainsVisible(t *testing.T) {
 		t.Errorf("expected server_time %v >= entry updated_at %v", deltas.ServerTime, entry.UpdatedAt)
 	}
 }
+
+// STORE-7 round trip: store groups, store group selections and item_stores
+// membership survive a flush → deltas cycle, and join-row deletions pushed as
+// composite ids (deleted_item_store_groups / deleted_item_stores) are actually
+// deleted server-side — without that, the full reconcile on other devices
+// would resurrect the deleted pairs on every pull (ADR 0020).
+func TestFlushStoreGroupsAndJoinDeletions(t *testing.T) {
+	svc, _ := setupTestService(t)
+	ctx := context.Background()
+
+	user, err := svc.AdminCreateUser(ctx, "user1@simsli.de")
+	if err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+	hh, err := svc.CreateHousehold(ctx, user.ID, "hh-groups", "Groups Household")
+	if err != nil {
+		t.Fatalf("create household failed: %v", err)
+	}
+
+	now := time.Now().UTC()
+	supermarkt := "sg-1"
+	flushReq := &model.FlushRequest{
+		HouseholdID: hh.ID,
+		StoreGroups: []model.StoreGroup{
+			{ID: supermarkt, HouseholdID: hh.ID, Name: "Supermarkt", SortOrder: 1, CreatedAt: now, UpdatedAt: now},
+		},
+		Stores: []model.Store{
+			{ID: "s-1", HouseholdID: hh.ID, Name: "REWE", SortOrder: 1, GroupID: &supermarkt, CreatedAt: now, UpdatedAt: now},
+			{ID: "s-2", HouseholdID: hh.ID, Name: "Aldi", SortOrder: 2, GroupID: &supermarkt, CreatedAt: now, UpdatedAt: now},
+			{ID: "s-3", HouseholdID: hh.ID, Name: "dm", SortOrder: 3, CreatedAt: now, UpdatedAt: now},
+		},
+		Items: []model.Item{
+			{ID: "i-1", HouseholdID: hh.ID, Name: "Bananen", Type: "PERMANENT", SortOrder: 1, CreatedAt: now, UpdatedAt: now},
+			{ID: "i-2", HouseholdID: hh.ID, Name: "Spülmittel", Type: "PERMANENT", SortOrder: 2, CreatedAt: now, UpdatedAt: now},
+		},
+		ItemStoreGroups: []model.ItemStoreGroup{
+			{ItemID: "i-1", GroupID: supermarkt, CreatedAt: now},
+		},
+		ItemStores: []model.ItemStore{
+			// i-2: Supermarkt selection minus Aldi (excluded), dm explicit
+			{ItemID: "i-2", StoreID: "s-2", Membership: "EXCLUDED", CreatedAt: now},
+			{ItemID: "i-2", StoreID: "s-3", Membership: "MEMBER", CreatedAt: now},
+		},
+	}
+	if err := svc.Flush(ctx, user.ID, flushReq); err != nil {
+		t.Fatalf("flush failed: %v", err)
+	}
+
+	deltas, err := svc.GetDeltas(ctx, user.ID, hh.ID, time.Time{})
+	if err != nil {
+		t.Fatalf("get deltas failed: %v", err)
+	}
+	if len(deltas.StoreGroups) != 1 || deltas.StoreGroups[0].ID != supermarkt || deltas.StoreGroups[0].Name != "Supermarkt" {
+		t.Fatalf("expected store group in deltas, got %+v", deltas.StoreGroups)
+	}
+	var rewe *model.Store
+	for i := range deltas.Stores {
+		if deltas.Stores[i].ID == "s-1" {
+			rewe = &deltas.Stores[i]
+		}
+	}
+	if rewe == nil || rewe.GroupID == nil || *rewe.GroupID != supermarkt {
+		t.Fatalf("expected REWE with group_id in deltas, got %+v", rewe)
+	}
+	if len(deltas.ItemStoreGroups) != 1 || deltas.ItemStoreGroups[0].ItemID != "i-1" {
+		t.Fatalf("expected item_store_groups in deltas, got %+v", deltas.ItemStoreGroups)
+	}
+	var excluded *model.ItemStore
+	for i := range deltas.ItemStores {
+		if deltas.ItemStores[i].ItemID == "i-2" && deltas.ItemStores[i].StoreID == "s-2" {
+			excluded = &deltas.ItemStores[i]
+		}
+	}
+	if excluded == nil || excluded.Membership != "EXCLUDED" {
+		t.Fatalf("expected EXCLUDED membership in deltas, got %+v", excluded)
+	}
+	// Legacy clients send no membership at all — it must come back as MEMBER.
+	if err := svc.Flush(ctx, user.ID, &model.FlushRequest{
+		HouseholdID: hh.ID,
+		ItemStores:  []model.ItemStore{{ItemID: "i-1", StoreID: "s-1", CreatedAt: now}},
+	}); err != nil {
+		t.Fatalf("legacy flush failed: %v", err)
+	}
+	deltas, err = svc.GetDeltas(ctx, user.ID, hh.ID, time.Time{})
+	if err != nil {
+		t.Fatalf("get deltas failed: %v", err)
+	}
+	for _, is := range deltas.ItemStores {
+		if is.ItemID == "i-1" && is.StoreID == "s-1" && is.Membership != "MEMBER" {
+			t.Errorf("expected legacy membership to normalize to MEMBER, got %q", is.Membership)
+		}
+	}
+
+	// Now the client pushes join-row deletions (rows already gone locally).
+	if err := svc.Flush(ctx, user.ID, &model.FlushRequest{
+		HouseholdID:            hh.ID,
+		DeletedItemStoreGroups: []string{"i-1:" + supermarkt},
+		DeletedItemStores:      []string{"i-2:s-2"},
+	}); err != nil {
+		t.Fatalf("deletion flush failed: %v", err)
+	}
+
+	deltas, err = svc.GetDeltas(ctx, user.ID, hh.ID, time.Time{})
+	if err != nil {
+		t.Fatalf("get deltas after deletions failed: %v", err)
+	}
+	for _, isg := range deltas.ItemStoreGroups {
+		if isg.ItemID == "i-1" {
+			t.Errorf("item_store_group i-1:%s resurrected after deletion", supermarkt)
+		}
+	}
+	for _, is := range deltas.ItemStores {
+		if is.ItemID == "i-2" && is.StoreID == "s-2" {
+			t.Error("excluded item_store i-2:s-2 resurrected after deletion")
+		}
+	}
+}
+
+// ADR 0019 regression, store_groups edition: a flushed group with a stale
+// client-stamped updated_at must still be delivered to a device whose
+// watermark already sits past that timestamp.
+func TestFlushStaleStoreGroupTimestampRemainsVisible(t *testing.T) {
+	svc, _ := setupTestService(t)
+	ctx := context.Background()
+
+	user, err := svc.AdminCreateUser(ctx, "user1@simsli.de")
+	if err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+	hh, err := svc.CreateHousehold(ctx, user.ID, "hh-drift-2", "Drift Household 2")
+	if err != nil {
+		t.Fatalf("create household failed: %v", err)
+	}
+
+	stale := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	if err := svc.Flush(ctx, user.ID, &model.FlushRequest{
+		HouseholdID: hh.ID,
+		StoreGroups: []model.StoreGroup{
+			{ID: "sg-stale", HouseholdID: hh.ID, Name: "Supermarkt", SortOrder: 1, CreatedAt: stale, UpdatedAt: stale},
+		},
+	}); err != nil {
+		t.Fatalf("flush failed: %v", err)
+	}
+
+	deltas, err := svc.GetDeltas(ctx, user.ID, hh.ID, time.Now().UTC().Add(-time.Minute))
+	if err != nil {
+		t.Fatalf("get deltas failed: %v", err)
+	}
+	var group *model.StoreGroup
+	for i := range deltas.StoreGroups {
+		if deltas.StoreGroups[i].ID == "sg-stale" {
+			group = &deltas.StoreGroups[i]
+		}
+	}
+	if group == nil {
+		t.Fatal("expected flushed store group in deltas despite stale client updated_at")
+	}
+	if !group.UpdatedAt.After(stale) {
+		t.Errorf("expected store group updated_at re-stamped to server time, got %v", group.UpdatedAt)
+	}
+	if !group.CreatedAt.Equal(stale) {
+		t.Errorf("expected created_at preserved from client, got %v", group.CreatedAt)
+	}
+}

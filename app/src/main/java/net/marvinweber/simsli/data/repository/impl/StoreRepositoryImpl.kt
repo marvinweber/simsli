@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import net.marvinweber.simsli.data.local.dao.ItemStoreDao
 import net.marvinweber.simsli.data.local.dao.OutboxDao
 import net.marvinweber.simsli.data.local.dao.StoreDao
 import net.marvinweber.simsli.data.local.entity.DbOutboxEntry
@@ -22,6 +23,7 @@ import javax.inject.Singleton
 @Singleton
 class StoreRepositoryImpl @Inject constructor(
     private val storeDao: StoreDao,
+    private val itemStoreDao: ItemStoreDao,
     private val outboxDao: OutboxDao,
     private val syncScheduler: SyncScheduler,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
@@ -73,9 +75,26 @@ class StoreRepositoryImpl @Inject constructor(
     override suspend fun deleteStore(storeId: String): Result<Unit> {
         return withContext(ioDispatcher) {
             try {
-                storeDao.delete(storeId, Instant.now())
+                val now = Instant.now()
+                storeDao.delete(storeId, now)
                 // Local deletes are soft — push the row so deleted_at propagates.
                 enqueueUpsert(storeId)
+
+                // STORE-3: the deleted store's assignments are removed (soft delete
+                // doesn't fire the FK cascade); items are preserved. Without this,
+                // orphaned rows would keep items out of "No Store" forever.
+                val affectedItemIds = itemStoreDao.getItemIdsForStore(storeId)
+                itemStoreDao.deleteByStoreId(storeId)
+                for (itemId in affectedItemIds) {
+                    outboxDao.enqueue(
+                        DbOutboxEntry(
+                            entityType = SyncContract.ENTITY_ITEM_STORE,
+                            entityId = SyncContract.itemStoreEntityId(itemId, storeId),
+                            operation = SyncContract.OP_DELETE,
+                            createdAt = now
+                        )
+                    )
+                }
                 Result.success(Unit)
             } catch (e: Exception) {
                 Result.failure(e)

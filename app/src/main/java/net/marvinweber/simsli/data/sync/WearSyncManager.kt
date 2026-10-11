@@ -20,7 +20,9 @@ import net.marvinweber.simsli.domain.model.Item
 import net.marvinweber.simsli.domain.model.ItemStore
 import net.marvinweber.simsli.domain.model.ListEntry
 import net.marvinweber.simsli.domain.model.Store
+import net.marvinweber.simsli.domain.util.EffectiveStoreSet
 import net.marvinweber.simsli.domain.wear.WearSyncBridge
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -48,18 +50,30 @@ class WearSyncManager @Inject constructor(
                 .filterNotNull()
                 .distinctUntilChanged { old, new -> old.id == new.id }
                 .flatMapLatest { household ->
-                    combine(
+                    val storesWithGroups = combine(
                         storeRepository.getStoresByHousehold(household.id),
+                        itemStoreRepository.observeItemStoreGroupsByHousehold(household.id)
+                    ) { stores, groups -> stores to groups }
+                    combine(
+                        storesWithGroups,
                         listEntryRepository.getListEntriesByHousehold(household.id),
                         itemRepository.getItemsByHousehold(household.id),
                         itemStoreRepository.observeItemStoresByHousehold(household.id),
                         categoryRepository.getCategoriesByHousehold(household.id)
-                    ) { stores: List<Store>, entries: List<ListEntry>, items: List<Item>, itemStores: List<ItemStore>, categories: List<Category> ->
+                    ) { (stores, itemStoreGroups), entries: List<ListEntry>, items: List<Item>, itemStores: List<ItemStore>, categories: List<Category> ->
+                        // The watch renders store lists from flat item→store
+                        // rows; publish the derived effective set (STORE-7) so
+                        // group-covered items reach it. Bridge and watch stay
+                        // membership-unaware.
+                        val effective = EffectiveStoreSet.compute(itemStores, itemStoreGroups, stores)
+                        val effectiveRows = effective.flatMap { (itemId, storeIds) ->
+                            storeIds.map { ItemStore(itemId = itemId, storeId = it, createdAt = Instant.EPOCH) }
+                        }
                         ShoppingSnapshot(
                             stores = stores,
                             entries = entries,
                             items = items.associateBy { it.id },
-                            itemStores = itemStores,
+                            itemStores = effectiveRows,
                             categories = categories
                         )
                     }

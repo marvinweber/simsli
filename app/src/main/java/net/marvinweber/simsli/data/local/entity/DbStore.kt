@@ -11,6 +11,7 @@ data class DbStore(
     val householdId: String,
     val name: String,
     val sortOrder: Float,
+    val groupId: String? = null,
     val createdAt: Instant,
     val updatedAt: Instant,
     val deletedAt: Instant? = null

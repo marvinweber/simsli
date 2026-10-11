@@ -20,6 +20,10 @@ func (s *Service) SeedDemoData(ctx context.Context) error {
 	aldi := id(3)
 	dm := id(4)
 
+	// Store groups (STORE-7): Supermarkt = REWE + Aldi Süd, Drogeriemarkt = dm
+	supermarkt := id(5)
+	drogeriemarkt := id(6)
+
 	// Categories
 	obst := id(31)
 	milch := id(32)
@@ -52,13 +56,17 @@ func (s *Service) SeedDemoData(ctx context.Context) error {
 	// Add user2 as member
 	_ = s.repo.AddHouseholdMember(ctx, householdID, user2.ID, "member")
 
-	// 3. Stores, Categories, Items, and Entries via Flush
+	// 3. Store Groups, Stores, Categories, Items, and Entries via Flush
 	flushReq := &model.FlushRequest{
 		HouseholdID: householdID,
+		StoreGroups: []model.StoreGroup{
+			{ID: supermarkt, HouseholdID: householdID, Name: "Supermarkt", SortOrder: 1.0, CreatedAt: now, UpdatedAt: now},
+			{ID: drogeriemarkt, HouseholdID: householdID, Name: "Drogeriemarkt", SortOrder: 2.0, CreatedAt: now, UpdatedAt: now},
+		},
 		Stores: []model.Store{
-			{ID: rewe, HouseholdID: householdID, Name: "REWE", SortOrder: 1.0, CreatedAt: now, UpdatedAt: now},
-			{ID: aldi, HouseholdID: householdID, Name: "Aldi Süd", SortOrder: 2.0, CreatedAt: now, UpdatedAt: now},
-			{ID: dm, HouseholdID: householdID, Name: "dm-drogerie markt", SortOrder: 3.0, CreatedAt: now, UpdatedAt: now},
+			{ID: rewe, HouseholdID: householdID, Name: "REWE", SortOrder: 1.0, GroupID: &supermarkt, CreatedAt: now, UpdatedAt: now},
+			{ID: aldi, HouseholdID: householdID, Name: "Aldi Süd", SortOrder: 2.0, GroupID: &supermarkt, CreatedAt: now, UpdatedAt: now},
+			{ID: dm, HouseholdID: householdID, Name: "dm-drogerie markt", SortOrder: 3.0, GroupID: &drogeriemarkt, CreatedAt: now, UpdatedAt: now},
 		},
 		Categories: []model.Category{
 			{ID: obst, HouseholdID: householdID, Name: "Obst & Gemüse", Emoji: "🍎", SortOrder: 1.0, CreatedAt: now, UpdatedAt: now},
@@ -113,16 +121,21 @@ func (s *Service) SeedDemoData(ctx context.Context) error {
 			{ItemID: id(105), StoreID: aldi, CreatedAt: now},
 			{ItemID: id(106), StoreID: rewe, CreatedAt: now},
 			{ItemID: id(107), StoreID: rewe, CreatedAt: now},
-			{ItemID: id(108), StoreID: aldi, CreatedAt: now},
+			// Bananen: covered via the Supermarkt group selection (no explicit rows)
 			{ItemID: id(109), StoreID: rewe, CreatedAt: now},
 			{ItemID: id(110), StoreID: aldi, CreatedAt: now},
 			{ItemID: id(111), StoreID: rewe, CreatedAt: now},
-			{ItemID: id(112), StoreID: rewe, CreatedAt: now},
+			// Spülmittel: Supermarkt selection with REWE excluded, dm explicit
+			{ItemID: id(112), StoreID: rewe, Membership: "EXCLUDED", CreatedAt: now},
 			{ItemID: id(112), StoreID: dm, CreatedAt: now},
 			{ItemID: id(113), StoreID: aldi, CreatedAt: now},
 			{ItemID: id(113), StoreID: dm, CreatedAt: now},
 			{ItemID: id(114), StoreID: dm, CreatedAt: now},
 			{ItemID: id(115), StoreID: dm, CreatedAt: now},
+		},
+		ItemStoreGroups: []model.ItemStoreGroup{
+			{ItemID: id(108), GroupID: supermarkt, CreatedAt: now},
+			{ItemID: id(112), GroupID: supermarkt, CreatedAt: now},
 		},
 		ListEntries: []model.ListEntry{
 			// Active entries

@@ -7,6 +7,7 @@ data class Store(
     val householdId: String,
     val name: String,
     val sortOrder: Float = 0f,
+    val groupId: String? = null,
     val createdAt: Instant,
     val updatedAt: Instant
 )

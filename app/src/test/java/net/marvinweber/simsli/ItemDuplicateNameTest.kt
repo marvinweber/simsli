@@ -3,6 +3,7 @@ package net.marvinweber.simsli
 import kotlinx.coroutines.runBlocking
 import net.marvinweber.simsli.data.local.dao.ItemDao
 import net.marvinweber.simsli.data.local.dao.ItemStoreDao
+import net.marvinweber.simsli.data.local.dao.ItemStoreGroupDao
 import net.marvinweber.simsli.data.local.dao.ListEntryDao
 import net.marvinweber.simsli.data.local.dao.OutboxDao
 import net.marvinweber.simsli.data.local.entity.DbItem
@@ -46,6 +47,7 @@ class ItemDuplicateNameTest {
         val dummyOutboxDao: OutboxDao = dummyProxy()
         val dummyListEntryDao: ListEntryDao = dummyProxy()
         val dummyItemStoreDao: ItemStoreDao = dummyProxy()
+        val dummyItemStoreGroupDao: ItemStoreGroupDao = dummyProxy()
 
         val unsafeField = Class.forName("sun.misc.Unsafe").getDeclaredField("theUnsafe")
         unsafeField.isAccessible = true
@@ -58,6 +60,7 @@ class ItemDuplicateNameTest {
             outboxDao = dummyOutboxDao,
             listEntryDao = dummyListEntryDao,
             itemStoreDao = dummyItemStoreDao,
+            itemStoreGroupDao = dummyItemStoreGroupDao,
             syncScheduler = dummySyncScheduler,
             ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined
         )

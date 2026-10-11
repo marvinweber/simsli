@@ -24,6 +24,7 @@ import net.marvinweber.simsli.data.repository.CategoryRepository
 import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.data.repository.ItemRepository
 import net.marvinweber.simsli.data.repository.ListEntryRepository
+import net.marvinweber.simsli.data.repository.StoreGroupRepository
 import net.marvinweber.simsli.data.repository.StoreRepository
 import net.marvinweber.simsli.data.sync.SyncManager
 import net.marvinweber.simsli.domain.model.Category
@@ -35,6 +36,7 @@ import net.marvinweber.simsli.domain.model.ListEntry
 import net.marvinweber.simsli.domain.model.Store
 import net.marvinweber.simsli.domain.model.StoreFilter
 import net.marvinweber.simsli.domain.model.StoreCategory
+import net.marvinweber.simsli.domain.model.StoreGroup
 import java.time.Instant
 import javax.inject.Inject
 
@@ -69,6 +71,7 @@ sealed interface AddSelection {
 data class ListUiState(
     val household: Household? = null,
     val stores: List<Store> = emptyList(),
+    val storeGroups: List<StoreGroup> = emptyList(),
     val categories: List<Category> = emptyList(),
     val activeGroups: List<CategoryGroupUi> = emptyList(),
     val activeEntries: List<ListEntryItem> = emptyList(),
@@ -95,6 +98,7 @@ class ListViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val householdRepository: HouseholdRepository,
     private val storeRepository: StoreRepository,
+    private val storeGroupRepository: StoreGroupRepository,
     private val itemRepository: ItemRepository,
     private val listEntryRepository: ListEntryRepository,
     private val categoryRepository: CategoryRepository,
@@ -125,6 +129,7 @@ class ListViewModel @Inject constructor(
     private data class ListUiData(
         val household: Household,
         val stores: List<Store>,
+        val storeGroups: List<StoreGroup>,
         val categories: List<Category>,
         val activeGroups: List<CategoryGroupUi>,
         val activeEntries: List<ListEntryItem>,
@@ -149,13 +154,17 @@ class ListViewModel @Inject constructor(
                 is StoreFilter.ByStore -> categoryRepository.getStoreCategories(storeFilter.storeId)
                 else -> flowOf(emptyList<StoreCategory>())
             }
-            combine(
+            val storesWithGroupsFlow = combine(
                 storeRepository.getStoresByHousehold(household.id),
+                storeGroupRepository.getGroupsByHousehold(household.id)
+            ) { stores, groups -> stores to groups }
+            combine(
+                storesWithGroupsFlow,
                 categoryRepository.getCategoriesByHousehold(household.id),
                 storeCategoriesFlow,
                 entriesFlow,
                 itemRepository.getItemsByHousehold(household.id)
-            ) { stores, categories, storeCategories, listEntries, items ->
+            ) { (stores, storeGroups), categories, storeCategories, listEntries, items ->
                 val itemMap = items.associateBy { it.id }
                 val entryItems = listEntries.map { entry ->
                     ListEntryItem(entry, itemMap[entry.itemId])
@@ -213,6 +222,7 @@ class ListViewModel @Inject constructor(
                 ListUiData(
                     household = household,
                     stores = stores,
+                    storeGroups = storeGroups,
                     categories = categories,
                     activeGroups = activeGroups,
                     activeEntries = activeEntryItems,
@@ -235,6 +245,7 @@ class ListViewModel @Inject constructor(
                 ListUiState(
                     household = data.household,
                     stores = data.stores,
+                    storeGroups = data.storeGroups,
                     categories = data.categories,
                     activeGroups = data.activeGroups,
                     activeEntries = data.activeEntries,

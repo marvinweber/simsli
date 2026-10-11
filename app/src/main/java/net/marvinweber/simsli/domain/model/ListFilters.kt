@@ -5,10 +5,13 @@ sealed interface StoreFilter {
     /** Everything. */
     data object All : StoreFilter
 
-    /** Only items assigned to this store. */
+    /** Only items whose effective store set (STORE-7) contains this store. */
     data class ByStore(val storeId: String) : StoreFilter
 
-    /** Only items without any store assignment. */
+    /** Only items whose effective store set intersects this group's member stores. */
+    data class ByGroup(val groupId: String) : StoreFilter
+
+    /** Only items with neither an assignment nor a group selection. */
     data object NoStore : StoreFilter
 }
 

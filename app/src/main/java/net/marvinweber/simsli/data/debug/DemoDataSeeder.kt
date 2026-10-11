@@ -15,9 +15,11 @@ import net.marvinweber.simsli.data.local.entity.DbCategory
 import net.marvinweber.simsli.data.local.entity.DbHousehold
 import net.marvinweber.simsli.data.local.entity.DbItem
 import net.marvinweber.simsli.data.local.entity.DbItemStore
+import net.marvinweber.simsli.data.local.entity.DbItemStoreGroup
 import net.marvinweber.simsli.data.local.entity.DbListEntry
 import net.marvinweber.simsli.data.local.entity.DbStore
 import net.marvinweber.simsli.data.local.entity.DbStoreCategory
+import net.marvinweber.simsli.data.local.entity.DbStoreGroup
 import net.marvinweber.simsli.di.IoDispatcher
 import net.marvinweber.simsli.domain.model.ItemType
 import java.time.Duration
@@ -68,6 +70,9 @@ class DemoDataSeeder @Inject constructor(
             val rewe = id(2)
             val aldi = id(3)
             val dm = id(4)
+            // Store groups (STORE-7) — mirrors server/internal/service/seed.go
+            val supermarkt = id(5)
+            val drogeriemarkt = id(6)
 
             // Categories — global order; mirrors the seed.sql set. Entry ids go up
             // to 30, so the category indices start at 31.
@@ -87,11 +92,12 @@ class DemoDataSeeder @Inject constructor(
                 ItemDef(5, "Käse", null, ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi), defaultUnit = "g"),
                 ItemDef(6, "Eier", "Freilandhaltung", ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi), defaultUnit = "pack"),
                 ItemDef(7, "Äpfel", null, ItemType.PERMANENT, obst, listOf(rewe, aldi), defaultUnit = "kg"),
-                ItemDef(8, "Bananen", null, ItemType.PERMANENT, obst, listOf(aldi), defaultUnit = "kg"),
+                ItemDef(8, "Bananen", null, ItemType.PERMANENT, obst, emptyList(), defaultUnit = "kg"),
                 ItemDef(9, "Kaffee", "Bohnen, dunkle Röstung", ItemType.PERMANENT, grundnahrung, listOf(rewe, aldi), defaultUnit = "pack"),
                 ItemDef(10, "Nudeln", null, ItemType.PERMANENT, grundnahrung, listOf(aldi), defaultUnit = "pack"),
                 ItemDef(11, "Tomatenpassata", null, ItemType.PERMANENT, grundnahrung, listOf(rewe, aldi), defaultUnit = "ml"),
-                ItemDef(12, "Spülmittel", null, ItemType.PERMANENT, haushalt, listOf(rewe, dm), defaultUnit = "pcs"),
+                // Spülmittel: Supermarkt selection with REWE excluded, DM explicit (STORE-7)
+                ItemDef(12, "Spülmittel", null, ItemType.PERMANENT, haushalt, listOf(dm), defaultUnit = "pcs"),
                 ItemDef(13, "Toilettenpapier", "dreilagig", ItemType.PERMANENT, haushalt, listOf(aldi, dm), defaultUnit = "pack"),
                 ItemDef(14, "Geburtstagskerzen", null, ItemType.ONE_TIME, sonstiges, listOf(dm)),
                 // Uncategorized on purpose — exercises the implicit "Uncategorized" group (LIST-6).
@@ -110,9 +116,16 @@ class DemoDataSeeder @Inject constructor(
 
                 storeDao.insertAll(
                     listOf(
-                        DbStore(rewe, householdId, "REWE", 1f, daysAgo(30), daysAgo(12)),
-                        DbStore(aldi, householdId, "Aldi", 2f, daysAgo(30), daysAgo(12)),
-                        DbStore(dm, householdId, "DM", 3f, daysAgo(30), daysAgo(12))
+                        DbStore(id = rewe, householdId = householdId, name = "REWE", sortOrder = 1f, groupId = supermarkt, createdAt = daysAgo(30), updatedAt = daysAgo(12)),
+                        DbStore(id = aldi, householdId = householdId, name = "Aldi", sortOrder = 2f, groupId = supermarkt, createdAt = daysAgo(30), updatedAt = daysAgo(12)),
+                        DbStore(id = dm, householdId = householdId, name = "DM", sortOrder = 3f, groupId = drogeriemarkt, createdAt = daysAgo(30), updatedAt = daysAgo(12))
+                    )
+                )
+
+                db.storeGroupDao().insertAll(
+                    listOf(
+                        DbStoreGroup(supermarkt, householdId, "Supermarkt", 1f, daysAgo(30), daysAgo(12)),
+                        DbStoreGroup(drogeriemarkt, householdId, "Drogeriemarkt", 2f, daysAgo(30), daysAgo(12))
                     )
                 )
 
@@ -150,7 +163,19 @@ class DemoDataSeeder @Inject constructor(
                         def.storeIds.map { storeId ->
                             DbItemStore(itemId = id(def.idIndex), storeId = storeId, createdAt = daysAgo(12))
                         }
-                    }
+                    } + listOf(
+                        // Spülmittel: Supermarkt selection with REWE excluded
+                        DbItemStore(itemId = id(12), storeId = rewe, membership = "EXCLUDED", createdAt = daysAgo(12))
+                    )
+                )
+
+                // Group selections (STORE-7): Bananen via Supermarkt, Spülmittel
+                // via Supermarkt (minus the excluded REWE above)
+                db.itemStoreGroupDao().insertAll(
+                    listOf(
+                        DbItemStoreGroup(itemId = id(8), groupId = supermarkt, createdAt = daysAgo(12)),
+                        DbItemStoreGroup(itemId = id(12), groupId = supermarkt, createdAt = daysAgo(12))
+                    )
                 )
 
                 // Per-store aisle order: REWE full explicit (differs from global),

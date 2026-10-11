@@ -22,10 +22,12 @@ import net.marvinweber.simsli.data.local.dao.CategoryDao
 import net.marvinweber.simsli.data.local.dao.HouseholdDao
 import net.marvinweber.simsli.data.local.dao.ItemDao
 import net.marvinweber.simsli.data.local.dao.ItemStoreDao
+import net.marvinweber.simsli.data.local.dao.ItemStoreGroupDao
 import net.marvinweber.simsli.data.local.dao.ListEntryDao
 import net.marvinweber.simsli.data.local.dao.OutboxDao
 import net.marvinweber.simsli.data.local.dao.StoreCategoryDao
 import net.marvinweber.simsli.data.local.dao.StoreDao
+import net.marvinweber.simsli.data.local.dao.StoreGroupDao
 import net.marvinweber.simsli.data.local.dao.SyncStateDao
 import net.marvinweber.simsli.data.local.entity.DbHousehold
 import net.marvinweber.simsli.data.local.entity.DbOutboxEntry
@@ -36,9 +38,11 @@ import net.marvinweber.simsli.data.remote.dto.FlushRequestDto
 import net.marvinweber.simsli.data.remote.dto.HouseholdDto
 import net.marvinweber.simsli.data.remote.dto.ItemDto
 import net.marvinweber.simsli.data.remote.dto.ItemStoreDto
+import net.marvinweber.simsli.data.remote.dto.ItemStoreGroupDto
 import net.marvinweber.simsli.data.remote.dto.ListEntryDto
 import net.marvinweber.simsli.data.remote.dto.StoreCategoryDto
 import net.marvinweber.simsli.data.remote.dto.StoreDto
+import net.marvinweber.simsli.data.remote.dto.StoreGroupDto
 import net.marvinweber.simsli.data.remote.mapper.toDb
 import net.marvinweber.simsli.data.remote.mapper.toDto
 import net.marvinweber.simsli.BuildConfig
@@ -81,6 +85,8 @@ class SyncManager @Inject constructor(
     private val storeDao: StoreDao,
     private val itemDao: ItemDao,
     private val itemStoreDao: ItemStoreDao,
+    private val storeGroupDao: StoreGroupDao,
+    private val itemStoreGroupDao: ItemStoreGroupDao,
     private val listEntryDao: ListEntryDao,
     private val categoryDao: CategoryDao,
     private val storeCategoryDao: StoreCategoryDao,
@@ -364,6 +370,11 @@ class SyncManager @Inject constructor(
             .filter { it.id !in pendingStores }
             .forEach { outboxDao.enqueue(upsertEntry(SyncContract.ENTITY_STORE, it.id)); enqueued++ }
 
+        val pendingStoreGroups = outboxDao.getPendingEntityIds(SyncContract.ENTITY_STORE_GROUP).toSet()
+        storeGroupDao.getAllIncludingDeleted(household.id)
+            .filter { it.id !in pendingStoreGroups }
+            .forEach { outboxDao.enqueue(upsertEntry(SyncContract.ENTITY_STORE_GROUP, it.id)); enqueued++ }
+
         val pendingItems = outboxDao.getPendingEntityIds(SyncContract.ENTITY_ITEM).toSet()
         itemDao.getAllIncludingDeleted(household.id)
             .filter { it.id !in pendingItems }
@@ -400,6 +411,19 @@ class SyncManager @Inject constructor(
                 enqueued++
             }
 
+        val pendingItemStoreGroups = outboxDao.getPendingEntityIds(SyncContract.ENTITY_ITEM_STORE_GROUP).toSet()
+        itemStoreGroupDao.getAllForHousehold(household.id)
+            .filter { SyncContract.itemStoreGroupEntityId(it.itemId, it.groupId) !in pendingItemStoreGroups }
+            .forEach {
+                outboxDao.enqueue(
+                    upsertEntry(
+                        SyncContract.ENTITY_ITEM_STORE_GROUP,
+                        SyncContract.itemStoreGroupEntityId(it.itemId, it.groupId)
+                    )
+                )
+                enqueued++
+            }
+
         diag.d(TAG, "Initial upload: enqueued $enqueued rows")
         syncStateDao.upsert(DbSyncState(SyncContract.KEY_INITIAL_UPLOAD_DONE, Instant.now()))
     }
@@ -408,10 +432,12 @@ class SyncManager @Inject constructor(
         SyncContract.ENTITY_HOUSEHOLD -> 0
         SyncContract.ENTITY_STORE -> 1
         SyncContract.ENTITY_CATEGORY -> 1
+        SyncContract.ENTITY_STORE_GROUP -> 1
         SyncContract.ENTITY_ITEM -> 2
         SyncContract.ENTITY_LIST_ENTRY -> 3
         SyncContract.ENTITY_ITEM_STORE -> 3
         SyncContract.ENTITY_STORE_CATEGORY -> 3
+        SyncContract.ENTITY_ITEM_STORE_GROUP -> 3
         else -> 4
     }
 
@@ -427,15 +453,22 @@ class SyncManager @Inject constructor(
         val household = householdDao.getHouseholdOnce() ?: return
 
         val stores = mutableListOf<StoreDto>()
+        val storeGroups = mutableListOf<StoreGroupDto>()
         val categories = mutableListOf<CategoryDto>()
         val storeCategories = mutableListOf<StoreCategoryDto>()
         val items = mutableListOf<ItemDto>()
         val itemStores = mutableListOf<ItemStoreDto>()
+        val itemStoreGroups = mutableListOf<ItemStoreGroupDto>()
         val listEntries = mutableListOf<ListEntryDto>()
         val deletedStores = mutableListOf<String>()
         val deletedCategories = mutableListOf<String>()
         val deletedItems = mutableListOf<String>()
         val deletedEntries = mutableListOf<String>()
+        // Join-row deletions have no row left to push — the id travels instead.
+        // Dropping these (the old behavior) let the next pull resurrect the row.
+        val deletedItemStores = mutableListOf<String>()
+        val deletedStoreCategories = mutableListOf<String>()
+        val deletedItemStoreGroups = mutableListOf<String>()
         var hhDto: HouseholdDto? = null
 
         for (entry in entries) {
@@ -447,6 +480,10 @@ class SyncManager @Inject constructor(
                 SyncContract.ENTITY_STORE -> {
                     val local = storeDao.getByIdIncludingDeleted(entry.entityId)
                     if (local != null) stores.add(local.toDto())
+                }
+                SyncContract.ENTITY_STORE_GROUP -> {
+                    val local = storeGroupDao.getByIdIncludingDeleted(entry.entityId)
+                    if (local != null) storeGroups.add(local.toDto())
                 }
                 SyncContract.ENTITY_CATEGORY -> {
                     val local = categoryDao.getByIdIncludingDeleted(entry.entityId)
@@ -469,6 +506,8 @@ class SyncManager @Inject constructor(
                     val local = itemStoreDao.getOnce(itemId, storeId)
                     if (local != null) {
                         itemStores.add(local.toDto())
+                    } else {
+                        deletedItemStores.add(entry.entityId)
                     }
                 }
                 SyncContract.ENTITY_STORE_CATEGORY -> {
@@ -476,6 +515,17 @@ class SyncManager @Inject constructor(
                     val local = storeCategoryDao.getOnce(storeId, categoryId)
                     if (local != null) {
                         storeCategories.add(local.toDto())
+                    } else {
+                        deletedStoreCategories.add(entry.entityId)
+                    }
+                }
+                SyncContract.ENTITY_ITEM_STORE_GROUP -> {
+                    val (itemId, groupId) = SyncContract.parseItemStoreGroupEntityId(entry.entityId) ?: continue
+                    val local = itemStoreGroupDao.getOnce(itemId, groupId)
+                    if (local != null) {
+                        itemStoreGroups.add(local.toDto())
+                    } else {
+                        deletedItemStoreGroups.add(entry.entityId)
                     }
                 }
             }
@@ -489,29 +539,39 @@ class SyncManager @Inject constructor(
                 describeDtos(items.map { it.id to it.updatedAt.toInstantSafe() }, "item") +
                 describeDtos(listEntries.map { it.id to it.updatedAt.toInstantSafe() }, "entry") +
                 describeDtos(stores.map { it.id to it.updatedAt.toInstantSafe() }, "store") +
+                describeDtos(storeGroups.map { it.id to it.updatedAt.toInstantSafe() }, "store_group") +
                 describeDtos(categories.map { it.id to it.updatedAt.toInstantSafe() }, "category") +
                 describeDtos(itemStores.map { it.itemId + ":" + it.storeId to it.createdAt.toInstantSafe() }, "item_store") +
+                describeDtos(itemStoreGroups.map { it.itemId + ":" + it.groupId to Instant.EPOCH }, "item_store_group") +
                 describeDtos(storeCategories.map { it.storeId + ":" + it.categoryId to Instant.EPOCH }, "store_category") +
                 (if (hhDto != null) " household@${hhDto.updatedAt}" else "") +
                 (if (deletedEntries.isNotEmpty()) " deletes=${deletedEntries.size}" else "") +
                 (if (deletedItems.isNotEmpty()) " deleted_items=${deletedItems.size}" else "") +
                 (if (deletedStores.isNotEmpty()) " deleted_stores=${deletedStores.size}" else "") +
-                (if (deletedCategories.isNotEmpty()) " deleted_categories=${deletedCategories.size}" else "")
+                (if (deletedCategories.isNotEmpty()) " deleted_categories=${deletedCategories.size}" else "") +
+                (if (deletedItemStores.isNotEmpty()) " deleted_item_stores=${deletedItemStores.size}" else "") +
+                (if (deletedStoreCategories.isNotEmpty()) " deleted_store_categories=${deletedStoreCategories.size}" else "") +
+                (if (deletedItemStoreGroups.isNotEmpty()) " deleted_item_store_groups=${deletedItemStoreGroups.size}" else "")
         )
 
         val req = FlushRequestDto(
             householdId = household.id,
             household = hhDto,
             stores = stores.ifEmpty { null },
+            storeGroups = storeGroups.ifEmpty { null },
             categories = categories.ifEmpty { null },
             storeCategories = storeCategories.ifEmpty { null },
             items = items.ifEmpty { null },
             itemStores = itemStores.ifEmpty { null },
+            itemStoreGroups = itemStoreGroups.ifEmpty { null },
             listEntries = listEntries.ifEmpty { null },
             deletedStores = deletedStores.ifEmpty { null },
             deletedCategories = deletedCategories.ifEmpty { null },
             deletedItems = deletedItems.ifEmpty { null },
-            deletedEntries = deletedEntries.ifEmpty { null }
+            deletedEntries = deletedEntries.ifEmpty { null },
+            deletedItemStores = deletedItemStores.ifEmpty { null },
+            deletedStoreCategories = deletedStoreCategories.ifEmpty { null },
+            deletedItemStoreGroups = deletedItemStoreGroups.ifEmpty { null }
         )
 
         try {
@@ -546,7 +606,8 @@ class SyncManager @Inject constructor(
             SyncContract.TABLE_STORES,
             SyncContract.TABLE_CATEGORIES,
             SyncContract.TABLE_ITEMS,
-            SyncContract.TABLE_LIST_ENTRIES
+            SyncContract.TABLE_LIST_ENTRIES,
+            SyncContract.TABLE_STORE_GROUPS
         )
         val since = watermarkKeys.mapNotNull { syncStateDao.get(it)?.lastSyncedAt }.minOrNull() ?: Instant.EPOCH
 
@@ -559,7 +620,13 @@ class SyncManager @Inject constructor(
             householdDao.insert(it.toDb())
         }
 
-        // 2. Stores
+        // 2. Store groups (before stores, which carry groupId)
+        deltas.storeGroups?.map { it.toDb() }?.let { rows ->
+            if (rows.isNotEmpty()) diag.d(TAG, "Pull: ${rows.size} store_groups ${describe(rows, { it.id }, { it.updatedAt })}")
+            storeGroupDao.insertAll(rows)
+        }
+
+        // 3. Stores
         deltas.stores?.map { it.toDb() }?.let { rows ->
             if (rows.isNotEmpty()) diag.d(TAG, "Pull: ${rows.size} stores ${describe(rows, { it.id }, { it.updatedAt })}")
             storeDao.insertAll(rows)
@@ -612,6 +679,22 @@ class SyncManager @Inject constructor(
             }
             removed.forEach { (storeId, categoryId) ->
                 storeCategoryDao.delete(storeId, categoryId)
+            }
+        }
+
+        // 8. Full reconcile item_store_groups
+        deltas.itemStoreGroups?.let { remoteRows ->
+            val localKeys = itemStoreGroupDao.getAllForHousehold(household.id)
+                .map { it.itemId to it.groupId }
+                .toSet()
+            itemStoreGroupDao.insertAll(remoteRows.map { it.toDb() })
+            val remoteKeys = remoteRows.map { it.itemId to it.groupId }.toSet()
+            val removed = localKeys - remoteKeys
+            if (remoteRows.isNotEmpty() || removed.isNotEmpty()) {
+                diag.d(TAG, "Reconcile item_store_groups: ${remoteRows.size} remote, $removed removed locally")
+            }
+            removed.forEach { (itemId, groupId) ->
+                itemStoreGroupDao.delete(itemId, groupId)
             }
         }
 

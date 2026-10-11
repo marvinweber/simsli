@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import net.marvinweber.simsli.data.local.dao.ItemDao
 import net.marvinweber.simsli.data.local.dao.ItemStoreDao
+import net.marvinweber.simsli.data.local.dao.ItemStoreGroupDao
 import net.marvinweber.simsli.data.local.dao.ListEntryDao
 import net.marvinweber.simsli.data.local.dao.OutboxDao
 import net.marvinweber.simsli.data.local.entity.DbOutboxEntry
@@ -26,6 +27,7 @@ class ItemRepositoryImpl @Inject constructor(
     private val itemDao: ItemDao,
     private val listEntryDao: ListEntryDao,
     private val itemStoreDao: ItemStoreDao,
+    private val itemStoreGroupDao: ItemStoreGroupDao,
     private val outboxDao: OutboxDao,
     private val syncScheduler: SyncScheduler,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
@@ -100,14 +102,28 @@ class ItemRepositoryImpl @Inject constructor(
                     )
                 }
 
-                // 3. Remove all store assignments for this item
-                val storeIds = itemStoreDao.getStoreIdsForItem(itemId)
+                // 3. Remove all store assignments for this item (any membership)
+                val assignmentRows = itemStoreDao.getRowsForItem(itemId)
                 itemStoreDao.deleteByItemId(itemId)
-                for (storeId in storeIds) {
+                for (row in assignmentRows) {
                     outboxDao.enqueue(
                         DbOutboxEntry(
                             entityType = SyncContract.ENTITY_ITEM_STORE,
-                            entityId = SyncContract.itemStoreEntityId(itemId, storeId),
+                            entityId = SyncContract.itemStoreEntityId(itemId, row.storeId),
+                            operation = SyncContract.OP_DELETE,
+                            createdAt = now
+                        )
+                    )
+                }
+
+                // 4. Remove group selections for this item (exclusions went with step 3)
+                val groupRows = itemStoreGroupDao.getItemStoreGroupsForItem(itemId)
+                itemStoreGroupDao.deleteByItemId(itemId)
+                for (row in groupRows) {
+                    outboxDao.enqueue(
+                        DbOutboxEntry(
+                            entityType = SyncContract.ENTITY_ITEM_STORE_GROUP,
+                            entityId = SyncContract.itemStoreGroupEntityId(itemId, row.groupId),
                             operation = SyncContract.OP_DELETE,
                             createdAt = now
                         )

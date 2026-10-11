@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.FilterAltOff
 import androidx.compose.material.icons.outlined.Info
@@ -117,6 +118,7 @@ import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.CategoryFilter
 import net.marvinweber.simsli.domain.model.Store
 import net.marvinweber.simsli.domain.model.StoreFilter
+import net.marvinweber.simsli.domain.model.StoreGroup
 import net.marvinweber.simsli.domain.model.UnitPresets
 import net.marvinweber.simsli.ui.components.CategorySectionHeader
 import net.marvinweber.simsli.ui.components.EntryDetailsSheet
@@ -193,6 +195,7 @@ fun ListTabContent(
         bottomBar = {
             ListFilterBar(
                 stores = uiState.stores,
+                storeGroups = uiState.storeGroups,
                 categories = uiState.categories,
                 storeFilter = storeFilter,
                 categoryFilter = categoryFilter,
@@ -373,6 +376,7 @@ fun ListTabContent(
 @Composable
 private fun ListFilterBar(
     stores: List<Store>,
+    storeGroups: List<StoreGroup>,
     categories: List<Category>,
     storeFilter: StoreFilter,
     categoryFilter: CategoryFilter,
@@ -425,6 +429,7 @@ private fun ListFilterBar(
             ) {
                 StoreFilterChip(
                     stores = stores,
+                    storeGroups = storeGroups,
                     selectedFilter = storeFilter,
                     onFilterSelected = onStoreFilterSelected
                 )
@@ -466,9 +471,16 @@ private fun ListFilterBar(
 }
 
 /** Store filter chip with its dropdown menu (LIST-5): stores, "No Store", "No Filter". */
+/**
+ * Store filter chip with its tree menu (LIST-5, STORE-7): each store group as a
+ * selectable parent row with its stores nested beneath, ungrouped stores at the
+ * top level, then "No Store" and "No Filter". A group row filters to items whose
+ * effective store set intersects the group's member stores.
+ */
 @Composable
 private fun StoreFilterChip(
     stores: List<Store>,
+    storeGroups: List<StoreGroup>,
     selectedFilter: StoreFilter,
     onFilterSelected: (StoreFilter) -> Unit
 ) {
@@ -476,11 +488,45 @@ private fun StoreFilterChip(
         label = when (selectedFilter) {
             is StoreFilter.All -> "Store"
             is StoreFilter.ByStore -> stores.firstOrNull { it.id == selectedFilter.storeId }?.name ?: "Store"
+            is StoreFilter.ByGroup -> storeGroups.firstOrNull { it.id == selectedFilter.groupId }?.name ?: "Store"
             is StoreFilter.NoStore -> "No Store"
         },
         selected = selectedFilter !is StoreFilter.All
     ) { dismiss ->
-        stores.forEach { store ->
+        storeGroups.forEach { group ->
+            val members = stores.filter { it.groupId == group.id }
+            val groupSelected = selectedFilter is StoreFilter.ByGroup &&
+                selectedFilter.groupId == group.id
+            DropdownMenuItem(
+                text = { Text(group.name, fontWeight = FontWeight.Medium) },
+                leadingIcon = {
+                    MenuLeadingIcon(icon = Icons.Outlined.Category, isSelected = groupSelected)
+                },
+                onClick = {
+                    onFilterSelected(StoreFilter.ByGroup(group.id))
+                    dismiss()
+                }
+            )
+            members.forEach { store ->
+                val isSelected = selectedFilter is StoreFilter.ByStore &&
+                    selectedFilter.storeId == store.id
+                DropdownMenuItem(
+                    text = { Text(store.name) },
+                    leadingIcon = {
+                        MenuLeadingIcon(
+                            icon = Icons.Outlined.Storefront,
+                            isSelected = isSelected
+                        )
+                    },
+                    onClick = {
+                        onFilterSelected(StoreFilter.ByStore(store.id))
+                        dismiss()
+                    },
+                    modifier = Modifier.padding(start = 12.dp)
+                )
+            }
+        }
+        stores.filter { it.groupId == null }.forEach { store ->
             val isSelected = selectedFilter is StoreFilter.ByStore &&
                 selectedFilter.storeId == store.id
             DropdownMenuItem(

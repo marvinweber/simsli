@@ -72,9 +72,29 @@ type Store struct {
 	HouseholdID string     `json:"household_id"`
 	Name        string     `json:"name"`
 	SortOrder   float64    `json:"sort_order"`
+	GroupID     *string    `json:"group_id,omitempty"` // nullable: at most one group or none (STORE-7)
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
+}
+
+// StoreGroup is an optional household-level grouping of stores (STORE-7).
+type StoreGroup struct {
+	ID          string     `json:"id"`
+	HouseholdID string     `json:"household_id"`
+	Name        string     `json:"name"`
+	SortOrder   float64    `json:"sort_order"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
+}
+
+// ItemStoreGroup is an item's selection of a whole store group. Membership is
+// derived from it — never denormalized into item_stores (ADR 0020).
+type ItemStoreGroup struct {
+	ItemID    string    `json:"item_id"`
+	GroupID   string    `json:"group_id"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type Category struct {
@@ -115,9 +135,10 @@ type Item struct {
 }
 
 type ItemStore struct {
-	ItemID    string    `json:"item_id"`
-	StoreID   string    `json:"store_id"`
-	CreatedAt time.Time `json:"created_at"`
+	ItemID     string    `json:"item_id"`
+	StoreID    string    `json:"store_id"`
+	Membership string    `json:"membership"` // "MEMBER", "EXCLUDED", "METADATA"; empty = legacy client → MEMBER
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 type ListEntry struct {
@@ -161,30 +182,39 @@ type RefreshToken struct {
 
 // DeltaResponse encapsulates all delta entities for sync
 type DeltaResponse struct {
-	Household       *Household      `json:"household,omitempty"`
-	Stores          []Store         `json:"stores"`
-	Categories      []Category      `json:"categories"`
-	StoreCategories []StoreCategory `json:"store_categories"`
-	Items           []Item          `json:"items"`
-	ItemStores      []ItemStore     `json:"item_stores"`
-	ListEntries     []ListEntry     `json:"list_entries"`
-	ServerTime      time.Time       `json:"server_time"`
+	Household       *Household       `json:"household,omitempty"`
+	Stores          []Store          `json:"stores"`
+	StoreGroups     []StoreGroup     `json:"store_groups"`
+	Categories      []Category       `json:"categories"`
+	StoreCategories []StoreCategory  `json:"store_categories"`
+	Items           []Item           `json:"items"`
+	ItemStores      []ItemStore      `json:"item_stores"`
+	ItemStoreGroups []ItemStoreGroup `json:"item_store_groups"`
+	ListEntries     []ListEntry      `json:"list_entries"`
+	ServerTime      time.Time        `json:"server_time"`
 }
 
-// FlushRequest carries outbox mutations
+// FlushRequest carries outbox mutations. The Deleted{ItemStores,StoreCategories,
+// ItemStoreGroups} lists hold composite ids "itemId:storeId" etc. — join-table
+// deletions have no row to push, so they travel as ids (ADR 0020).
 type FlushRequest struct {
-	HouseholdID       string          `json:"household_id"`
-	Household         *Household      `json:"household,omitempty"`
-	Stores            []Store         `json:"stores,omitempty"`
-	Categories        []Category      `json:"categories,omitempty"`
-	StoreCategories   []StoreCategory `json:"store_categories,omitempty"`
-	Items             []Item          `json:"items,omitempty"`
-	ItemStores        []ItemStore     `json:"item_stores,omitempty"`
-	ListEntries       []ListEntry     `json:"list_entries,omitempty"`
-	DeletedStores     []string        `json:"deleted_stores,omitempty"`
-	DeletedCategories []string        `json:"deleted_categories,omitempty"`
-	DeletedItems      []string        `json:"deleted_items,omitempty"`
-	DeletedEntries    []string        `json:"deleted_entries,omitempty"`
+	HouseholdID            string           `json:"household_id"`
+	Household              *Household       `json:"household,omitempty"`
+	Stores                 []Store          `json:"stores,omitempty"`
+	StoreGroups            []StoreGroup     `json:"store_groups,omitempty"`
+	Categories             []Category       `json:"categories,omitempty"`
+	StoreCategories        []StoreCategory  `json:"store_categories,omitempty"`
+	Items                  []Item           `json:"items,omitempty"`
+	ItemStores             []ItemStore      `json:"item_stores,omitempty"`
+	ItemStoreGroups        []ItemStoreGroup `json:"item_store_groups,omitempty"`
+	ListEntries            []ListEntry      `json:"list_entries,omitempty"`
+	DeletedStores          []string         `json:"deleted_stores,omitempty"`
+	DeletedCategories      []string         `json:"deleted_categories,omitempty"`
+	DeletedItems           []string         `json:"deleted_items,omitempty"`
+	DeletedEntries         []string         `json:"deleted_entries,omitempty"`
+	DeletedItemStores      []string         `json:"deleted_item_stores,omitempty"`
+	DeletedStoreCategories []string         `json:"deleted_store_categories,omitempty"`
+	DeletedItemStoreGroups []string         `json:"deleted_item_store_groups,omitempty"`
 }
 
 type ServerInfo struct {

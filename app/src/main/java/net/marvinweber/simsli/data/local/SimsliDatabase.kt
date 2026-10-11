@@ -14,20 +14,24 @@ import net.marvinweber.simsli.data.local.dao.CategoryDao
 import net.marvinweber.simsli.data.local.dao.HouseholdDao
 import net.marvinweber.simsli.data.local.dao.ItemDao
 import net.marvinweber.simsli.data.local.dao.ItemStoreDao
+import net.marvinweber.simsli.data.local.dao.ItemStoreGroupDao
 import net.marvinweber.simsli.data.local.dao.ListEntryDao
 import net.marvinweber.simsli.data.local.dao.OutboxDao
 import net.marvinweber.simsli.data.local.dao.StoreCategoryDao
 import net.marvinweber.simsli.data.local.dao.StoreDao
+import net.marvinweber.simsli.data.local.dao.StoreGroupDao
 import net.marvinweber.simsli.data.local.dao.SyncStateDao
 import net.marvinweber.simsli.data.local.entity.Converters
 import net.marvinweber.simsli.data.local.entity.DbCategory
 import net.marvinweber.simsli.data.local.entity.DbHousehold
 import net.marvinweber.simsli.data.local.entity.DbItem
 import net.marvinweber.simsli.data.local.entity.DbItemStore
+import net.marvinweber.simsli.data.local.entity.DbItemStoreGroup
 import net.marvinweber.simsli.data.local.entity.DbListEntry
 import net.marvinweber.simsli.data.local.entity.DbOutboxEntry
 import net.marvinweber.simsli.data.local.entity.DbStore
 import net.marvinweber.simsli.data.local.entity.DbStoreCategory
+import net.marvinweber.simsli.data.local.entity.DbStoreGroup
 import net.marvinweber.simsli.data.local.entity.DbSyncState
 import net.marvinweber.simsli.domain.model.ItemType
 import java.time.Instant
@@ -42,10 +46,12 @@ import java.util.UUID
         DbListEntry::class,
         DbCategory::class,
         DbStoreCategory::class,
+        DbStoreGroup::class,
+        DbItemStoreGroup::class,
         DbSyncState::class,
         DbOutboxEntry::class
     ],
-    version = 6
+    version = 7
 )
 @TypeConverters(Converters::class)
 abstract class SimsliDatabase : RoomDatabase() {
@@ -56,6 +62,8 @@ abstract class SimsliDatabase : RoomDatabase() {
     abstract fun listEntryDao(): ListEntryDao
     abstract fun categoryDao(): CategoryDao
     abstract fun storeCategoryDao(): StoreCategoryDao
+    abstract fun storeGroupDao(): StoreGroupDao
+    abstract fun itemStoreGroupDao(): ItemStoreGroupDao
     abstract fun syncStateDao(): SyncStateDao
     abstract fun outboxDao(): OutboxDao
 
@@ -110,13 +118,39 @@ abstract class SimsliDatabase : RoomDatabase() {
             }
         }
 
+        /** v6 → v7: store groups (STORE-7) + item_stores.membership (ADR 0020). */
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `store_groups` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`householdId` TEXT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`sortOrder` REAL NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, " +
+                        "`updatedAt` INTEGER NOT NULL, " +
+                        "`deletedAt` INTEGER, " +
+                        "PRIMARY KEY(`id`))"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `item_store_groups` (" +
+                        "`itemId` TEXT NOT NULL, " +
+                        "`groupId` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`itemId`, `groupId`))"
+                )
+                db.execSQL("ALTER TABLE `stores` ADD COLUMN `groupId` TEXT")
+                db.execSQL("ALTER TABLE `item_stores` ADD COLUMN `membership` TEXT NOT NULL DEFAULT 'MEMBER'")
+            }
+        }
+
         fun create(context: Context): SimsliDatabase {
             return Room.databaseBuilder(
                 context,
                 SimsliDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .fallbackToDestructiveMigration()
                 .addCallback(SimsliDatabaseCallback())
                 .build()

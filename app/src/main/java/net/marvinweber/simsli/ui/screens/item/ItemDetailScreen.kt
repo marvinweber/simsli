@@ -1,6 +1,7 @@
 package net.marvinweber.simsli.ui.screens.item
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -23,8 +25,10 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material3.AlertDialog
@@ -37,9 +41,11 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
+import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -60,10 +66,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import net.marvinweber.simsli.domain.model.ItemType
+import net.marvinweber.simsli.domain.model.Store
+import net.marvinweber.simsli.domain.model.StoreGroup
+import net.marvinweber.simsli.domain.model.StoreSelection
 import net.marvinweber.simsli.domain.model.UnitPresets
 import net.marvinweber.simsli.ui.components.ItemLinkChipsRow
 import net.marvinweber.simsli.ui.components.LinkUtils
@@ -87,12 +97,14 @@ fun ItemDetailScreen(
     var itemDefaultUnit by rememberSaveable { mutableStateOf("") }
     var itemType by rememberSaveable { mutableStateOf<ItemType>(ItemType.PERMANENT) }
     var selectedStoreIds by rememberSaveable { mutableStateOf<Set<String>>(emptySet()) }
+    var selectedGroupIds by rememberSaveable { mutableStateOf<Set<String>>(emptySet()) }
+    var excludedStoreIds by rememberSaveable { mutableStateOf<Set<String>>(emptySet()) }
     var selectedCategoryId by rememberSaveable { mutableStateOf<String?>(null) }
     var prefilled by rememberSaveable { mutableStateOf(false) }
     var showAddLinkDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showStoreSelectionDialog by remember { mutableStateOf(false) }
     var categoryMenuExpanded by remember { mutableStateOf(false) }
-    var storesMenuExpanded by remember { mutableStateOf(false) }
     var duplicateWarningName by rememberSaveable { mutableStateOf<String?>(null) }
     var duplicateWarningIsSimilar by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -107,7 +119,13 @@ fun ItemDetailScreen(
         itemNotes = stripResult.remainingText
         itemDefaultUnit = item.defaultUnit.orEmpty()
         itemType = item.type
-        selectedStoreIds = uiState.existingStoreIds
+        val groupStoreIds = uiState.stores
+            .filter { it.groupId != null && it.groupId in uiState.existingSelection.groupIds }
+            .map { it.id }
+            .toSet()
+        selectedStoreIds = uiState.existingSelection.memberStoreIds - groupStoreIds
+        selectedGroupIds = uiState.existingSelection.groupIds
+        excludedStoreIds = uiState.existingSelection.excludedStoreIds
         selectedCategoryId = item.categoryId
         stripResult.extractedUrls.forEach { url ->
             viewModel.addLink(url)
@@ -258,26 +276,111 @@ fun ItemDetailScreen(
                             }
                         }
 
-                        // Stores
-                        Text(
-                            text = "Stores",
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        if (uiState.stores.isEmpty()) {
+                        // Stores (STORE-7): group + explicit store chips, edited in the tree dialog
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Stores",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                            TextButton(
+                                onClick = { showStoreSelectionDialog = true },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Edit,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.size(4.dp))
+                                Text("Edit", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+
+                        val explicitStores = uiState.stores.filter { it.id in selectedStoreIds && it.groupId !in selectedGroupIds }
+                        val selectedGroups = uiState.storeGroups.filter { it.id in selectedGroupIds }
+
+                        if (uiState.stores.isEmpty() && uiState.storeGroups.isEmpty()) {
                             Text(
                                 text = "No stores created yet",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else if (selectedGroups.isEmpty() && explicitStores.isEmpty()) {
+                            Text(
+                                text = "No stores assigned",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                             )
                         } else {
                             FlowRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                uiState.stores.filter { it.id in selectedStoreIds }.forEach { store ->
+                                selectedGroups.forEach { group ->
+                                    val excludedStores = uiState.stores
+                                        .filter { it.groupId == group.id && it.id in excludedStoreIds }
+                                    InputChip(
+                                        selected = true,
+                                        onClick = { showStoreSelectionDialog = true },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Outlined.Category,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        },
+                                        colors = InputChipDefaults.inputChipColors(
+                                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                        ),
+                                        label = {
+                                            if (excludedStores.isEmpty()) {
+                                                Text(group.name)
+                                            } else {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(group.name)
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    excludedStores.forEach { store ->
+                                                        Text(
+                                                            text = "⊘ ${store.name}",
+                                                            textDecoration = TextDecoration.LineThrough,
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                                                            modifier = Modifier.clickable {
+                                                                // Tap an excluded store to re-include it
+                                                                excludedStoreIds = excludedStoreIds - store.id
+                                                            }
+                                                        )
+                                                        Spacer(modifier = Modifier.width(4.dp))
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        trailingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Remove ${group.name}",
+                                                modifier = Modifier
+                                                    .size(16.dp)
+                                                    .clickable { selectedGroupIds = selectedGroupIds - group.id }
+                                            )
+                                        }
+                                    )
+                                }
+                                explicitStores.forEach { store ->
                                     InputChip(
                                         selected = true,
                                         onClick = { selectedStoreIds = selectedStoreIds - store.id },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Outlined.Storefront,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        },
                                         label = { Text(store.name) },
                                         trailingIcon = {
                                             Icon(
@@ -287,44 +390,6 @@ fun ItemDetailScreen(
                                             )
                                         }
                                     )
-                                }
-                                val availableStores = uiState.stores.filter { it.id !in selectedStoreIds }
-                                if (availableStores.isNotEmpty()) {
-                                    Box {
-                                        InputChip(
-                                            selected = false,
-                                            onClick = { storesMenuExpanded = true },
-                                            label = { Text(if (selectedStoreIds.isEmpty()) "Add store" else "Add") },
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = Icons.Default.Add,
-                                                    contentDescription = "Add store",
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            }
-                                        )
-                                        DropdownMenu(
-                                            expanded = storesMenuExpanded,
-                                            onDismissRequest = { storesMenuExpanded = false }
-                                        ) {
-                                            availableStores.forEach { store ->
-                                                DropdownMenuItem(
-                                                    leadingIcon = {
-                                                        Icon(
-                                                            imageVector = Icons.Outlined.Storefront,
-                                                            contentDescription = null,
-                                                            modifier = Modifier.size(18.dp)
-                                                        )
-                                                    },
-                                                    text = { Text(store.name) },
-                                                    onClick = {
-                                                        selectedStoreIds = selectedStoreIds + store.id
-                                                        storesMenuExpanded = false
-                                                    }
-                                                )
-                                            }
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -500,11 +565,19 @@ fun ItemDetailScreen(
                         // Save button
                         Button(
                             onClick = {
+                                val groupStoreIds = uiState.stores
+                                    .filter { it.groupId != null && it.groupId in selectedGroupIds }
+                                    .map { it.id }
+                                    .toSet()
                                 viewModel.saveItem(
                                     name = itemName,
                                     notes = itemNotes,
                                     type = itemType,
-                                    selectedStoreIds = selectedStoreIds.toList(),
+                                    selection = StoreSelection(
+                                        memberStoreIds = selectedStoreIds - groupStoreIds,
+                                        excludedStoreIds = excludedStoreIds,
+                                        groupIds = selectedGroupIds
+                                    ),
                                     selectedCategoryId = selectedCategoryId,
                                     defaultUnit = itemDefaultUnit
                                 )
@@ -552,6 +625,32 @@ fun ItemDetailScreen(
         )
     }
 
+    if (showStoreSelectionDialog) {
+        StoreSelectionDialog(
+            groups = uiState.storeGroups,
+            stores = uiState.stores,
+            selectedGroupIds = selectedGroupIds,
+            selectedStoreIds = selectedStoreIds,
+            excludedStoreIds = excludedStoreIds,
+            onToggleGroup = { groupId ->
+                val adding = groupId !in selectedGroupIds
+                selectedGroupIds = if (adding) selectedGroupIds + groupId else selectedGroupIds - groupId
+                if (adding) {
+                    val groupMemberIds = uiState.stores.filter { it.groupId == groupId }.map { it.id }.toSet()
+                    selectedStoreIds = selectedStoreIds - groupMemberIds
+                    excludedStoreIds = excludedStoreIds - groupMemberIds
+                }
+            },
+            onToggleStore = { storeId ->
+                selectedStoreIds = if (storeId in selectedStoreIds) selectedStoreIds - storeId else selectedStoreIds + storeId
+            },
+            onToggleExclusion = { storeId ->
+                excludedStoreIds = if (storeId in excludedStoreIds) excludedStoreIds - storeId else excludedStoreIds + storeId
+            },
+            onDismiss = { showStoreSelectionDialog = false }
+        )
+    }
+
     duplicateWarningName?.let { name ->
         DuplicateItemWarningDialog(
             matchedName = name,
@@ -560,11 +659,19 @@ fun ItemDetailScreen(
             onConfirm = {
                 duplicateWarningName = null
                 duplicateWarningIsSimilar = false
+                val groupStoreIds = uiState.stores
+                    .filter { it.groupId != null && it.groupId in selectedGroupIds }
+                    .map { it.id }
+                    .toSet()
                 viewModel.saveItem(
                     name = itemName,
                     notes = itemNotes,
                     type = itemType,
-                    selectedStoreIds = selectedStoreIds.toList(),
+                    selection = StoreSelection(
+                        memberStoreIds = selectedStoreIds - groupStoreIds,
+                        excludedStoreIds = excludedStoreIds,
+                        groupIds = selectedGroupIds
+                    ),
                     selectedCategoryId = selectedCategoryId,
                     defaultUnit = itemDefaultUnit,
                     force = true
@@ -651,3 +758,151 @@ private fun DeleteItemDialog(
     )
 }
 
+
+/**
+ * Checkbox tree for the item's store selection (STORE-7): groups by sortOrder
+ * with nested member stores, ungrouped stores as plain rows. Checking a group
+ * selects it and switches its members to exclude toggles (⊘, struck-through
+ * when excluded, tap to re-include); with the group unchecked, members are
+ * normal include checkboxes.
+ */
+@Composable
+private fun StoreSelectionDialog(
+    groups: List<StoreGroup>,
+    stores: List<Store>,
+    selectedGroupIds: Set<String>,
+    selectedStoreIds: Set<String>,
+    excludedStoreIds: Set<String>,
+    onToggleGroup: (String) -> Unit,
+    onToggleStore: (String) -> Unit,
+    onToggleExclusion: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Done") }
+        },
+        title = { Text("Select stores") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                groups.forEach { group ->
+                    val groupSelected = group.id in selectedGroupIds
+                    val members = stores.filter { it.groupId == group.id }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onToggleGroup(group.id) }
+                    ) {
+                        Checkbox(
+                            checked = groupSelected,
+                            onCheckedChange = { onToggleGroup(group.id) }
+                        )
+                        Icon(
+                            imageVector = Icons.Outlined.Category,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = group.name,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (groupSelected) {
+                            Text(
+                                text = "tap store to exclude",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    members.forEach { member ->
+                        val excluded = member.id in excludedStoreIds
+                        if (groupSelected) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onToggleExclusion(member.id) }
+                                    .padding(start = 32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Storefront,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = member.name,
+                                    textDecoration = TextDecoration.LineThrough.takeIf { excluded },
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                        alpha = if (excluded) 0.6f else 1f
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Icon(
+                                    imageVector = Icons.Outlined.Block,
+                                    contentDescription = if (excluded) "Re-include ${member.name}" else "Exclude ${member.name}",
+                                    tint = if (excluded) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        } else {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onToggleStore(member.id) }
+                                    .padding(start = 32.dp)
+                            ) {
+                                Checkbox(
+                                    checked = member.id in selectedStoreIds,
+                                    onCheckedChange = { onToggleStore(member.id) }
+                                )
+                                Icon(
+                                    imageVector = Icons.Outlined.Storefront,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(member.name)
+                            }
+                        }
+                    }
+                }
+                val ungroupedStores = stores.filter { it.groupId == null }
+                if (groups.isNotEmpty() && ungroupedStores.isNotEmpty()) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                }
+                ungroupedStores.forEach { store ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onToggleStore(store.id) }
+                    ) {
+                        Checkbox(
+                            checked = store.id in selectedStoreIds,
+                            onCheckedChange = { onToggleStore(store.id) }
+                        )
+                        Icon(
+                            imageVector = Icons.Outlined.Storefront,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(store.name)
+                    }
+                }
+            }
+        }
+    )
+}

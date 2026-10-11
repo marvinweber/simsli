@@ -48,6 +48,13 @@ interface StoreDao {
     @Query("UPDATE stores SET deletedAt = :deletedAt WHERE id = :id")
     suspend fun delete(id: String, deletedAt: java.time.Instant)
 
+    /** Group dissolved (STORE-7): stores survive, ungrouped. */
+    @Query("UPDATE stores SET groupId = NULL, updatedAt = :updatedAt WHERE groupId = :groupId")
+    suspend fun clearGroup(groupId: String, updatedAt: java.time.Instant)
+
+    @Query("SELECT id FROM stores WHERE groupId = :groupId AND deletedAt IS NULL")
+    suspend fun getStoreIdsByGroup(groupId: String): List<String>
+
     @Transaction
     suspend fun updateSortOrders(updates: List<Pair<String, Float>>, updatedAt: java.time.Instant) {
         updates.forEach { (id, sortOrder) ->

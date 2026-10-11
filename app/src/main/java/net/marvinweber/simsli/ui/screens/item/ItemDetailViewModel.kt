@@ -19,6 +19,7 @@ import net.marvinweber.simsli.data.repository.CategoryRepository
 import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.data.repository.ItemRepository
 import net.marvinweber.simsli.data.repository.ItemStoreRepository
+import net.marvinweber.simsli.data.repository.StoreGroupRepository
 import net.marvinweber.simsli.data.repository.StoreRepository
 import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.Household
@@ -26,6 +27,8 @@ import net.marvinweber.simsli.domain.model.Item
 import net.marvinweber.simsli.domain.model.ItemLink
 import net.marvinweber.simsli.domain.model.ItemType
 import net.marvinweber.simsli.domain.model.Store
+import net.marvinweber.simsli.domain.model.StoreGroup
+import net.marvinweber.simsli.domain.model.StoreSelection
 import net.marvinweber.simsli.ui.components.WebTitleFetcher
 import java.time.Instant
 import javax.inject.Inject
@@ -33,8 +36,9 @@ import javax.inject.Inject
 data class ItemDetailUiState(
     val household: Household? = null,
     val existingItem: Item? = null,
-    val existingStoreIds: Set<String> = emptySet(),
+    val existingSelection: StoreSelection = StoreSelection(),
     val stores: List<Store> = emptyList(),
+    val storeGroups: List<StoreGroup> = emptyList(),
     val categories: List<Category> = emptyList(),
     val links: List<ItemLink> = emptyList(),
     /** True while an existing item is being loaded for editing. */
@@ -58,6 +62,7 @@ sealed class ItemDetailUiEvent {
 class ItemDetailViewModel @Inject constructor(
     private val householdRepository: HouseholdRepository,
     private val storeRepository: StoreRepository,
+    private val storeGroupRepository: StoreGroupRepository,
     private val itemRepository: ItemRepository,
     private val itemStoreRepository: ItemStoreRepository,
     private val categoryRepository: CategoryRepository,
@@ -67,8 +72,8 @@ class ItemDetailViewModel @Inject constructor(
 
     private val itemId: String? = savedStateHandle.get<String>("itemId")?.takeUnless { it.isBlank() }
 
-    /** Loaded atomically (item + store assignments) so the edit form prefills in one step. */
-    private data class LoadedItem(val item: Item, val storeIds: Set<String>)
+    /** Loaded atomically (item + store selection) so the edit form prefills in one step. */
+    private data class LoadedItem(val item: Item, val selection: StoreSelection)
 
     private val loadedItem = MutableStateFlow<LoadedItem?>(null)
     private val _links = MutableStateFlow<List<ItemLink>>(emptyList())
@@ -78,9 +83,9 @@ class ItemDetailViewModel @Inject constructor(
         if (itemId != null) {
             viewModelScope.launch {
                 val item = itemRepository.getItemById(itemId).first() ?: return@launch
-                val storeIds = itemStoreRepository.getStoreIdsForItem(itemId).toSet()
+                val selection = itemStoreRepository.getStoreSelection(itemId)
                 _links.value = item.links
-                loadedItem.value = LoadedItem(item, storeIds)
+                loadedItem.value = LoadedItem(item, selection)
                 item.links.forEach { link ->
                     if (link.title.isNullOrBlank()) {
                         fetchTitleForUrl(link.url)
@@ -111,13 +116,15 @@ class ItemDetailViewModel @Inject constructor(
         } else {
             combine(
                 storeRepository.getStoresByHousehold(household.id),
+                storeGroupRepository.getGroupsByHousehold(household.id),
                 categoryRepository.getCategoriesByHousehold(household.id)
-            ) { stores, categories ->
+            ) { stores, storeGroups, categories ->
                 ItemDetailUiState(
                     household = household,
                     existingItem = loaded?.item,
-                    existingStoreIds = loaded?.storeIds ?: emptySet(),
+                    existingSelection = loaded?.selection ?: StoreSelection(),
                     stores = stores,
+                    storeGroups = storeGroups,
                     categories = categories,
                     links = links,
                     isWaitingForItem = waitingForItem,
@@ -165,7 +172,7 @@ class ItemDetailViewModel @Inject constructor(
         name: String,
         notes: String,
         type: ItemType,
-        selectedStoreIds: List<String>,
+        selection: StoreSelection,
         selectedCategoryId: String? = null,
         defaultUnit: String? = null,
         force: Boolean = false
@@ -218,8 +225,8 @@ class ItemDetailViewModel @Inject constructor(
                 )
                 itemRepository.createItem(item)
                     .onSuccess { created ->
-                        if (selectedStoreIds.isNotEmpty()) {
-                            itemStoreRepository.assignItemToStores(created.id, selectedStoreIds)
+                        if (selection != StoreSelection()) {
+                            itemStoreRepository.saveStoreSelection(created.id, selection)
                         }
                         _events.value = ItemDetailUiEvent.NavigateBack
                     }
@@ -238,14 +245,9 @@ class ItemDetailViewModel @Inject constructor(
                         links = currentLinks
                     )
                 ).onSuccess {
-                    val selected = selectedStoreIds.toSet()
-                    val current = uiState.value.existingStoreIds
-                    val toAdd = selected - current
-                    val toRemove = current - selected
-                    if (toAdd.isNotEmpty()) {
-                        itemStoreRepository.assignItemToStores(existing.id, toAdd.toList())
+                    if (selection != uiState.value.existingSelection) {
+                        itemStoreRepository.saveStoreSelection(existing.id, selection)
                     }
-                    toRemove.forEach { itemStoreRepository.removeAssignment(existing.id, it) }
                     _events.value = ItemDetailUiEvent.NavigateBack
                 }.onFailure { error ->
                     isSaving.value = false

@@ -9,6 +9,7 @@ data class StoreDto(
     @SerialName("household_id") val householdId: String,
     val name: String,
     @SerialName("sort_order") val sortOrder: Double,
+    @SerialName("group_id") val groupId: String? = null,
     @SerialName("created_at") val createdAt: String,
     @SerialName("updated_at") val updatedAt: String,
     @SerialName("deleted_at") val deletedAt: String? = null
