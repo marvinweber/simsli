@@ -68,7 +68,10 @@ Check the output for:
      - 🚀 **What's New**: Exciting new capabilities and features.
      - ✨ **Improvements**: Polish, usability tweaks, UI enhancements.
      - 🐛 **Bug Fixes**: Stability, resolved crashes, sync fixes.
-5. **Mandatory Confirmation**:
+5. **Draft Compact Play Store Update Notes**:
+   - Write very short and compact bullet points (< 500 chars).
+   - Separate into distinct sections: **Phone App** and **Wear OS Companion App**.
+6. **Mandatory Confirmation**:
    - **Ask the user to review and confirm** the proposed bump (`patch`, `minor`, `major`), any `MinAppVersion` changes, and the draft changelog text before executing any changes.
 
 ---
@@ -144,11 +147,13 @@ This script:
     ```
     *(Pushing the tag triggers the Docker image build & publish workflow on GitHub Actions.)*
 
-2. **Google Play Console**:
+2. **Google Play Console (Compact Update Notes)**:
    - Open Play Console → Simsli.
    - **Phone track**: Create new release, upload `app-play-release.aab`.
    - **Wear OS track**: Upload `wear-release.aab` under the Wear OS release track.
-   - Paste the user changelog into the release notes.
+   - **Always generate and print compact update notes at the end of the release run**:
+     - Separate into **Phone App** and **Wear OS Companion App**.
+     - Keep very short and compact (< 500 characters each) formatted as bullet points so they fit Play Store limits and can be pasted directly.
 
 3. **GitHub Releases**:
    - Automated via script:
