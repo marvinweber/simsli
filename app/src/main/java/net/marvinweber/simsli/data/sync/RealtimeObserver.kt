@@ -92,6 +92,10 @@ class RealtimeObserver @Inject constructor(
 
                     override fun onMessage(webSocket: WebSocket, text: String) {
                         diag.d(TAG, "Realtime event received: $text")
+                        if (tokenStorage.deviceId.isNotBlank() && text.contains("\"sender_device_id\":\"${tokenStorage.deviceId}\"")) {
+                            diag.d(TAG, "Realtime echo from self suppressed")
+                            return
+                        }
                         syncScheduler.requestSync("realtime:event")
                     }
 

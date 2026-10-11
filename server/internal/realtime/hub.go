@@ -11,12 +11,14 @@ import (
 )
 
 type Event struct {
-	Type        string `json:"event"`
-	HouseholdID string `json:"household_id"`
+	Type           string `json:"event"`
+	HouseholdID    string `json:"household_id"`
+	SenderDeviceID string `json:"sender_device_id,omitempty"`
 }
 
 type Client struct {
 	HouseholdID string
+	DeviceID    string
 	Conn        *websocket.Conn
 	send        chan []byte
 }
@@ -85,6 +87,9 @@ func (h *Hub) Run(ctx context.Context) {
 			h.mu.RLock()
 			clients := h.households[event.HouseholdID]
 			for client := range clients {
+				if event.SenderDeviceID != "" && event.SenderDeviceID != "-" && client.DeviceID == event.SenderDeviceID {
+					continue
+				}
 				select {
 				case client.send <- payload:
 				default:
@@ -97,16 +102,21 @@ func (h *Hub) Run(ctx context.Context) {
 }
 
 // BroadcastLocal triggers a sync invalidation for local websocket clients
-func (h *Hub) BroadcastLocal(householdID string) {
+func (h *Hub) BroadcastLocal(householdID string, excludeDeviceID ...string) {
+	var senderID string
+	if len(excludeDeviceID) > 0 && excludeDeviceID[0] != "" && excludeDeviceID[0] != "-" {
+		senderID = excludeDeviceID[0]
+	}
 	h.broadcast <- Event{
-		Type:        "sync",
-		HouseholdID: householdID,
+		Type:           "sync",
+		HouseholdID:    householdID,
+		SenderDeviceID: senderID,
 	}
 }
 
 // Broadcast sends the invalidation locally and via external notifier (Postgres LISTEN/NOTIFY) if configured
-func (h *Hub) Broadcast(householdID string) {
-	h.BroadcastLocal(householdID)
+func (h *Hub) Broadcast(householdID string, excludeDeviceID ...string) {
+	h.BroadcastLocal(householdID, excludeDeviceID...)
 
 	h.mu.RLock()
 	notifier := h.externalNotifier
@@ -133,6 +143,7 @@ func (h *Hub) ActiveConnectionsCount() int {
 func (h *Hub) ServeWS(ctx context.Context, conn *websocket.Conn, householdID, deviceID string) {
 	client := &Client{
 		HouseholdID: householdID,
+		DeviceID:    deviceID,
 		Conn:        conn,
 		send:        make(chan []byte, 32),
 	}

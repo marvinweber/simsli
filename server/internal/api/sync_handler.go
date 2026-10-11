@@ -88,7 +88,7 @@ func (h *SyncHandler) Flush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.svc.Flush(r.Context(), user.ID, &req); err != nil {
+	if err := h.svc.Flush(r.Context(), user.ID, &req, DeviceID(r)); err != nil {
 		if err == service.ErrForbidden {
 			writeJSONError(w, http.StatusForbidden, "forbidden")
 			return

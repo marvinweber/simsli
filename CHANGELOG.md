@@ -4,6 +4,12 @@ All notable changes to the Simsli shopping list app, Wear OS companion, and serv
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-10-11
+### 🐛 Bug Fixes (Server)
+- **Realtime Echo Suppression**: The server now excludes the originating device when broadcasting WebSocket sync events after a flush. This prevents devices from receiving their own changes as an echo, eliminating redundant follow-up sync runs and the double-flashing sync spinner animation.
+
+> *Note: This release is a backend server update only. No mobile app update is required.*
+
 ## [0.5.0] - 2026-10-11
 ### 🚀 What's New
 - **Store Groups**: Organize multiple stores under store groups (e.g. "Supermarkets" or "Drugstores"). Items assigned to a group automatically appear for all member stores, with support for per-store exclusions.

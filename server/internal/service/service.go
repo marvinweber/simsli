@@ -382,7 +382,7 @@ func (s *Service) GetDeltas(ctx context.Context, userID, householdID string, sin
 	return s.repo.GetDeltas(ctx, householdID, since)
 }
 
-func (s *Service) Flush(ctx context.Context, userID string, req *model.FlushRequest) error {
+func (s *Service) Flush(ctx context.Context, userID string, req *model.FlushRequest, senderDeviceID ...string) error {
 	isMember, err := s.repo.IsHouseholdMember(ctx, req.HouseholdID, userID)
 	if err != nil {
 		return err
@@ -407,8 +407,12 @@ func (s *Service) Flush(ctx context.Context, userID string, req *model.FlushRequ
 		return err
 	}
 
-	// Trigger real-time broadcast to all connected devices in this household
-	s.hub.Broadcast(req.HouseholdID)
+	// Trigger real-time broadcast to all connected devices in this household (excluding sender)
+	if len(senderDeviceID) > 0 && senderDeviceID[0] != "" && senderDeviceID[0] != "-" {
+		s.hub.Broadcast(req.HouseholdID, senderDeviceID[0])
+	} else {
+		s.hub.Broadcast(req.HouseholdID)
+	}
 	return nil
 }
 
