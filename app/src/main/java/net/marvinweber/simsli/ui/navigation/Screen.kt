@@ -10,10 +10,12 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import net.marvinweber.simsli.ui.screens.household.HouseholdMembersScreen
-import net.marvinweber.simsli.ui.screens.household.HouseholdStatisticsScreen
 import net.marvinweber.simsli.ui.screens.home.HomeScreen
+import net.marvinweber.simsli.ui.screens.household.HouseholdMembersScreen
+import net.marvinweber.simsli.ui.screens.household.HouseholdScreen
+import net.marvinweber.simsli.ui.screens.household.HouseholdStatisticsScreen
 import net.marvinweber.simsli.ui.screens.item.ItemDetailScreen
+import net.marvinweber.simsli.ui.screens.settings.SettingsScreen
 
 sealed class Screen(val route: String) {
     data object Home : Screen("home")
@@ -21,13 +23,15 @@ sealed class Screen(val route: String) {
         fun createRoute(itemId: String?) = "item_detail/${itemId.orEmpty()}"
     }
     data object Onboarding : Screen("onboarding")
+    data object Settings : Screen("settings")
+    data object Household : Screen("household")
     data object HouseholdMembers : Screen("household_members")
     data object HouseholdStatistics : Screen("household_statistics")
 }
 
 /**
- * Route-level navigation. The three tabs (List · Catalog · Settings) live
- * inside HomeScreen's bottom bar; only detail-style screens are pushed here.
+ * Route-level navigation. The three tabs (Dashboard · List · Catalog) live
+ * inside HomeScreen's bottom bar; detail & settings screens are pushed here.
  */
 @Composable
 fun SimsliNavHost(
@@ -70,11 +74,31 @@ fun SimsliNavHost(
                 onNavigateToItemDetail = { itemId ->
                     navController.navigate(Screen.ItemDetail.createRoute(itemId))
                 },
-                onNavigateToHouseholdMembers = {
-                    navController.navigate(Screen.HouseholdMembers.route)
+                onNavigateToSettings = {
+                    navController.navigate(Screen.Settings.route)
+                }
+            )
+        }
+        composable(Screen.Settings.route) {
+            SettingsScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToHousehold = {
+                    navController.navigate(Screen.Household.route)
                 },
                 onNavigateToHouseholdStatistics = {
                     navController.navigate(Screen.HouseholdStatistics.route)
+                }
+            )
+        }
+        composable(Screen.Household.route) {
+            HouseholdScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToHouseholdMembers = {
+                    navController.navigate(Screen.HouseholdMembers.route)
                 }
             )
         }

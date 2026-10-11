@@ -55,7 +55,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Checkbox
-import net.marvinweber.simsli.ui.components.SimsliTopAppBarOverflowMenu
+import net.marvinweber.simsli.ui.components.SimsliTopAppBarAccountButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -140,6 +140,9 @@ private const val MAX_SUGGESTIONS = 5
 fun ListTabContent(
     onNavigateToItemDetail: (String?) -> Unit,
     isSyncing: Boolean = false,
+    householdIcon: String? = null,
+    householdName: String? = null,
+    onNavigateToSettings: () -> Unit = {},
     viewModel: ListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -191,7 +194,11 @@ fun ListTabContent(
                     )
                 },
                 actions = {
-                    SimsliTopAppBarOverflowMenu(onRefresh = viewModel::refresh)
+                    SimsliTopAppBarAccountButton(
+                        householdIcon = householdIcon,
+                        householdName = householdName,
+                        onClick = onNavigateToSettings
+                    )
                 }
             )
         },

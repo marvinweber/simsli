@@ -32,7 +32,7 @@ import androidx.compose.material3.TopAppBar
 import net.marvinweber.simsli.domain.model.ItemType
 import net.marvinweber.simsli.ui.components.CategorySectionHeader
 import net.marvinweber.simsli.ui.components.LinkUtils
-import net.marvinweber.simsli.ui.components.SimsliTopAppBarOverflowMenu
+import net.marvinweber.simsli.ui.components.SimsliTopAppBarAccountButton
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -89,6 +89,9 @@ enum class CatalogTab(
 fun CatalogScreen(
     onNavigateToItemDetail: (String?) -> Unit,
     isSyncing: Boolean = false,
+    householdIcon: String? = null,
+    householdName: String? = null,
+    onNavigateToSettings: () -> Unit = {},
     viewModel: CatalogViewModel = hiltViewModel()
 ) {
     var selectedTabName by rememberSaveable { mutableStateOf(CatalogTab.ITEMS.name) }
@@ -106,7 +109,11 @@ fun CatalogScreen(
                     )
                 },
                 actions = {
-                    SimsliTopAppBarOverflowMenu(onRefresh = viewModel::refresh)
+                    SimsliTopAppBarAccountButton(
+                        householdIcon = householdIcon,
+                        householdName = householdName,
+                        onClick = onNavigateToSettings
+                    )
                 }
             )
         }

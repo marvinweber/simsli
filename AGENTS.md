@@ -94,7 +94,7 @@ Domain models (`domain/model/`) are plain Kotlin data classes with no Android or
 
 ## Screens
 
-Target structure: bottom app bar with three tabs — **Shopping List · Catalog · Settings** — with the Catalog tab containing **Items | Categories | Stores**, and household/member management in a Household screen reached from Settings. Full screen map with statuses: FEATURE-SPEC §3.9. Exists today: the three-tab bottom bar; List tab (active entries, "Recently checked", fast-add sheet, entry editor, store filter chips), Catalog tab (tabbed Items | Categories | Stores — Categories is still an honest placeholder until CAT-*), Item detail as a pushed screen (name, stores, type, notes), Settings tab (household rename, invite/join by code, magic-link sign-in, "Sync now"). Household screen still pending.
+Target structure: bottom app bar with three tabs — **Dashboard · Shopping List · Catalog** (default tab: Shopping List) — with the Catalog tab containing **Items | Categories | Stores**. Settings is a pushed screen reached via the top-right household capsule button (`[ 🏠 Name ▾ ]`) across top-level screens, with household/member management in a dedicated Household screen reached from Settings. Full screen map with statuses: FEATURE-SPEC §3.9. Exists today: the three-tab bottom bar; Dashboard tab (preview/teaser), List tab (active entries, "Recently checked", fast-add sheet, entry editor, store filter chips), Catalog tab (tabbed Items | Categories | Stores), Item detail as a pushed screen (name, stores, type, notes), Settings as a pushed screen (account, household summary, statistics, cloud sync, about, dev options), and Household as a pushed screen (rename, emoji, member list, invites, full resync, switch/join).
 
 ---
 

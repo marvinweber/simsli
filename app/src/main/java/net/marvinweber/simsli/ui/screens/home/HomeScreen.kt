@@ -5,8 +5,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -21,30 +21,29 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import net.marvinweber.simsli.ui.screens.catalog.CatalogScreen
+import net.marvinweber.simsli.ui.screens.dashboard.DashboardScreen
 import net.marvinweber.simsli.ui.screens.list.ListTabContent
-import net.marvinweber.simsli.ui.screens.settings.SettingsTabContent
 
 enum class HomeTab(val label: String) {
+    DASHBOARD("Dashboard"),
     LIST("Shopping List"),
-    CATALOG("Catalog"),
-    SETTINGS("Settings")
+    CATALOG("Catalog")
 }
 
 /**
- * Main screen: bottom tabs for the shopping list, the catalog
- * (Items | Categories | Stores), and settings. Item detail opens as a
- * full-screen route above it. A thin progress bar at the top shows when a
- * sync run is in progress.
+ * Main screen: bottom tabs for the dashboard (preview), shopping list,
+ * and the catalog (Items | Categories | Stores).
+ *
+ * Tab order: Dashboard, Shopping List, Catalog.
+ * Default tab on launch: Shopping List.
+ * Account & settings are accessed via the top-right circle icon.
  */
 @Composable
 fun HomeScreen(
     onNavigateToItemDetail: (String?) -> Unit,
-    onNavigateToHouseholdMembers: () -> Unit = {},
-    onNavigateToHouseholdStatistics: () -> Unit = {},
+    onNavigateToSettings: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     var selectedTabName by rememberSaveable { mutableStateOf(HomeTab.LIST.name) }
@@ -63,9 +62,6 @@ fun HomeScreen(
     }
 
     Scaffold(
-        // Tab scaffolds own their insets: the top-most app bar per column handles
-        // the status bar, the NavigationBar here handles the nav bar. Nothing
-        // double-applies.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             NavigationBar {
@@ -74,35 +70,17 @@ fun HomeScreen(
                         selected = tab == selectedTab,
                         onClick = { selectedTabName = tab.name },
                         icon = {
-                            // The Settings tab shows the household's identity (SCREENS-1/4):
-                            // its emoji when set, else a person icon — never the gear.
-                            val householdIcon = household?.icon
-                            if (tab == HomeTab.SETTINGS && !householdIcon.isNullOrBlank()) {
-                                Text(
-                                    text = householdIcon,
-                                    fontSize = 24.sp
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = when (tab) {
-                                        HomeTab.LIST -> Icons.Default.ShoppingCart
-                                        HomeTab.CATALOG -> Icons.Default.Inventory2
-                                        HomeTab.SETTINGS -> Icons.Default.Person
-                                    },
-                                    contentDescription = null
-                                )
-                            }
+                            Icon(
+                                imageVector = when (tab) {
+                                    HomeTab.DASHBOARD -> Icons.Default.Insights
+                                    HomeTab.LIST -> Icons.Default.ShoppingCart
+                                    HomeTab.CATALOG -> Icons.Default.Inventory2
+                                },
+                                contentDescription = null
+                            )
                         },
                         label = {
-                            if (tab == HomeTab.SETTINGS) {
-                                Text(
-                                    text = household?.name ?: "Settings",
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            } else {
-                                Text(tab.label)
-                            }
+                            Text(tab.label)
                         }
                     )
                 }
@@ -116,23 +94,30 @@ fun HomeScreen(
         ) {
             val tabStateHolder = rememberSaveableStateHolder()
             when (selectedTab) {
+                HomeTab.DASHBOARD -> tabStateHolder.SaveableStateProvider(HomeTab.DASHBOARD.name) {
+                    DashboardScreen(
+                        isSyncing = isSyncing,
+                        householdIcon = household?.icon,
+                        householdName = household?.name,
+                        onNavigateToSettings = onNavigateToSettings
+                    )
+                }
                 HomeTab.LIST -> tabStateHolder.SaveableStateProvider(HomeTab.LIST.name) {
                     ListTabContent(
                         onNavigateToItemDetail = onNavigateToItemDetail,
-                        isSyncing = isSyncing
+                        isSyncing = isSyncing,
+                        householdIcon = household?.icon,
+                        householdName = household?.name,
+                        onNavigateToSettings = onNavigateToSettings
                     )
                 }
                 HomeTab.CATALOG -> tabStateHolder.SaveableStateProvider(HomeTab.CATALOG.name) {
                     CatalogScreen(
                         onNavigateToItemDetail = onNavigateToItemDetail,
-                        isSyncing = isSyncing
-                    )
-                }
-                HomeTab.SETTINGS -> tabStateHolder.SaveableStateProvider(HomeTab.SETTINGS.name) {
-                    SettingsTabContent(
                         isSyncing = isSyncing,
-                        onNavigateToHouseholdMembers = onNavigateToHouseholdMembers,
-                        onNavigateToHouseholdStatistics = onNavigateToHouseholdStatistics
+                        householdIcon = household?.icon,
+                        householdName = household?.name,
+                        onNavigateToSettings = onNavigateToSettings
                     )
                 }
             }
