@@ -9,6 +9,7 @@ import net.marvinweber.simsli.data.local.dao.ItemDao
 import net.marvinweber.simsli.data.local.dao.OutboxDao
 import net.marvinweber.simsli.data.local.dao.StoreCategoryDao
 import net.marvinweber.simsli.data.local.entity.DbOutboxEntry
+import net.marvinweber.simsli.data.local.entity.DbStoreCategory
 import net.marvinweber.simsli.data.local.mapper.toDb
 import net.marvinweber.simsli.data.local.mapper.toDomain
 import net.marvinweber.simsli.data.repository.CategoryRepository
@@ -41,6 +42,69 @@ class CategoryRepositoryImpl @Inject constructor(
     override fun getStoreCategories(storeId: String): Flow<List<StoreCategory>> {
         return storeCategoryDao.getStoreCategories(storeId).map { list ->
             list.map { it.toDomain() }
+        }
+    }
+
+    override fun observeStoreCategoriesByHousehold(householdId: String): Flow<List<StoreCategory>> {
+        return storeCategoryDao.observeAllForHousehold(householdId).map { list ->
+            list.map { it.toDomain() }
+        }
+    }
+
+    override suspend fun saveStoreCategories(
+        storeId: String,
+        orderedCategoryIds: List<String>
+    ): Result<Unit> {
+        return withContext(ioDispatcher) {
+            try {
+                val now = Instant.now()
+                val currentCategoryIds = storeCategoryDao.getCategoryIdsForStore(storeId).toSet()
+                val targetCategoryIds = orderedCategoryIds.toSet()
+
+                // 1. Delete store_categories that are no longer checked
+                val toDelete = currentCategoryIds - targetCategoryIds
+                for (categoryId in toDelete) {
+                    storeCategoryDao.delete(storeId, categoryId)
+                    outboxDao.enqueue(
+                        DbOutboxEntry(
+                            entityType = SyncContract.ENTITY_STORE_CATEGORY,
+                            entityId = SyncContract.storeCategoryEntityId(storeId, categoryId),
+                            operation = SyncContract.OP_DELETE,
+                            createdAt = now
+                        )
+                    )
+                }
+
+                // 2. Insert or update store_categories in their explicit order
+                orderedCategoryIds.forEachIndexed { index, categoryId ->
+                    val sortOrder = (index + 1) * 1000f
+                    val existing = storeCategoryDao.getOnce(storeId, categoryId)
+                    if (existing == null || existing.sortOrder != sortOrder) {
+                        val createdAt = existing?.createdAt ?: now
+                        storeCategoryDao.insert(
+                            DbStoreCategory(
+                                storeId = storeId,
+                                categoryId = categoryId,
+                                sortOrder = sortOrder,
+                                createdAt = createdAt
+                            )
+                        )
+                        outboxDao.enqueue(
+                            DbOutboxEntry(
+                                entityType = SyncContract.ENTITY_STORE_CATEGORY,
+                                entityId = SyncContract.storeCategoryEntityId(storeId, categoryId),
+                                operation = SyncContract.OP_UPSERT,
+                                createdAt = now
+                            )
+                        )
+                    }
+                }
+
+                syncScheduler.requestSync("store_category")
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
         }
     }
 

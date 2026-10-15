@@ -9,6 +9,10 @@ interface CategoryRepository {
 
     fun getStoreCategories(storeId: String): Flow<List<StoreCategory>>
 
+    fun observeStoreCategoriesByHousehold(householdId: String): Flow<List<StoreCategory>>
+
+    suspend fun saveStoreCategories(storeId: String, orderedCategoryIds: List<String>): Result<Unit>
+
     suspend fun getCategoryById(id: String): Flow<Category?>
 
     suspend fun getMaxCategorySortOrder(householdId: String): Float

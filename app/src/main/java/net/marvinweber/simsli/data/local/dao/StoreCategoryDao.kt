@@ -28,6 +28,14 @@ interface StoreCategoryDao {
     """)
     suspend fun getAllForHousehold(householdId: String): List<DbStoreCategory>
 
+    @Query("""
+        SELECT sc.* FROM store_categories sc
+        INNER JOIN categories c ON sc.categoryId = c.id
+        WHERE c.householdId = :householdId
+        ORDER BY sc.sortOrder ASC
+    """)
+    fun observeAllForHousehold(householdId: String): Flow<List<DbStoreCategory>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(storeCategory: DbStoreCategory)
 

@@ -13,11 +13,14 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import net.marvinweber.simsli.data.repository.CategoryRepository
 import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.data.repository.StoreGroupRepository
 import net.marvinweber.simsli.data.repository.StoreRepository
+import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.Household
 import net.marvinweber.simsli.domain.model.Store
+import net.marvinweber.simsli.domain.model.StoreCategory
 import net.marvinweber.simsli.domain.model.StoreGroup
 import net.marvinweber.simsli.domain.util.SearchFold
 import java.time.Instant
@@ -28,6 +31,8 @@ data class StoresUiState(
     val household: Household? = null,
     val storeGroups: List<StoreGroup> = emptyList(),
     val stores: List<Store> = emptyList(),
+    val categories: List<Category> = emptyList(),
+    val storeCategoriesByStoreId: Map<String, List<StoreCategory>> = emptyMap(),
     /** The active top-bar search query for the Stores sub-tab (SEARCH-1). */
     val searchQuery: String = "",
     val isLoading: Boolean = true,
@@ -45,7 +50,8 @@ sealed class StoresUiEvent {
 class StoresViewModel @Inject constructor(
     private val householdRepository: HouseholdRepository,
     private val storeRepository: StoreRepository,
-    private val storeGroupRepository: StoreGroupRepository
+    private val storeGroupRepository: StoreGroupRepository,
+    private val categoryRepository: CategoryRepository
 ) : ViewModel() {
 
     val uiState: StateFlow<StoresUiState> = householdRepository.getHousehold()
@@ -72,8 +78,10 @@ class StoresViewModel @Inject constructor(
     private fun combineStoresAndGroups(household: Household) = combine(
         storeRepository.getStoresByHousehold(household.id),
         storeGroupRepository.getGroupsByHousehold(household.id),
+        categoryRepository.getCategoriesByHousehold(household.id),
+        categoryRepository.observeStoreCategoriesByHousehold(household.id),
         searchQuery
-    ) { stores, storeGroups, query ->
+    ) { stores, storeGroups, categories, storeCategories, query ->
         val q = query.trim()
         // While searching, filter stores by name; a group header stays visible when
         // its own name matches or any of its stores match (so matches never orphan).
@@ -89,6 +97,8 @@ class StoresViewModel @Inject constructor(
             household = household,
             storeGroups = visibleGroups,
             stores = filteredStores,
+            categories = categories,
+            storeCategoriesByStoreId = storeCategories.groupBy { it.storeId },
             searchQuery = q,
             isLoading = false,
             error = null
@@ -129,7 +139,12 @@ class StoresViewModel @Inject constructor(
         }
     }
 
-    fun updateStore(storeId: String, name: String, groupId: String?) {
+    fun updateStore(
+        storeId: String,
+        name: String,
+        groupId: String?,
+        orderedCategoryIds: List<String>
+    ) {
         viewModelScope.launch {
             val store = uiState.value.stores.find { it.id == storeId }
             if (store == null) {
@@ -140,10 +155,15 @@ class StoresViewModel @Inject constructor(
                 _events.value = StoresUiEvent.ShowError("Store name cannot be empty")
                 return@launch
             }
-            storeRepository.updateStore(store.copy(name = name.trim(), groupId = groupId))
-                .onFailure { error ->
-                    _events.value = StoresUiEvent.ShowError("Failed to update store: ${error.message}")
-                }
+            val updateStoreResult = storeRepository.updateStore(store.copy(name = name.trim(), groupId = groupId))
+            if (updateStoreResult.isFailure) {
+                _events.value = StoresUiEvent.ShowError("Failed to update store: ${updateStoreResult.exceptionOrNull()?.message}")
+                return@launch
+            }
+            val updateCategoriesResult = categoryRepository.saveStoreCategories(storeId, orderedCategoryIds)
+            if (updateCategoriesResult.isFailure) {
+                _events.value = StoresUiEvent.ShowError("Failed to update category order: ${updateCategoriesResult.exceptionOrNull()?.message}")
+            }
         }
     }
 

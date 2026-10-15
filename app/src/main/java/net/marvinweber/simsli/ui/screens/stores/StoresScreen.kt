@@ -57,11 +57,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Checkbox
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
+import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.Store
 import net.marvinweber.simsli.domain.model.StoreGroup
 
@@ -145,12 +152,17 @@ fun StoresTabContent(
 
     val editingStore = uiState.stores.firstOrNull { it.id == editingStoreId }
     if (editingStore != null) {
+        val initialStoreCategoryIds = remember(editingStore.id, uiState.storeCategoriesByStoreId) {
+            uiState.storeCategoriesByStoreId[editingStore.id]?.map { it.categoryId } ?: emptyList()
+        }
         StoreEditDialog(
             store = editingStore,
             groupOptions = uiState.storeGroups,
+            householdCategories = uiState.categories,
+            initialStoreCategoryIds = initialStoreCategoryIds,
             onDismiss = { editingStoreId = null },
-            onConfirm = { name, groupId ->
-                viewModel.updateStore(editingStore.id, name, groupId)
+            onConfirm = { name, groupId, orderedCategoryIds ->
+                viewModel.updateStore(editingStore.id, name, groupId, orderedCategoryIds)
                 editingStoreId = null
             }
         )
@@ -572,18 +584,364 @@ private fun AddStoreDialog(
 private fun StoreEditDialog(
     store: Store,
     groupOptions: List<StoreGroup>,
+    householdCategories: List<Category>,
+    initialStoreCategoryIds: List<String>,
     onDismiss: () -> Unit,
-    onConfirm: (String, String?) -> Unit
+    onConfirm: (String, String?, List<String>) -> Unit
 ) {
-    StoreFormDialog(
-        title = "Edit Store",
-        confirmText = "Save",
-        initialName = store.name,
-        initialGroupId = store.groupId,
-        groupOptions = groupOptions,
-        onDismiss = onDismiss,
-        onConfirm = onConfirm
+    var name by rememberSaveable(store.id) { mutableStateOf(store.name) }
+    var selectedGroupId by rememberSaveable(store.id) { mutableStateOf(store.groupId) }
+    var groupMenuExpanded by remember { mutableStateOf(false) }
+
+    // Checked category IDs in explicit aisle order (STORE-4)
+    var checkedCategoryIds by remember(store.id, initialStoreCategoryIds) {
+        mutableStateOf(initialStoreCategoryIds)
+    }
+
+    var draggingCategoryId by remember { mutableStateOf<String?>(null) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    val lazyListState = rememberLazyListState()
+
+    val categoryById = remember(householdCategories) { householdCategories.associateBy { it.id } }
+    val checkedCategories = checkedCategoryIds.mapNotNull { categoryById[it] }
+    val uncheckedCategories = householdCategories.filter { it.id !in checkedCategoryIds }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Store") },
+        text = {
+            LazyColumn(
+                state = lazyListState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 480.dp)
+            ) {
+                item(key = "field:name") {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Store name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                item(key = "field:group") {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Group",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Box {
+                        FilterChip(
+                            selected = true,
+                            onClick = { groupMenuExpanded = true },
+                            label = {
+                                Text(
+                                    selectedGroupId?.let { id ->
+                                        groupOptions.firstOrNull { it.id == id }?.name
+                                    } ?: "No group",
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            },
+                            trailingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        )
+                        DropdownMenu(
+                            expanded = groupMenuExpanded,
+                            onDismissRequest = { groupMenuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("No group") },
+                                onClick = {
+                                    selectedGroupId = null
+                                    groupMenuExpanded = false
+                                }
+                            )
+                            groupOptions.forEach { group ->
+                                DropdownMenuItem(
+                                    text = { Text(group.name) },
+                                    onClick = {
+                                        selectedGroupId = group.id
+                                        groupMenuExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Aisle Order",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Check categories to customize their order for this store. Drag to reorder. Unchecked categories appear after in default order.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                if (householdCategories.isEmpty()) {
+                    item(key = "empty:categories") {
+                        Text(
+                            text = "No categories yet. You can add categories in the Categories tab.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
+                } else {
+                    if (checkedCategories.isEmpty()) {
+                        item(key = "empty:checked") {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = "All categories follow default order. Check categories below to set a custom aisle sequence.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(12.dp)
+                                )
+                            }
+                        }
+                    } else {
+                        itemsIndexed(
+                            items = checkedCategories,
+                            key = { _, cat -> "checked:${cat.id}" }
+                        ) { index, category ->
+                            val isDragging = category.id == draggingCategoryId
+                            Column(
+                                modifier = if (isDragging) {
+                                    Modifier
+                                        .zIndex(1f)
+                                        .graphicsLayer { translationY = dragOffsetY }
+                                        .shadow(8.dp, shape = MaterialTheme.shapes.small)
+                                } else {
+                                    Modifier
+                                        .zIndex(0f)
+                                        .animateItem()
+                                }
+                            ) {
+                                CheckedCategoryRow(
+                                    category = category,
+                                    index = index,
+                                    isDragging = isDragging,
+                                    onUncheck = {
+                                        checkedCategoryIds = checkedCategoryIds - category.id
+                                    },
+                                    dragHandleModifier = Modifier.pointerInput(category.id) {
+                                        detectDragGestures(
+                                            onDragStart = {
+                                                draggingCategoryId = category.id
+                                                dragOffsetY = 0f
+                                            },
+                                            onDrag = { change, dragAmount ->
+                                                change.consume()
+                                                dragOffsetY += dragAmount.y
+
+                                                val currentId = draggingCategoryId ?: return@detectDragGestures
+                                                val currentIdx = checkedCategoryIds.indexOf(currentId)
+                                                if (currentIdx == -1) return@detectDragGestures
+
+                                                val itemInfo = lazyListState.layoutInfo.visibleItemsInfo
+                                                    .firstOrNull { it.key == "checked:$currentId" }
+                                                    ?: return@detectDragGestures
+
+                                                val currentItemCenter = itemInfo.offset + itemInfo.size / 2 + dragOffsetY
+
+                                                // Check previous item
+                                                if (currentIdx > 0) {
+                                                    val prevId = checkedCategoryIds[currentIdx - 1]
+                                                    val prevItemInfo = lazyListState.layoutInfo.visibleItemsInfo
+                                                        .firstOrNull { it.key == "checked:$prevId" }
+                                                    if (prevItemInfo != null && currentItemCenter < (prevItemInfo.offset + prevItemInfo.size / 2)) {
+                                                        val targetIdx = currentIdx - 1
+                                                        val updated = checkedCategoryIds.toMutableList()
+                                                        val item = updated.removeAt(currentIdx)
+                                                        updated.add(targetIdx, item)
+                                                        checkedCategoryIds = updated
+                                                        dragOffsetY += (itemInfo.offset - prevItemInfo.offset)
+                                                        return@detectDragGestures
+                                                    }
+                                                }
+
+                                                // Check next item
+                                                if (currentIdx < checkedCategoryIds.size - 1) {
+                                                    val nextId = checkedCategoryIds[currentIdx + 1]
+                                                    val nextItemInfo = lazyListState.layoutInfo.visibleItemsInfo
+                                                        .firstOrNull { it.key == "checked:$nextId" }
+                                                    if (nextItemInfo != null && currentItemCenter > (nextItemInfo.offset + nextItemInfo.size / 2)) {
+                                                        val targetIdx = currentIdx + 1
+                                                        val updated = checkedCategoryIds.toMutableList()
+                                                        val item = updated.removeAt(currentIdx)
+                                                        updated.add(targetIdx, item)
+                                                        checkedCategoryIds = updated
+                                                        dragOffsetY -= (nextItemInfo.offset - itemInfo.offset)
+                                                        return@detectDragGestures
+                                                    }
+                                                }
+                                            },
+                                            onDragEnd = {
+                                                draggingCategoryId = null
+                                                dragOffsetY = 0f
+                                            },
+                                            onDragCancel = {
+                                                draggingCategoryId = null
+                                                dragOffsetY = 0f
+                                            }
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    if (uncheckedCategories.isNotEmpty()) {
+                        item(key = "header:unchecked") {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = if (checkedCategories.isEmpty()) "Categories" else "Other categories (default order)",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                        }
+                        items(
+                            items = uncheckedCategories,
+                            key = { "unchecked:${it.id}" }
+                        ) { category ->
+                            UncheckedCategoryRow(
+                                category = category,
+                                onCheck = {
+                                    checkedCategoryIds = checkedCategoryIds + category.id
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(name, selectedGroupId, checkedCategoryIds) },
+                enabled = name.isNotBlank()
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
     )
+}
+
+@Composable
+private fun CheckedCategoryRow(
+    category: Category,
+    index: Int,
+    isDragging: Boolean,
+    onUncheck: () -> Unit,
+    dragHandleModifier: Modifier = Modifier
+) {
+    Surface(
+        color = if (isDragging) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onUncheck() }
+                .padding(vertical = 4.dp, horizontal = 2.dp)
+        ) {
+            Checkbox(
+                checked = true,
+                onCheckedChange = { onUncheck() }
+            )
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(24.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "${index + 1}",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            if (category.emoji != null) {
+                Text(text = category.emoji, style = MaterialTheme.typography.bodyLarge)
+                Spacer(modifier = Modifier.width(6.dp))
+            }
+            Text(
+                text = category.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            Icon(
+                imageVector = Icons.Default.DragHandle,
+                contentDescription = "Reorder ${category.name}",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = dragHandleModifier.padding(8.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun UncheckedCategoryRow(
+    category: Category,
+    onCheck: () -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheck() }
+            .padding(vertical = 4.dp, horizontal = 2.dp)
+    ) {
+        Checkbox(
+            checked = false,
+            onCheckedChange = { onCheck() }
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        if (category.emoji != null) {
+            Text(text = category.emoji, style = MaterialTheme.typography.bodyLarge)
+            Spacer(modifier = Modifier.width(6.dp))
+        }
+        Text(
+            text = category.name,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+    }
 }
 
 /** Store name + group picker (STORE-7): the group dropdown uses the same

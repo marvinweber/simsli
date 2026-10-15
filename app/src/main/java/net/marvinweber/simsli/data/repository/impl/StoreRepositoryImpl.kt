@@ -12,6 +12,7 @@ import net.marvinweber.simsli.data.local.mapper.toDomain
 import net.marvinweber.simsli.data.local.mapper.toDb
 import net.marvinweber.simsli.data.repository.StoreRepository
 import net.marvinweber.simsli.data.sync.SyncContract
+import net.marvinweber.simsli.data.local.dao.StoreCategoryDao
 import net.marvinweber.simsli.data.sync.SyncScheduler
 import net.marvinweber.simsli.di.IoDispatcher
 import net.marvinweber.simsli.domain.model.Store
@@ -24,6 +25,7 @@ import javax.inject.Singleton
 class StoreRepositoryImpl @Inject constructor(
     private val storeDao: StoreDao,
     private val itemStoreDao: ItemStoreDao,
+    private val storeCategoryDao: StoreCategoryDao,
     private val outboxDao: OutboxDao,
     private val syncScheduler: SyncScheduler,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
@@ -95,6 +97,21 @@ class StoreRepositoryImpl @Inject constructor(
                         )
                     )
                 }
+
+                // Clean up store_categories for the deleted store
+                val affectedCategoryIds = storeCategoryDao.getCategoryIdsForStore(storeId)
+                storeCategoryDao.deleteByStoreId(storeId)
+                for (categoryId in affectedCategoryIds) {
+                    outboxDao.enqueue(
+                        DbOutboxEntry(
+                            entityType = SyncContract.ENTITY_STORE_CATEGORY,
+                            entityId = SyncContract.storeCategoryEntityId(storeId, categoryId),
+                            operation = SyncContract.OP_DELETE,
+                            createdAt = now
+                        )
+                    )
+                }
+
                 Result.success(Unit)
             } catch (e: Exception) {
                 Result.failure(e)
