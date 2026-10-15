@@ -19,6 +19,7 @@ import net.marvinweber.simsli.data.repository.ListEntryRepository
 import net.marvinweber.simsli.data.sync.SyncManager
 import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.Item
+import net.marvinweber.simsli.domain.util.NameOrder
 import net.marvinweber.simsli.domain.util.SearchFold
 import javax.inject.Inject
 
@@ -104,7 +105,7 @@ class CatalogViewModel @Inject constructor(
                                     title = category.name,
                                     emoji = category.emoji,
                                     isImplicit = false,
-                                    items = categoryRows.sortedBy { it.item.sortOrder }
+                                    items = categoryRows.sortedWith(NameOrder.byName { it.item.name })
                                 )
                             )
                         }
@@ -119,7 +120,7 @@ class CatalogViewModel @Inject constructor(
                                 title = "Uncategorized",
                                 emoji = null,
                                 isImplicit = true,
-                                items = uncategorizedRows.sortedBy { it.item.sortOrder }
+                                items = uncategorizedRows.sortedWith(NameOrder.byName { it.item.name })
                             )
                         )
                     }

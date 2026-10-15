@@ -69,7 +69,7 @@ catalog item ──add──► active entry ──check──► done entry ─
 - Entry-level data (quantity, unit, comment) lives on the entry, edited via the entry editor sheet; item metadata (name, type, stores, notes) is edited in the item detail screen.
 
 ### Sorting
-`sortOrder` is a Float on Item (global order). Filter views show a subset but preserve relative order. Reordering updates only the affected items' sortOrder values (gap-based, no full re-index).
+Items are displayed alphabetically within their category group (locale-aware, case-insensitive via ICU Collator — `domain/util/NameOrder`, LIST-7). The item `sortOrder` column is retained in schema/sync but doesn't drive display order. Categories and stores keep `sortOrder` (Float); reorder updates only the affected rows' values (gap-based, no full re-index), and filtered views preserve relative order.
 
 ---
 

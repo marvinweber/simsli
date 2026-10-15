@@ -41,6 +41,7 @@ import net.marvinweber.simsli.domain.model.StoreFilter
 import net.marvinweber.simsli.domain.model.StoreCategory
 import net.marvinweber.simsli.domain.model.StoreGroup
 import net.marvinweber.simsli.domain.util.EffectiveStoreSet
+import net.marvinweber.simsli.domain.util.NameOrder
 import net.marvinweber.simsli.domain.util.SearchFold
 import java.time.Instant
 import javax.inject.Inject
@@ -201,6 +202,7 @@ class ListViewModel @Inject constructor(
 
                 val activeEntryItems = entryItems.filter { !it.listEntry.done }
                 val recentlyChecked = entryItems.filter { it.listEntry.done }
+                    .sortedWith(NameOrder.byName<ListEntryItem> { it.item?.name ?: "" })
 
                 val categoryById = categories.associateBy { it.id }
                 val (categorizedEntries, uncategorizedEntries) = activeEntryItems.partition { entry ->
@@ -229,7 +231,9 @@ class ListViewModel @Inject constructor(
                                 key = cat.id,
                                 title = cat.name,
                                 emoji = cat.emoji,
-                                entries = groupEntries.sortedBy { it.item?.sortOrder ?: 0f }
+                                entries = groupEntries.sortedWith(
+                                    NameOrder.byName<ListEntryItem> { it.item?.name ?: "" }
+                                )
                             )
                         )
                     }
@@ -241,7 +245,9 @@ class ListViewModel @Inject constructor(
                             key = "uncategorized",
                             title = "Uncategorized",
                             emoji = null,
-                            entries = uncategorizedEntries.sortedBy { it.item?.sortOrder ?: 0f }
+                            entries = uncategorizedEntries.sortedWith(
+                                NameOrder.byName<ListEntryItem> { it.item?.name ?: "" }
+                            )
                         )
                     )
                 }
