@@ -67,6 +67,7 @@ data class SettingsUiState(
     val inviteCode: String? = null,   // non-null → invite dialog open, shows the generated code
     val showJoinWarning: Boolean = false, // non-null / true → show warning before entering join code
     val joinInput: String? = null,    // non-null → join dialog open, holds the field content
+    val pendingInviteCode: String? = null,
     val showSeedConfirm: Boolean = false, // debug only: confirm before wiping + seeding
     val showSignOutConfirm: Boolean = false,
     val showFullResyncConfirm: Boolean = false,
@@ -82,6 +83,7 @@ class SettingsViewModel @Inject constructor(
     private val remoteDataSource: SimsliRemoteDataSource,
     private val tokenStorage: AuthTokenStorage,
     private val syncDiagnostics: SyncDiagnostics,
+    private val inviteDeepLinkManager: net.marvinweber.simsli.ui.navigation.InviteDeepLinkManager,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ViewModel() {
 
@@ -107,13 +109,18 @@ class SettingsViewModel @Inject constructor(
         val signOutConfirmOpen: Boolean
     )
 
-    /** Local-only inputs bundled so the outer combine stays within its arity limit. */
-    private data class LocalInputs(
+    private data class FormInputs(
         val emailInput: String,
         val isBusy: Boolean,
         val statusMessage: String?,
-        val renameInput: String?,
-        val dialog: Pair<DialogInputs, Boolean>
+        val renameInput: String?
+    )
+
+    /** Local-only inputs bundled so the outer combine stays within its arity limit. */
+    private data class LocalInputs(
+        val form: FormInputs,
+        val dialog: Pair<DialogInputs, Boolean>,
+        val pendingInviteCode: String?
     )
 
     val uiState: StateFlow<SettingsUiState> = combine(
@@ -122,11 +129,12 @@ class SettingsViewModel @Inject constructor(
         endpointHealth,
         members,
         combine(
-            emailInput, isBusy, statusMessage, renameInput,
+            combine(emailInput, isBusy, statusMessage, renameInput, ::FormInputs),
             combine(
                 combine(inviteCode, showJoinWarning, joinInput, seedConfirmOpen, signOutConfirmOpen, ::DialogInputs),
                 fullResyncConfirmOpen
             ) { dialog, fullResync -> dialog to fullResync },
+            inviteDeepLinkManager.pendingInviteCode,
             ::LocalInputs
         )
     ) { authState, household, health, membersList, inputs ->
@@ -167,16 +175,17 @@ class SettingsViewModel @Inject constructor(
             inviteDisabledReason = inviteDisabledReason,
             canJoin = canJoin,
             joinDisabledReason = joinDisabledReason,
-            emailInput = inputs.emailInput,
-            isBusy = inputs.isBusy,
-            statusMessage = inputs.statusMessage,
-            renameInput = inputs.renameInput,
+            emailInput = inputs.form.emailInput,
+            isBusy = inputs.form.isBusy,
+            statusMessage = inputs.form.statusMessage,
+            renameInput = inputs.form.renameInput,
             showSeedConfirm = inputs.dialog.first.seedConfirmOpen,
             showSignOutConfirm = inputs.dialog.first.signOutConfirmOpen,
             showFullResyncConfirm = inputs.dialog.second,
             inviteCode = inputs.dialog.first.inviteCode,
             showJoinWarning = inputs.dialog.first.showJoinWarning,
             joinInput = inputs.dialog.first.joinInput,
+            pendingInviteCode = inputs.pendingInviteCode,
             endpointHealth = health
         )
     }.stateIn(

@@ -40,6 +40,7 @@ data class HouseholdUiState(
     val inviteCode: String? = null,
     val showJoinWarning: Boolean = false,
     val joinInput: String? = null,
+    val pendingJoinCode: String? = null,
     val showFullResyncConfirm: Boolean = false
 )
 
@@ -48,6 +49,7 @@ class HouseholdViewModel @Inject constructor(
     private val householdRepository: HouseholdRepository,
     private val authRepository: AuthRepository,
     private val syncManager: SyncManager,
+    private val inviteDeepLinkManager: net.marvinweber.simsli.ui.navigation.InviteDeepLinkManager,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ViewModel() {
 
@@ -57,34 +59,18 @@ class HouseholdViewModel @Inject constructor(
     private val inviteCode = MutableStateFlow<String?>(null)
     private val showJoinWarning = MutableStateFlow(false)
     private val joinInput = MutableStateFlow<String?>(null)
+    private val pendingJoinCode = MutableStateFlow<String?>(null)
     private val fullResyncConfirmOpen = MutableStateFlow(false)
     private val members = MutableStateFlow<List<HouseholdMember>>(emptyList())
 
     val isSyncing: StateFlow<Boolean> = syncManager.isSyncing
 
-    init {
-        viewModelScope.launch {
-            combine(
-                authRepository.authState,
-                householdRepository.getHousehold()
-            ) { auth, household -> auth to household }
-                .collectLatest { (auth, household) ->
-                    if (auth is AuthState.SignedIn && household != null) {
-                        householdRepository.getMembers(household.id)
-                            .onSuccess { members.value = it }
-                            .onFailure { members.value = emptyList() }
-                    } else {
-                        members.value = emptyList()
-                    }
-                }
-        }
-    }
-
     private data class DialogState(
         val inviteCode: String?,
         val showJoinWarning: Boolean,
         val joinInput: String?,
-        val fullResyncConfirmOpen: Boolean
+        val fullResyncConfirmOpen: Boolean,
+        val pendingJoinCode: String?
     )
 
     private data class LocalState(
@@ -102,7 +88,9 @@ class HouseholdViewModel @Inject constructor(
             isBusy,
             statusMessage,
             renameInput,
-            combine(inviteCode, showJoinWarning, joinInput, fullResyncConfirmOpen, ::DialogState),
+            combine(inviteCode, showJoinWarning, joinInput, fullResyncConfirmOpen, pendingJoinCode) { invite, warning, join, resync, pending ->
+                DialogState(invite, warning, join, resync, pending)
+            },
             ::LocalState
         )
     ) { authState, household, membersList, local ->
@@ -145,9 +133,40 @@ class HouseholdViewModel @Inject constructor(
             inviteCode = local.dialogs.inviteCode,
             showJoinWarning = local.dialogs.showJoinWarning,
             joinInput = local.dialogs.joinInput,
+            pendingJoinCode = local.dialogs.pendingJoinCode,
             showFullResyncConfirm = local.dialogs.fullResyncConfirmOpen
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HouseholdUiState())
+
+    init {
+        viewModelScope.launch {
+            combine(
+                authRepository.authState,
+                householdRepository.getHousehold()
+            ) { auth, household -> auth to household }
+                .collectLatest { (auth, household) ->
+                    if (auth is AuthState.SignedIn && household != null) {
+                        householdRepository.getMembers(household.id)
+                            .onSuccess { members.value = it }
+                            .onFailure { members.value = emptyList() }
+                    } else {
+                        members.value = emptyList()
+                    }
+                }
+        }
+
+        viewModelScope.launch {
+            inviteDeepLinkManager.pendingInviteCode.collectLatest { code ->
+                if (code != null) {
+                    val isSignedIn = authRepository.currentUserId() != null
+                    if (isSignedIn) {
+                        inviteDeepLinkManager.consumePendingInviteCode()
+                        startJoinWithCode(code)
+                    }
+                }
+            }
+        }
+    }
 
     fun startRename(currentName: String?) {
         renameInput.value = currentName.orEmpty()
@@ -223,17 +242,35 @@ class HouseholdViewModel @Inject constructor(
         inviteCode.value = null
     }
 
+    fun startJoinWithCode(code: String) {
+        val currentCanJoin = uiState.value.canJoin
+        if (!currentCanJoin) {
+            statusMessage.value = uiState.value.joinDisabledReason ?: "Cannot join another household"
+            return
+        }
+        pendingJoinCode.value = code
+        showJoinWarning.value = true
+    }
+
     fun startJoin() {
+        pendingJoinCode.value = null
         showJoinWarning.value = true
     }
 
     fun confirmJoinWarning() {
         showJoinWarning.value = false
-        joinInput.value = ""
+        val directCode = pendingJoinCode.value
+        if (directCode != null) {
+            pendingJoinCode.value = null
+            executeJoin(directCode)
+        } else {
+            joinInput.value = ""
+        }
     }
 
     fun dismissJoinWarning() {
         showJoinWarning.value = false
+        pendingJoinCode.value = null
     }
 
     fun onJoinChange(code: String) {
@@ -248,7 +285,10 @@ class HouseholdViewModel @Inject constructor(
         val code = joinInput.value?.trim() ?: return
         if (code.isBlank()) return
         joinInput.value = null
+        executeJoin(code)
+    }
 
+    private fun executeJoin(code: String) {
         viewModelScope.launch {
             isBusy.value = true
             val result = withContext(ioDispatcher) {

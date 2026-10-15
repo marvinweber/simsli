@@ -22,6 +22,9 @@ interface AuthRepository {
     /** Emits the current auth status and every subsequent change (login, logout, refresh). */
     val authState: Flow<AuthState>
 
+    /** Current cached auth status. */
+    val currentAuthState: AuthState
+
     suspend fun currentUserId(): String?
 
     suspend fun currentUserEmail(): String?

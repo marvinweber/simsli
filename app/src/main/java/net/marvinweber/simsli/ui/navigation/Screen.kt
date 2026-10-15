@@ -36,8 +36,30 @@ sealed class Screen(val route: String) {
 @Composable
 fun SimsliNavHost(
     navController: NavHostController,
+    inviteDeepLinkManager: InviteDeepLinkManager? = null,
     modifier: Modifier = Modifier
 ) {
+    if (inviteDeepLinkManager != null) {
+        androidx.compose.runtime.LaunchedEffect(inviteDeepLinkManager) {
+            inviteDeepLinkManager.navEvents.collect { target ->
+                when (target) {
+                    is InviteNavTarget.JoinHousehold -> {
+                        navController.navigate(Screen.Household.route) {
+                            launchSingleTop = true
+                        }
+                        inviteDeepLinkManager.consumeNavEvent()
+                    }
+                    is InviteNavTarget.SignIn -> {
+                        navController.navigate(Screen.Settings.route) {
+                            launchSingleTop = true
+                        }
+                        inviteDeepLinkManager.consumeNavEvent()
+                    }
+                }
+            }
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = Screen.Home.route,
@@ -99,6 +121,9 @@ fun SimsliNavHost(
                 },
                 onNavigateToHouseholdMembers = {
                     navController.navigate(Screen.HouseholdMembers.route)
+                },
+                onNavigateToSettings = {
+                    navController.navigate(Screen.Settings.route)
                 }
             )
         }

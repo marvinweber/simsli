@@ -28,11 +28,15 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var quickActionManager: net.marvinweber.simsli.ui.navigation.QuickActionManager
 
+    @Inject
+    lateinit var inviteDeepLinkManager: net.marvinweber.simsli.ui.navigation.InviteDeepLinkManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleAuthDeepLink(intent)
         handleQuickAction(intent)
+        handleInviteDeepLink(intent)
         setContent {
             SimsliTheme {
                 Surface(
@@ -40,7 +44,10 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val navController = rememberNavController()
-                    SimsliNavHost(navController = navController)
+                    SimsliNavHost(
+                        navController = navController,
+                        inviteDeepLinkManager = inviteDeepLinkManager
+                    )
                     AppUpdateDialog()
                 }
             }
@@ -52,6 +59,11 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         handleAuthDeepLink(intent)
         handleQuickAction(intent)
+        handleInviteDeepLink(intent)
+    }
+
+    private fun handleInviteDeepLink(intent: Intent?) {
+        inviteDeepLinkManager.handleInviteIntent(intent)
     }
 
     private fun handleAuthDeepLink(intent: Intent?) {

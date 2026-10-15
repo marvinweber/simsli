@@ -95,6 +95,7 @@ import net.marvinweber.simsli.ui.components.SimsliTopAppBarTitle
 fun HouseholdScreen(
     onNavigateBack: () -> Unit,
     onNavigateToHouseholdMembers: () -> Unit,
+    onNavigateToSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: HouseholdViewModel = hiltViewModel()
 ) {
@@ -283,7 +284,7 @@ fun HouseholdScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "Share this 8-character invite code. It works once and expires after 24 hours.",
+                            text = "Share this invite link or 8-character code. It works once and expires after 24 hours.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -293,17 +294,23 @@ fun HouseholdScreen(
                             color = MaterialTheme.colorScheme.surfaceContainerHighest,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Box(
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 16.dp),
-                                contentAlignment = Alignment.Center
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
                                     text = inviteCode,
                                     style = MaterialTheme.typography.headlineMedium.copy(letterSpacing = 4.sp),
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "simsli://invite/$inviteCode",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -330,12 +337,12 @@ fun HouseholdScreen(
                             }
                             Button(
                                 onClick = {
-                                    val shareText = "Join my household on Simsli with invite code: $inviteCode (valid for 24 hours)"
+                                    val shareText = "Join my household on Simsli: simsli://invite/$inviteCode (code: $inviteCode, valid for 24 hours)"
                                     val sendIntent = Intent(Intent.ACTION_SEND).apply {
                                         putExtra(Intent.EXTRA_TEXT, shareText)
                                         type = "text/plain"
                                     }
-                                    context.startActivity(Intent.createChooser(sendIntent, "Share invite code"))
+                                    context.startActivity(Intent.createChooser(sendIntent, "Share invite link"))
                                 },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp)
@@ -397,13 +404,15 @@ fun HouseholdScreen(
                 title = { Text("Join another household?") },
                 text = {
                     val householdName = uiState.householdName ?: "your current household"
-                    val message = if (uiState.isOwner) {
-                        "Warning: Joining another household will delete \"$householdName\" and all its data. This cannot be undone.\n\nDo you want to continue?"
+                    val codePrefix = uiState.pendingJoinCode?.let { "You are about to join another household with invite code $it.\n\n" }.orEmpty()
+                    val warningBody = if (uiState.isOwner) {
+                        "Warning: Joining another household will delete \"$householdName\" and all its data. This cannot be undone."
                     } else {
-                        "Warning: Joining another household will remove you from \"$householdName\". You will lose access to its list and items.\n\nDo you want to continue?"
+                        "Warning: Joining another household will remove you from \"$householdName\". You will lose access to its list and items."
                     }
+                    val question = "\n\nDo you want to continue?"
                     Text(
-                        text = message,
+                        text = "$codePrefix$warningBody$question",
                         style = MaterialTheme.typography.bodyMedium
                     )
                 },
@@ -415,7 +424,7 @@ fun HouseholdScreen(
                             contentColor = MaterialTheme.colorScheme.onError
                         )
                     ) {
-                        Text("Continue")
+                        Text(if (uiState.pendingJoinCode != null) "Join" else "Continue")
                     }
                 },
                 dismissButton = {
@@ -788,8 +797,14 @@ fun HouseholdScreen(
 
                     val canJoin = uiState.canJoin
                     OutlinedButton(
-                        onClick = viewModel::startJoin,
-                        enabled = !uiState.isBusy && canJoin && uiState.isSignedIn,
+                        onClick = {
+                            if (!uiState.isSignedIn) {
+                                onNavigateToSettings()
+                            } else {
+                                viewModel.startJoin()
+                            }
+                        },
+                        enabled = !uiState.isBusy && (canJoin || !uiState.isSignedIn),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {

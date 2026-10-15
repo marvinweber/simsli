@@ -23,6 +23,8 @@ class AuthRepositoryImpl @Inject constructor(
 ) : AuthRepository {
 
     override val authState: Flow<AuthState> = tokenStorage.authState
+    override val currentAuthState: AuthState
+        get() = tokenStorage.authState.value
 
     override suspend fun currentUserId(): String? = tokenStorage.userId
 
