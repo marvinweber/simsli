@@ -19,6 +19,7 @@ import net.marvinweber.simsli.data.repository.StoreRepository
 import net.marvinweber.simsli.domain.model.Household
 import net.marvinweber.simsli.domain.model.Store
 import net.marvinweber.simsli.domain.model.StoreGroup
+import net.marvinweber.simsli.domain.util.SearchFold
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -27,6 +28,8 @@ data class StoresUiState(
     val household: Household? = null,
     val storeGroups: List<StoreGroup> = emptyList(),
     val stores: List<Store> = emptyList(),
+    /** The active top-bar search query for the Stores sub-tab (SEARCH-1). */
+    val searchQuery: String = "",
     val isLoading: Boolean = true,
     val error: String? = null
 )
@@ -59,14 +62,34 @@ class StoresViewModel @Inject constructor(
             initialValue = StoresUiState(isLoading = true)
         )
 
+    /** The top-bar search query for the Stores sub-tab (SEARCH-1). */
+    private val searchQuery = MutableStateFlow("")
+
+    fun setSearchQuery(query: String) {
+        searchQuery.value = query
+    }
+
     private fun combineStoresAndGroups(household: Household) = combine(
         storeRepository.getStoresByHousehold(household.id),
-        storeGroupRepository.getGroupsByHousehold(household.id)
-    ) { stores, storeGroups ->
+        storeGroupRepository.getGroupsByHousehold(household.id),
+        searchQuery
+    ) { stores, storeGroups, query ->
+        val q = query.trim()
+        // While searching, filter stores by name; a group header stays visible when
+        // its own name matches or any of its stores match (so matches never orphan).
+        val fq = SearchFold.fold(q)
+        val filteredStores = if (q.isEmpty()) stores else stores.filter {
+            SearchFold.fold(it.name).contains(fq)
+        }
+        val visibleGroups = if (q.isEmpty()) storeGroups else storeGroups.filter { group ->
+            SearchFold.fold(group.name).contains(fq) ||
+                filteredStores.any { it.groupId == group.id }
+        }
         StoresUiState(
             household = household,
-            storeGroups = storeGroups,
-            stores = stores,
+            storeGroups = visibleGroups,
+            stores = filteredStores,
+            searchQuery = q,
             isLoading = false,
             error = null
         )
@@ -212,6 +235,9 @@ class StoresViewModel @Inject constructor(
 
     /** Gap-based reorder after a group drag (same algorithm as categories). */
     fun onReorderGroups(reorderedGroups: List<StoreGroup>) {
+        // Reordering from a filtered view would corrupt sortOrder (the diff runs
+        // against the full list) — drag is disabled in the UI while searching.
+        if (searchQuery.value.isNotBlank()) return
         viewModelScope.launch {
             val original = uiState.value.storeGroups
             if (original.map { it.id } == reorderedGroups.map { it.id }) return@launch

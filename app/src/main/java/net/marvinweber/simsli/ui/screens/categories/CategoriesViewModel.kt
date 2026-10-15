@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -16,6 +17,7 @@ import net.marvinweber.simsli.data.repository.CategoryRepository
 import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.Household
+import net.marvinweber.simsli.domain.util.SearchFold
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -23,6 +25,8 @@ import javax.inject.Inject
 data class CategoriesUiState(
     val household: Household? = null,
     val categories: List<Category> = emptyList(),
+    /** The active top-bar search query for the Categories sub-tab (SEARCH-1). */
+    val searchQuery: String = "",
     val isLoading: Boolean = true,
     val error: String? = null
 )
@@ -39,15 +43,30 @@ class CategoriesViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository
 ) : ViewModel() {
 
+    /** The top-bar search query for the Categories sub-tab (SEARCH-1). */
+    private val searchQuery = MutableStateFlow("")
+
+    fun setSearchQuery(query: String) {
+        searchQuery.value = query
+    }
+
     val uiState: StateFlow<CategoriesUiState> = householdRepository.getHousehold()
         .flatMapLatest { household ->
             if (household == null) {
                 flowOf(CategoriesUiState(isLoading = false))
             } else {
-                categoryRepository.getCategoriesByHousehold(household.id).map { categories ->
+                combine(
+                    categoryRepository.getCategoriesByHousehold(household.id),
+                    searchQuery
+                ) { categories, query ->
+                    val q = query.trim()
+                    val fq = SearchFold.fold(q)
                     CategoriesUiState(
                         household = household,
-                        categories = categories,
+                        categories = if (q.isEmpty()) categories else categories.filter {
+                            SearchFold.fold(it.name).contains(fq)
+                        },
+                        searchQuery = q,
                         isLoading = false,
                         error = null
                     )
@@ -142,6 +161,9 @@ class CategoriesViewModel @Inject constructor(
     }
 
     fun onReorder(reorderedCategories: List<Category>) {
+        // Reordering from a filtered view would corrupt sortOrder (the diff runs
+        // against the full list) — drag is disabled in the UI while searching.
+        if (searchQuery.value.isNotBlank()) return
         viewModelScope.launch {
             val original = uiState.value.categories
             if (original.map { it.id } == reorderedCategories.map { it.id }) return@launch

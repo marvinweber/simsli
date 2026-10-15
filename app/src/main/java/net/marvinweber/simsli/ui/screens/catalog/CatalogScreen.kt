@@ -28,11 +28,10 @@ import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.material3.TopAppBar
 import net.marvinweber.simsli.domain.model.ItemType
 import net.marvinweber.simsli.ui.components.CategorySectionHeader
 import net.marvinweber.simsli.ui.components.LinkUtils
-import net.marvinweber.simsli.ui.components.SimsliTopAppBarAccountButton
+import net.marvinweber.simsli.ui.components.SimsliSearchTopAppBar
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -52,8 +51,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.ui.text.font.FontWeight
-import net.marvinweber.simsli.ui.components.SimsliTopAppBarTitle
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -98,23 +97,47 @@ fun CatalogScreen(
     val selectedTab = CatalogTab.entries.firstOrNull { it.name == selectedTabName } ?: CatalogTab.ITEMS
     val tabStateHolder = rememberSaveableStateHolder()
 
+    // Top-bar search state (SEARCH-1): one open/closed flag, one query per sub-tab —
+    // all saveable so they survive bottom-tab switches.
+    var isSearchActive by rememberSaveable { mutableStateOf(false) }
+    var itemsQuery by rememberSaveable { mutableStateOf("") }
+    var categoriesQuery by rememberSaveable { mutableStateOf("") }
+    var storesQuery by rememberSaveable { mutableStateOf("") }
+    val activeQuery = when (selectedTab) {
+        CatalogTab.ITEMS -> itemsQuery
+        CatalogTab.CATEGORIES -> categoriesQuery
+        CatalogTab.STORES -> storesQuery
+    }
+
+    fun closeSearch() {
+        isSearchActive = false
+        itemsQuery = ""
+        categoriesQuery = ""
+        storesQuery = ""
+        viewModel.setSearchQuery("")
+    }
+
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                title = {
-                    SimsliTopAppBarTitle(
-                        title = "Catalog",
-                        isSyncing = isSyncing
-                    )
+            SimsliSearchTopAppBar(
+                title = "Catalog",
+                isSyncing = isSyncing,
+                isSearchActive = isSearchActive,
+                query = activeQuery,
+                onQueryChange = { query ->
+                    when (selectedTab) {
+                        CatalogTab.ITEMS -> itemsQuery = query
+                        CatalogTab.CATEGORIES -> categoriesQuery = query
+                        CatalogTab.STORES -> storesQuery = query
+                    }
                 },
-                actions = {
-                    SimsliTopAppBarAccountButton(
-                        householdIcon = householdIcon,
-                        householdName = householdName,
-                        onClick = onNavigateToSettings
-                    )
-                }
+                onSearchClick = { isSearchActive = true },
+                onCloseSearch = { closeSearch() },
+                searchPlaceholder = "Search catalog",
+                householdIcon = householdIcon,
+                householdName = householdName,
+                onHouseholdClick = onNavigateToSettings
             )
         }
     ) { paddingValues ->
@@ -164,14 +187,22 @@ fun CatalogScreen(
                     CatalogTab.ITEMS -> tabStateHolder.SaveableStateProvider(CatalogTab.ITEMS.name) {
                         ItemsTabContent(
                             onNavigateToItemDetail = onNavigateToItemDetail,
+                            searchQuery = itemsQuery,
+                            onSearchQueryChange = { itemsQuery = it },
                             viewModel = viewModel
                         )
                     }
                     CatalogTab.CATEGORIES -> tabStateHolder.SaveableStateProvider(CatalogTab.CATEGORIES.name) {
-                        CategoriesTabContent()
+                        CategoriesTabContent(
+                            searchQuery = categoriesQuery,
+                            onSearchQueryChange = { categoriesQuery = it }
+                        )
                     }
                     CatalogTab.STORES -> tabStateHolder.SaveableStateProvider(CatalogTab.STORES.name) {
-                        StoresTabContent()
+                        StoresTabContent(
+                            searchQuery = storesQuery,
+                            onSearchQueryChange = { storesQuery = it }
+                        )
                     }
                 }
             }
@@ -183,9 +214,14 @@ fun CatalogScreen(
 @Composable
 private fun ItemsTabContent(
     onNavigateToItemDetail: (String?) -> Unit,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
     viewModel: CatalogViewModel
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    // Re-sync the ViewModel whenever this sub-tab enters composition so a restored
+    // query (e.g. after switching bottom tabs) filters again.
+    LaunchedEffect(searchQuery) { viewModel.setSearchQuery(searchQuery) }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -242,6 +278,31 @@ private fun ItemsTabContent(
                         Spacer(modifier = Modifier.size(8.dp))
                         Text(
                             text = "Tap + to create your first item",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            uiState.groups.isEmpty() && uiState.searchQuery.isNotBlank() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .verticalScroll(rememberScrollState()),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "No results",
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text(
+                            text = "Nothing matches “${uiState.searchQuery}”",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

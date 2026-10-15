@@ -19,6 +19,7 @@ import net.marvinweber.simsli.data.repository.ListEntryRepository
 import net.marvinweber.simsli.data.sync.SyncManager
 import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.Item
+import net.marvinweber.simsli.domain.util.SearchFold
 import javax.inject.Inject
 
 data class CatalogItemRow(
@@ -37,6 +38,8 @@ data class CatalogCategoryGroup(
 data class CatalogUiState(
     val groups: List<CatalogCategoryGroup> = emptyList(),
     val totalItemCount: Int = 0,
+    /** The active top-bar search query for the Items sub-tab (SEARCH-1). */
+    val searchQuery: String = "",
     /** Non-null → the add-to-list sheet is open for this item. */
     val addingItem: CatalogItemRow? = null,
     val isLoading: Boolean = true
@@ -55,6 +58,13 @@ class CatalogViewModel @Inject constructor(
     /** The item the add-to-list sheet is open for, if any. */
     private val addingItemId = MutableStateFlow<String?>(null)
 
+    /** The top-bar search query for the Items sub-tab (SEARCH-1). */
+    private val searchQuery = MutableStateFlow("")
+
+    fun setSearchQuery(query: String) {
+        searchQuery.value = query
+    }
+
     val uiState: StateFlow<CatalogUiState> = householdRepository.getHousehold()
         .flatMapLatest { household ->
             if (household == null) {
@@ -64,10 +74,20 @@ class CatalogViewModel @Inject constructor(
                     itemRepository.getItemsByHousehold(household.id),
                     categoryRepository.getCategoriesByHousehold(household.id),
                     listEntryRepository.getListEntriesByHousehold(household.id),
-                    addingItemId
-                ) { items, categories, entries, addingId ->
+                    addingItemId,
+                    searchQuery
+                ) { items, categories, entries, addingId, query ->
                     val activeItemIds = entries.filter { !it.done }.map { it.itemId }.toSet()
                     val rows = items.map { CatalogItemRow(it, it.id in activeItemIds) }
+                    // Filter before grouping so category groups left empty disappear entirely
+                    val visibleRows = query.trim()
+                        .let { q ->
+                            if (q.isEmpty()) rows
+                            else {
+                                val fq = SearchFold.fold(q)
+                                rows.filter { SearchFold.fold(it.item.name).contains(fq) }
+                            }
+                        }
 
                     val sortedCategories = categories.sortedBy { it.sortOrder }
                     val categoryById = sortedCategories.associateBy { it.id }
@@ -76,7 +96,7 @@ class CatalogViewModel @Inject constructor(
 
                     // 1. Explicit categories (in global sortOrder) that contain items
                     sortedCategories.forEach { category ->
-                        val categoryRows = rows.filter { it.item.categoryId == category.id }
+                        val categoryRows = visibleRows.filter { it.item.categoryId == category.id }
                         if (categoryRows.isNotEmpty()) {
                             groups.add(
                                 CatalogCategoryGroup(
@@ -91,7 +111,7 @@ class CatalogViewModel @Inject constructor(
                     }
 
                     // 2. Uncategorized items
-                    val uncategorizedRows = rows.filter { it.item.categoryId == null || it.item.categoryId !in categoryById }
+                    val uncategorizedRows = visibleRows.filter { it.item.categoryId == null || it.item.categoryId !in categoryById }
                     if (uncategorizedRows.isNotEmpty()) {
                         groups.add(
                             CatalogCategoryGroup(
@@ -107,6 +127,7 @@ class CatalogViewModel @Inject constructor(
                     CatalogUiState(
                         groups = groups,
                         totalItemCount = rows.size,
+                        searchQuery = query.trim(),
                         addingItem = addingId?.let { id ->
                             rows.firstOrNull { it.item.id == id }
                         },

@@ -23,6 +23,7 @@ import net.marvinweber.simsli.data.repository.AuthState
 import net.marvinweber.simsli.data.repository.CategoryRepository
 import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.data.repository.ItemRepository
+import net.marvinweber.simsli.data.repository.ItemStoreRepository
 import net.marvinweber.simsli.data.repository.ListEntryRepository
 import net.marvinweber.simsli.data.repository.StoreGroupRepository
 import net.marvinweber.simsli.data.repository.StoreRepository
@@ -31,12 +32,16 @@ import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.CategoryFilter
 import net.marvinweber.simsli.domain.model.Household
 import net.marvinweber.simsli.domain.model.Item
+import net.marvinweber.simsli.domain.model.ItemStore
+import net.marvinweber.simsli.domain.model.ItemStoreGroup
 import net.marvinweber.simsli.domain.model.ItemType
 import net.marvinweber.simsli.domain.model.ListEntry
 import net.marvinweber.simsli.domain.model.Store
 import net.marvinweber.simsli.domain.model.StoreFilter
 import net.marvinweber.simsli.domain.model.StoreCategory
 import net.marvinweber.simsli.domain.model.StoreGroup
+import net.marvinweber.simsli.domain.util.EffectiveStoreSet
+import net.marvinweber.simsli.domain.util.SearchFold
 import java.time.Instant
 import javax.inject.Inject
 
@@ -78,6 +83,10 @@ data class ListUiState(
     val recentlyChecked: List<ListEntryItem> = emptyList(),
     val completingEntryIds: Set<String> = emptySet(),
     val catalog: List<CatalogItemUi> = emptyList(),
+    /** The active top-bar search query, mirrored for UI hints (empty state copy). */
+    val searchQuery: String = "",
+    /** Catalog items matching the search query without an entry — the quick-add chips (SEARCH-1). */
+    val searchSuggestions: List<CatalogItemUi> = emptyList(),
     val isLoading: Boolean = true,
     val isAddSheetOpen: Boolean = false,
     val addQuery: String = "",
@@ -100,6 +109,7 @@ class ListViewModel @Inject constructor(
     private val storeRepository: StoreRepository,
     private val storeGroupRepository: StoreGroupRepository,
     private val itemRepository: ItemRepository,
+    private val itemStoreRepository: ItemStoreRepository,
     private val listEntryRepository: ListEntryRepository,
     private val categoryRepository: CategoryRepository,
     private val quickActionManager: net.marvinweber.simsli.ui.navigation.QuickActionManager,
@@ -111,6 +121,9 @@ class ListViewModel @Inject constructor(
 
     private val _categoryFilter = MutableStateFlow<CategoryFilter>(CategoryFilter.All)
     val categoryFilter: StateFlow<CategoryFilter> = _categoryFilter.asStateFlow()
+
+    /** The top-bar search query (SEARCH-1); filtering happens in the final combine, not upstream. */
+    private val _searchQuery = MutableStateFlow("")
 
     /** IDs of active entries currently showing visual tick before moving to recently checked. */
     private val completingEntryIds = MutableStateFlow<Set<String>>(emptySet())
@@ -126,6 +139,14 @@ class ListViewModel @Inject constructor(
 
     private val sheetUi = MutableStateFlow(SheetUi())
 
+    /** Stores plus the item↔store memberships needed for [EffectiveStoreSet]. */
+    private data class StoresData(
+        val stores: List<Store>,
+        val storeGroups: List<StoreGroup>,
+        val itemStores: List<ItemStore>,
+        val itemStoreGroups: List<ItemStoreGroup>
+    )
+
     private data class ListUiData(
         val household: Household,
         val stores: List<Store>,
@@ -135,7 +156,9 @@ class ListViewModel @Inject constructor(
         val activeEntries: List<ListEntryItem>,
         val recentlyChecked: List<ListEntryItem>,
         val catalog: List<CatalogItemUi>,
-        val entryItems: List<ListEntryItem>
+        val entryItems: List<ListEntryItem>,
+        /** Effective store set per item (STORE-7), for filtering search suggestions. */
+        val effectiveStoreIdsByItem: Map<String, Set<String>>
     )
 
     val uiState: StateFlow<ListUiState> = combine(
@@ -156,15 +179,19 @@ class ListViewModel @Inject constructor(
             }
             val storesWithGroupsFlow = combine(
                 storeRepository.getStoresByHousehold(household.id),
-                storeGroupRepository.getGroupsByHousehold(household.id)
-            ) { stores, groups -> stores to groups }
+                storeGroupRepository.getGroupsByHousehold(household.id),
+                itemStoreRepository.observeItemStoresByHousehold(household.id),
+                itemStoreRepository.observeItemStoreGroupsByHousehold(household.id)
+            ) { stores, groups, itemStores, itemStoreGroups ->
+                StoresData(stores, groups, itemStores, itemStoreGroups)
+            }
             combine(
                 storesWithGroupsFlow,
                 categoryRepository.getCategoriesByHousehold(household.id),
                 storeCategoriesFlow,
                 entriesFlow,
                 itemRepository.getItemsByHousehold(household.id)
-            ) { (stores, storeGroups), categories, storeCategories, listEntries, items ->
+            ) { (stores, storeGroups, itemStores, itemStoreGroups), categories, storeCategories, listEntries, items ->
                 val itemMap = items.associateBy { it.id }
                 val entryItems = listEntries.map { entry ->
                     ListEntryItem(entry, itemMap[entry.itemId])
@@ -230,7 +257,8 @@ class ListViewModel @Inject constructor(
                     catalog = items.map {
                         CatalogItemUi(it, it.id in activeItemIds, entryIdByItemId[it.id])
                     },
-                    entryItems = entryItems
+                    entryItems = entryItems,
+                    effectiveStoreIdsByItem = EffectiveStoreSet.compute(itemStores, itemStoreGroups, stores)
                 )
             }
         }
@@ -240,18 +268,35 @@ class ListViewModel @Inject constructor(
         } else {
             combine(
                 sheetUi,
-                completingEntryIds
-            ) { sheet, completing ->
+                completingEntryIds,
+                _searchQuery,
+                _storeFilter,
+                _categoryFilter
+            ) { sheet, completing, searchQuery, storeFilter, categoryFilter ->
+                val search = applyListSearch(
+                    groups = data.activeGroups,
+                    activeEntries = data.activeEntries,
+                    recentlyChecked = data.recentlyChecked,
+                    catalog = data.catalog,
+                    query = searchQuery,
+                    effectiveStoreIdsByItem = data.effectiveStoreIdsByItem,
+                    stores = data.stores,
+                    storeFilter = storeFilter,
+                    categoryFilter = categoryFilter,
+                    fold = SearchFold::fold
+                )
                 ListUiState(
                     household = data.household,
                     stores = data.stores,
                     storeGroups = data.storeGroups,
                     categories = data.categories,
-                    activeGroups = data.activeGroups,
-                    activeEntries = data.activeEntries,
-                    recentlyChecked = data.recentlyChecked,
+                    activeGroups = search.groups,
+                    activeEntries = search.activeEntries,
+                    recentlyChecked = search.recentlyChecked,
                     completingEntryIds = completing,
                     catalog = data.catalog,
+                    searchQuery = searchQuery.trim(),
+                    searchSuggestions = search.suggestions,
                     isLoading = false,
                     isAddSheetOpen = sheet.addSheetOpen,
                     addQuery = sheet.addQuery,
@@ -317,6 +362,27 @@ class ListViewModel @Inject constructor(
     fun clearFilters() {
         _storeFilter.value = StoreFilter.All
         _categoryFilter.value = CategoryFilter.All
+    }
+
+    // --- Top-bar search (SEARCH-1) ----------------------------------------------------
+
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+
+    fun clearSearchQuery() {
+        _searchQuery.value = ""
+    }
+
+    /** A quick-add chip from the top-bar search: always opens the quick form (chips only target entry-less items). */
+    fun onSearchSuggestionClick(item: Item) {
+        sheetUi.update {
+            it.copy(
+                addSheetOpen = true,
+                addSelection = AddSelection.Existing(item),
+                isAddInProgress = false
+            )
+        }
     }
 
     // --- Check off / undo ---------------------------------------------------------

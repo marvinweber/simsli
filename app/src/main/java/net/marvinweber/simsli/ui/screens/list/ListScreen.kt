@@ -12,7 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
 import net.marvinweber.simsli.R
-import net.marvinweber.simsli.ui.components.SimsliTopAppBarTitle
+import net.marvinweber.simsli.ui.components.SimsliSearchTopAppBar
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -53,9 +54,7 @@ import androidx.compose.material.icons.outlined.Storefront
 import net.marvinweber.simsli.ui.components.LinkUtils
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Checkbox
-import net.marvinweber.simsli.ui.components.SimsliTopAppBarAccountButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -101,6 +100,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -119,10 +119,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.CategoryFilter
+import net.marvinweber.simsli.domain.model.Item
 import net.marvinweber.simsli.domain.model.Store
 import net.marvinweber.simsli.domain.model.StoreFilter
 import net.marvinweber.simsli.domain.model.StoreGroup
 import net.marvinweber.simsli.domain.model.UnitPresets
+import net.marvinweber.simsli.domain.util.SearchFold
 import net.marvinweber.simsli.ui.components.CategorySectionHeader
 import net.marvinweber.simsli.ui.components.EntryDetailsSheet
 import net.marvinweber.simsli.ui.components.formatQuantity
@@ -149,6 +151,20 @@ fun ListTabContent(
     val storeFilter by viewModel.storeFilter.collectAsState()
     val categoryFilter by viewModel.categoryFilter.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val keyboard = LocalSoftwareKeyboardController.current
+
+    // Top-bar search state (SEARCH-1): hoisted + saveable so it survives tab switches.
+    // The field binds to this state directly (not through the ViewModel) to avoid the
+    // cursor-jump from the combine chain lagging a frame; the ViewModel mirrors it.
+    var isSearchActive by rememberSaveable { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    LaunchedEffect(searchQuery) { viewModel.setSearchQuery(searchQuery) }
+
+    fun closeSearch() {
+        isSearchActive = false
+        searchQuery = ""
+        viewModel.clearSearchQuery()
+    }
 
     LaunchedEffect(Unit) {
         var snackbarJob: Job? = null
@@ -186,20 +202,18 @@ fun ListTabContent(
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                title = {
-                    SimsliTopAppBarTitle(
-                        title = "Simsli",
-                        isSyncing = isSyncing
-                    )
-                },
-                actions = {
-                    SimsliTopAppBarAccountButton(
-                        householdIcon = householdIcon,
-                        householdName = householdName,
-                        onClick = onNavigateToSettings
-                    )
-                }
+            SimsliSearchTopAppBar(
+                title = "Simsli",
+                isSyncing = isSyncing,
+                isSearchActive = isSearchActive,
+                query = searchQuery,
+                onQueryChange = { searchQuery = it },
+                onSearchClick = { isSearchActive = true },
+                onCloseSearch = { closeSearch() },
+                searchPlaceholder = "Search items",
+                householdIcon = householdIcon,
+                householdName = householdName,
+                onHouseholdClick = onNavigateToSettings
             )
         },
         bottomBar = {
@@ -209,10 +223,14 @@ fun ListTabContent(
                 categories = uiState.categories,
                 storeFilter = storeFilter,
                 categoryFilter = categoryFilter,
+                hasSearchQuery = searchQuery.isNotEmpty(),
                 onStoreFilterSelected = viewModel::selectFilter,
                 onCategoryFilterSelected = viewModel::selectCategoryFilter,
                 onAddClick = viewModel::onAddClick,
-                onResetFilters = viewModel::clearFilters
+                onResetFilters = {
+                    viewModel.clearFilters()
+                    closeSearch()
+                }
             )
         },
         snackbarHost = {
@@ -271,12 +289,48 @@ fun ListTabContent(
             if (uiState.isLoading) {
                 LoadingView()
             } else if (uiState.activeEntries.isEmpty() && uiState.recentlyChecked.isEmpty()) {
-                EmptyListView()
+                if (uiState.searchSuggestions.isNotEmpty()) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 16.dp)
+                    ) {
+                        item(key = "search_suggestions") {
+                            SearchSuggestionsRow(
+                                suggestions = uiState.searchSuggestions,
+                                onItemClick = { suggestion ->
+                                    keyboard?.hide()
+                                    viewModel.onSearchSuggestionClick(suggestion.item)
+                                }
+                            )
+                        }
+                        item(key = "no_matches_hint") {
+                            Text(
+                                text = "No matching items on your list — add from the catalog above",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                            )
+                        }
+                    }
+                } else {
+                    EmptyListView(searchQuery = uiState.searchQuery.ifBlank { null })
+                }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
+                    if (uiState.searchSuggestions.isNotEmpty()) {
+                        item(key = "search_suggestions") {
+                            SearchSuggestionsRow(
+                                suggestions = uiState.searchSuggestions,
+                                onItemClick = { suggestion ->
+                                    keyboard?.hide()
+                                    viewModel.onSearchSuggestionClick(suggestion.item)
+                                }
+                            )
+                        }
+                    }
                     uiState.activeGroups.forEach { group ->
                         item(key = "category_header_${group.key}") {
                             CategorySectionHeader(
@@ -405,13 +459,15 @@ private fun ListFilterBar(
     categories: List<Category>,
     storeFilter: StoreFilter,
     categoryFilter: CategoryFilter,
+    hasSearchQuery: Boolean = false,
     onStoreFilterSelected: (StoreFilter) -> Unit,
     onCategoryFilterSelected: (CategoryFilter) -> Unit,
     onAddClick: () -> Unit,
     onResetFilters: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isFiltered = storeFilter !is StoreFilter.All || categoryFilter !is CategoryFilter.All
+    val isFiltered =
+        storeFilter !is StoreFilter.All || categoryFilter !is CategoryFilter.All || hasSearchQuery
 
     Surface(
         modifier = modifier
@@ -740,7 +796,7 @@ private fun LoadingView() {
 }
 
 @Composable
-private fun EmptyListView() {
+private fun EmptyListView(searchQuery: String? = null) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -751,18 +807,74 @@ private fun EmptyListView() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = "Your list is empty",
-                style = MaterialTheme.typography.titleLarge
-            )
-            Spacer(modifier = Modifier.size(8.dp))
-            Text(
-                text = "Tap + to add items from your catalog",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (searchQuery != null) {
+                Text(
+                    text = "No results",
+                    style = MaterialTheme.typography.titleLarge
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(
+                    text = "Nothing matches “$searchQuery”",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Text(
+                    text = "Your list is empty",
+                    style = MaterialTheme.typography.titleLarge
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(
+                    text = "Tap + to add items from your catalog",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
+}
+
+/**
+ * Quick-add chips for top-bar search results (SEARCH-1): matching catalog items
+ * that are not on the list; tapping one opens the quick-add form for it.
+ */
+@Composable
+private fun SearchSuggestionsRow(
+    suggestions: List<CatalogItemUi>,
+    onItemClick: (CatalogItemUi) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(suggestions, key = { it.item.id }) { suggestion ->
+            SearchQuickAddChip(item = suggestion.item) { onItemClick(suggestion) }
+        }
+    }
+}
+
+/** A single quick-add chip — "(Milk (+))". The (+) is decoration; the whole chip is one tap target. */
+@Composable
+private fun SearchQuickAddChip(item: Item, onClick: () -> Unit) {
+    InputChip(
+        selected = false,
+        onClick = onClick,
+        label = {
+            Text(
+                text = item.name,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        },
+        trailingIcon = {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Add ${item.name}"
+            )
+        }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1124,11 +1236,12 @@ private fun AddItemsSearchContent(
                 }
             }
 
+            val foldedQuery = SearchFold.fold(query)
             val suggestions = uiState.catalog
-                .filter { it.item.name.contains(query, ignoreCase = true) }
+                .filter { SearchFold.fold(it.item.name).contains(foldedQuery) }
                 .sortedWith(
                     compareBy(
-                        { !it.item.name.startsWith(query, ignoreCase = true) },
+                        { !SearchFold.fold(it.item.name).startsWith(foldedQuery) },
                         { it.item.name.lowercase() }
                     )
                 )

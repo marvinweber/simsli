@@ -44,6 +44,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -74,10 +75,16 @@ import net.marvinweber.simsli.domain.model.StoreGroup
 @Composable
 fun StoresTabContent(
     modifier: Modifier = Modifier,
+    searchQuery: String = "",
+    onSearchQueryChange: (String) -> Unit = {},
     viewModel: StoresViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val events by viewModel.events.collectAsState()
+    // Re-sync the ViewModel whenever this sub-tab enters composition so a restored
+    // query (e.g. after switching bottom tabs) filters again.
+    LaunchedEffect(searchQuery) { viewModel.setSearchQuery(searchQuery) }
+    val isFiltering = uiState.searchQuery.isNotBlank()
 
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
     var editingStoreId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -204,7 +211,11 @@ fun StoresTabContent(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "No stores yet. Tap + to add one.",
+                            text = if (isFiltering) {
+                                "Nothing matches “${uiState.searchQuery}”"
+                            } else {
+                                "No stores yet. Tap + to add one."
+                            },
                             style = MaterialTheme.typography.bodyLarge,
                             modifier = Modifier.padding(16.dp)
                         )
@@ -214,6 +225,7 @@ fun StoresTabContent(
                     StoresList(
                         storeGroups = uiState.storeGroups,
                         stores = uiState.stores,
+                        isFiltering = isFiltering,
                         onEditStore = { editingStoreId = it.id },
                         onDeleteStore = { viewModel.onDeleteStore(it) },
                         onEditGroup = { editingGroupId = it.id },
@@ -235,6 +247,7 @@ fun StoresTabContent(
 private fun StoresList(
     storeGroups: List<StoreGroup>,
     stores: List<Store>,
+    isFiltering: Boolean,
     onEditStore: (Store) -> Unit,
     onDeleteStore: (String) -> Unit,
     onEditGroup: (StoreGroup) -> Unit,
@@ -273,7 +286,12 @@ private fun StoresList(
                         storeCount = stores.count { it.groupId == group.id },
                         onEdit = { onEditGroup(group) },
                         onDelete = { onDeleteGroup(group.id) },
-                        dragHandleModifier = Modifier.pointerInput(group.id) {
+                        showDragHandle = !isFiltering,
+                        dragHandleModifier = if (isFiltering) {
+                            // Reordering from a filtered view would corrupt sortOrder — disabled while searching
+                            Modifier
+                        } else {
+                            Modifier.pointerInput(group.id) {
                             detectDragGestures(
                                 onDragStart = {
                                     draggingGroupId = group.id
@@ -341,6 +359,7 @@ private fun StoresList(
                                     localGroups = storeGroups
                                 }
                             )
+                        }
                         }
                     )
                 }
@@ -421,6 +440,7 @@ private fun GroupRow(
     storeCount: Int,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    showDragHandle: Boolean = true,
     dragHandleModifier: Modifier,
     modifier: Modifier = Modifier
 ) {
@@ -439,11 +459,13 @@ private fun GroupRow(
                 modifier = dragHandleModifier.size(40.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Default.DragHandle,
-                    contentDescription = "Reorder ${group.name}",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (showDragHandle) {
+                    Icon(
+                        Icons.Default.DragHandle,
+                        contentDescription = "Reorder ${group.name}",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(4.dp))
