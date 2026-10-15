@@ -1,5 +1,6 @@
 package net.marvinweber.simsli.ui.screens.item
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,6 +32,7 @@ import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -61,6 +64,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -82,6 +86,52 @@ import net.marvinweber.simsli.ui.components.LinkUtils
  * Create/edit a catalog item: name, store assignments, type, notes.
  * Entry-level data (quantity, unit, comment) is entered on the list, not here.
  */
+
+/** Form values as they were when the screen opened; compared against to detect pending changes. */
+private data class FormBaseline(
+    val name: String,
+    val notes: String,
+    val defaultUnit: String,
+    val type: ItemType,
+    val storeIds: Set<String>,
+    val groupIds: Set<String>,
+    val excludedIds: Set<String>,
+    val categoryId: String?,
+    /** Link URLs only — titles arrive asynchronously from the web and are not user edits. */
+    val linkUrls: Set<String>
+) {
+    companion object {
+        fun empty() = FormBaseline(
+            name = "", notes = "", defaultUnit = "", type = ItemType.PERMANENT,
+            storeIds = emptySet(), groupIds = emptySet(), excludedIds = emptySet(),
+            categoryId = null, linkUrls = emptySet()
+        )
+    }
+}
+
+private val FormBaselineSaver = listSaver<FormBaseline, Any>(
+    save = {
+        listOf(
+            it.name, it.notes, it.defaultUnit, it.type.name,
+            it.storeIds.toList(), it.groupIds.toList(), it.excludedIds.toList(),
+            it.categoryId.orEmpty(), it.linkUrls.toList()
+        )
+    },
+    restore = {
+        FormBaseline(
+            name = it[0] as String,
+            notes = it[1] as String,
+            defaultUnit = it[2] as String,
+            type = ItemType.valueOf(it[3] as String),
+            storeIds = (it[4] as List<String>).toSet(),
+            groupIds = (it[5] as List<String>).toSet(),
+            excludedIds = (it[6] as List<String>).toSet(),
+            categoryId = (it[7] as String).ifBlank { null },
+            linkUrls = (it[8] as List<String>).toSet()
+        )
+    }
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ItemDetailScreen(
@@ -107,7 +157,12 @@ fun ItemDetailScreen(
     var categoryMenuExpanded by remember { mutableStateOf(false) }
     var duplicateWarningName by rememberSaveable { mutableStateOf<String?>(null) }
     var duplicateWarningIsSimilar by rememberSaveable { mutableStateOf(false) }
+    var showDiscardDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Baseline for pending-change detection: empty for create mode, overwritten
+    // by the prefill effect once an existing item is loaded.
+    var baseline by rememberSaveable(stateSaver = FormBaselineSaver) { mutableStateOf(FormBaseline.empty()) }
 
     // Prefill the form once when editing an existing item.
     LaunchedEffect(uiState.existingItem) {
@@ -130,6 +185,19 @@ fun ItemDetailScreen(
         stripResult.extractedUrls.forEach { url ->
             viewModel.addLink(url)
         }
+        baseline = FormBaseline(
+            name = item.name,
+            notes = stripResult.remainingText,
+            defaultUnit = item.defaultUnit.orEmpty(),
+            type = item.type,
+            storeIds = selectedStoreIds,
+            groupIds = selectedGroupIds,
+            excludedIds = excludedStoreIds,
+            categoryId = item.categoryId,
+            // URLs embedded in the original notes are extracted into links on open,
+            // so they count as the baseline, not as pending changes.
+            linkUrls = (item.links.map { it.url } + stripResult.extractedUrls).toSet()
+        )
         prefilled = true
     }
 
@@ -153,32 +221,111 @@ fun ItemDetailScreen(
         }
     }
 
+    // Pending-change detection: compares the current form against the baseline
+    // captured on open (trimmed like the save path does; links by URL only).
+    val current = FormBaseline(
+        name = itemName.trim(),
+        notes = itemNotes.trim(),
+        defaultUnit = itemDefaultUnit.trim(),
+        type = itemType,
+        storeIds = selectedStoreIds,
+        groupIds = selectedGroupIds,
+        excludedIds = excludedStoreIds,
+        categoryId = selectedCategoryId,
+        linkUrls = uiState.links.map { it.url }.toSet()
+    )
+    val hasPendingChanges = baseline != current && !uiState.isSaving
+
+    val requestBack = {
+        if (hasPendingChanges) showDiscardDialog = true else viewModel.onBack()
+    }
+    BackHandler(enabled = hasPendingChanges) {
+        showDiscardDialog = true
+    }
+
+    val saveForm: (Boolean) -> Unit = { force ->
+        val groupStoreIds = uiState.stores
+            .filter { it.groupId != null && it.groupId in selectedGroupIds }
+            .map { it.id }
+            .toSet()
+        viewModel.saveItem(
+            name = itemName,
+            notes = itemNotes,
+            type = itemType,
+            selection = StoreSelection(
+                memberStoreIds = selectedStoreIds - groupStoreIds,
+                excludedStoreIds = excludedStoreIds,
+                groupIds = selectedGroupIds
+            ),
+            selectedCategoryId = selectedCategoryId,
+            defaultUnit = itemDefaultUnit,
+            force = force
+        )
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(if (uiState.existingItem == null) "Add Item" else "Edit Item") },
                 navigationIcon = {
-                    IconButton(onClick = viewModel::onBack) {
+                    IconButton(onClick = requestBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
-                    if (uiState.existingItem != null) {
-                        IconButton(
-                            onClick = { showDeleteDialog = true },
-                            enabled = !uiState.isSaving
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Delete,
-                                contentDescription = "Delete item",
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        }
+                    IconButton(
+                        onClick = { saveForm(false) },
+                        enabled = itemName.isNotBlank() && !uiState.isSaving && !uiState.isWaitingForItem
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Save,
+                            contentDescription = "Save"
+                        )
                     }
                 }
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = {
+            // Save + delete stay pinned below the scrolling content
+            // (delete only for existing items)
+            HorizontalDivider()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Button(
+                    onClick = { saveForm(false) },
+                    modifier = Modifier.weight(1f),
+                    enabled = itemName.isNotBlank() && !uiState.isSaving
+                ) {
+                    Text(if (uiState.existingItem == null) "Add item" else "Save")
+                }
+
+                if (uiState.existingItem != null) {
+                    OutlinedButton(
+                        onClick = { showDeleteDialog = true },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                        enabled = !uiState.isSaving
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Delete,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Delete item")
+                    }
+                }
+            }
+        },
         modifier = modifier.imePadding()
     ) { paddingValues ->
         Box(
@@ -560,58 +707,20 @@ fun ItemDetailScreen(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Save button
-                        Button(
-                            onClick = {
-                                val groupStoreIds = uiState.stores
-                                    .filter { it.groupId != null && it.groupId in selectedGroupIds }
-                                    .map { it.id }
-                                    .toSet()
-                                viewModel.saveItem(
-                                    name = itemName,
-                                    notes = itemNotes,
-                                    type = itemType,
-                                    selection = StoreSelection(
-                                        memberStoreIds = selectedStoreIds - groupStoreIds,
-                                        excludedStoreIds = excludedStoreIds,
-                                        groupIds = selectedGroupIds
-                                    ),
-                                    selectedCategoryId = selectedCategoryId,
-                                    defaultUnit = itemDefaultUnit
-                                )
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = itemName.isNotBlank() && !uiState.isSaving
-                        ) {
-                            Text(if (uiState.existingItem == null) "Add item" else "Save")
-                        }
-
-                        // Delete button (existing items only)
-                        if (uiState.existingItem != null) {
-                            OutlinedButton(
-                                onClick = { showDeleteDialog = true },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.error
-                                ),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
-                                enabled = !uiState.isSaving
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Delete,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Delete item")
-                            }
-                        }
                     }
                 }
             }
         }
+    }
+
+    if (showDiscardDialog) {
+        DiscardChangesDialog(
+            onDiscard = {
+                showDiscardDialog = false
+                viewModel.onBack()
+            },
+            onDismiss = { showDiscardDialog = false }
+        )
     }
 
     if (showDeleteDialog) {
@@ -659,23 +768,7 @@ fun ItemDetailScreen(
             onConfirm = {
                 duplicateWarningName = null
                 duplicateWarningIsSimilar = false
-                val groupStoreIds = uiState.stores
-                    .filter { it.groupId != null && it.groupId in selectedGroupIds }
-                    .map { it.id }
-                    .toSet()
-                viewModel.saveItem(
-                    name = itemName,
-                    notes = itemNotes,
-                    type = itemType,
-                    selection = StoreSelection(
-                        memberStoreIds = selectedStoreIds - groupStoreIds,
-                        excludedStoreIds = excludedStoreIds,
-                        groupIds = selectedGroupIds
-                    ),
-                    selectedCategoryId = selectedCategoryId,
-                    defaultUnit = itemDefaultUnit,
-                    force = true
-                )
+                saveForm(true)
             },
             onDismiss = {
                 duplicateWarningName = null
@@ -723,6 +816,33 @@ private fun DuplicateItemWarningDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+private fun DiscardChangesDialog(
+    onDiscard: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Discard changes?") },
+        text = { Text("Your changes to this item will be lost.") },
+        confirmButton = {
+            Button(
+                onClick = onDiscard,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("Discard")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Keep editing")
             }
         }
     )
