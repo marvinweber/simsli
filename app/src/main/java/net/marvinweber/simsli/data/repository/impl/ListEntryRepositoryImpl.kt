@@ -41,7 +41,8 @@ class ListEntryRepositoryImpl @Inject constructor(
     override fun getListEntriesFiltered(
         householdId: String,
         storeFilter: StoreFilter,
-        categoryFilter: CategoryFilter
+        categoryFilter: CategoryFilter,
+        favoriteOnly: Boolean
     ): Flow<List<ListEntry>> {
         return listEntryDao.getListEntriesFiltered(
             householdId = householdId,
@@ -52,7 +53,8 @@ class ListEntryRepositoryImpl @Inject constructor(
             noStore = storeFilter is StoreFilter.NoStore,
             filterByCategory = categoryFilter is CategoryFilter.ByCategory,
             categoryId = (categoryFilter as? CategoryFilter.ByCategory)?.categoryId.orEmpty(),
-            noCategory = categoryFilter is CategoryFilter.NoCategory
+            noCategory = categoryFilter is CategoryFilter.NoCategory,
+            favoriteOnly = favoriteOnly
         ).map { entries ->
             entries.map { it.toDomain() }
         }

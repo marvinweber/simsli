@@ -27,13 +27,17 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Save
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.Storefront
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -96,6 +100,7 @@ private data class FormBaseline(
     val storeIds: Set<String>,
     val groupIds: Set<String>,
     val excludedIds: Set<String>,
+    val favoriteIds: Set<String>,
     val categoryId: String?,
     /** Link URLs only — titles arrive asynchronously from the web and are not user edits. */
     val linkUrls: Set<String>
@@ -104,7 +109,7 @@ private data class FormBaseline(
         fun empty() = FormBaseline(
             name = "", notes = "", defaultUnit = "", type = ItemType.PERMANENT,
             storeIds = emptySet(), groupIds = emptySet(), excludedIds = emptySet(),
-            categoryId = null, linkUrls = emptySet()
+            favoriteIds = emptySet(), categoryId = null, linkUrls = emptySet()
         )
     }
 }
@@ -114,6 +119,7 @@ private val FormBaselineSaver = listSaver<FormBaseline, Any>(
         listOf(
             it.name, it.notes, it.defaultUnit, it.type.name,
             it.storeIds.toList(), it.groupIds.toList(), it.excludedIds.toList(),
+            it.favoriteIds.toList(),
             it.categoryId.orEmpty(), it.linkUrls.toList()
         )
     },
@@ -126,8 +132,9 @@ private val FormBaselineSaver = listSaver<FormBaseline, Any>(
             storeIds = (it[4] as List<String>).toSet(),
             groupIds = (it[5] as List<String>).toSet(),
             excludedIds = (it[6] as List<String>).toSet(),
-            categoryId = (it[7] as String).ifBlank { null },
-            linkUrls = (it[8] as List<String>).toSet()
+            favoriteIds = (it[7] as List<String>).toSet(),
+            categoryId = (it[8] as String).ifBlank { null },
+            linkUrls = (it[9] as List<String>).toSet()
         )
     }
 )
@@ -149,6 +156,7 @@ fun ItemDetailScreen(
     var selectedStoreIds by rememberSaveable { mutableStateOf<Set<String>>(emptySet()) }
     var selectedGroupIds by rememberSaveable { mutableStateOf<Set<String>>(emptySet()) }
     var excludedStoreIds by rememberSaveable { mutableStateOf<Set<String>>(emptySet()) }
+    var favoriteStoreIds by rememberSaveable { mutableStateOf<Set<String>>(emptySet()) }
     var selectedCategoryId by rememberSaveable { mutableStateOf<String?>(null) }
     var prefilled by rememberSaveable { mutableStateOf(false) }
     var showAddLinkDialog by remember { mutableStateOf(false) }
@@ -181,6 +189,7 @@ fun ItemDetailScreen(
         selectedStoreIds = uiState.existingSelection.memberStoreIds - groupStoreIds
         selectedGroupIds = uiState.existingSelection.groupIds
         excludedStoreIds = uiState.existingSelection.excludedStoreIds
+        favoriteStoreIds = uiState.existingSelection.favoriteStoreIds
         selectedCategoryId = item.categoryId
         stripResult.extractedUrls.forEach { url ->
             viewModel.addLink(url)
@@ -193,6 +202,7 @@ fun ItemDetailScreen(
             storeIds = selectedStoreIds,
             groupIds = selectedGroupIds,
             excludedIds = excludedStoreIds,
+            favoriteIds = favoriteStoreIds,
             categoryId = item.categoryId,
             // URLs embedded in the original notes are extracted into links on open,
             // so they count as the baseline, not as pending changes.
@@ -231,6 +241,7 @@ fun ItemDetailScreen(
         storeIds = selectedStoreIds,
         groupIds = selectedGroupIds,
         excludedIds = excludedStoreIds,
+        favoriteIds = favoriteStoreIds,
         categoryId = selectedCategoryId,
         linkUrls = uiState.links.map { it.url }.toSet()
     )
@@ -255,7 +266,8 @@ fun ItemDetailScreen(
             selection = StoreSelection(
                 memberStoreIds = selectedStoreIds - groupStoreIds,
                 excludedStoreIds = excludedStoreIds,
-                groupIds = selectedGroupIds
+                groupIds = selectedGroupIds,
+                favoriteStoreIds = favoriteStoreIds
             ),
             selectedCategoryId = selectedCategoryId,
             defaultUnit = itemDefaultUnit,
@@ -470,6 +482,8 @@ fun ItemDetailScreen(
                                 selectedGroups.forEach { group ->
                                     val excludedStores = uiState.stores
                                         .filter { it.groupId == group.id && it.id in excludedStoreIds }
+                                    val groupFavorites = uiState.stores
+                                        .filter { it.groupId == group.id && it.id !in excludedStoreIds && it.id in favoriteStoreIds }
                                     InputChip(
                                         selected = true,
                                         onClick = { showStoreSelectionDialog = true },
@@ -484,24 +498,44 @@ fun ItemDetailScreen(
                                             containerColor = MaterialTheme.colorScheme.secondaryContainer
                                         ),
                                         label = {
-                                            if (excludedStores.isEmpty()) {
+                                            if (excludedStores.isEmpty() && groupFavorites.isEmpty()) {
                                                 Text(group.name)
                                             } else {
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     Text(group.name)
-                                                    Spacer(modifier = Modifier.width(6.dp))
-                                                    excludedStores.forEach { store ->
-                                                        Text(
-                                                            text = "⊘ ${store.name}",
-                                                            textDecoration = TextDecoration.LineThrough,
-                                                            style = MaterialTheme.typography.bodySmall,
-                                                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
-                                                            modifier = Modifier.clickable {
-                                                                // Tap an excluded store to re-include it
-                                                                excludedStoreIds = excludedStoreIds - store.id
-                                                            }
-                                                        )
+                                                    if (groupFavorites.isNotEmpty()) {
+                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                        groupFavorites.forEach { fav ->
+                                                            Icon(
+                                                                imageVector = Icons.Filled.Star,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.size(13.dp),
+                                                                tint = Color(0xFFFFB300)
+                                                            )
+                                                            Spacer(modifier = Modifier.width(2.dp))
+                                                            Text(
+                                                                text = fav.name,
+                                                                style = MaterialTheme.typography.bodySmall,
+                                                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                                            )
+                                                            Spacer(modifier = Modifier.width(4.dp))
+                                                        }
+                                                    }
+                                                    if (excludedStores.isNotEmpty()) {
                                                         Spacer(modifier = Modifier.width(4.dp))
+                                                        excludedStores.forEach { store ->
+                                                            Text(
+                                                                text = "⊘ ${store.name}",
+                                                                textDecoration = TextDecoration.LineThrough,
+                                                                style = MaterialTheme.typography.bodySmall,
+                                                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                                                                modifier = Modifier.clickable {
+                                                                    // Tap an excluded store to re-include it
+                                                                    excludedStoreIds = excludedStoreIds - store.id
+                                                                }
+                                                            )
+                                                            Spacer(modifier = Modifier.width(4.dp))
+                                                        }
                                                     }
                                                 }
                                             }
@@ -528,7 +562,20 @@ fun ItemDetailScreen(
                                                 modifier = Modifier.size(18.dp)
                                             )
                                         },
-                                        label = { Text(store.name) },
+                                        label = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                if (store.id in favoriteStoreIds) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Star,
+                                                        contentDescription = "Favorite",
+                                                        modifier = Modifier.size(14.dp),
+                                                        tint = Color(0xFFFFB300)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                }
+                                                Text(store.name)
+                                            }
+                                        },
                                         trailingIcon = {
                                             Icon(
                                                 imageVector = Icons.Default.Close,
@@ -741,6 +788,7 @@ fun ItemDetailScreen(
             selectedGroupIds = selectedGroupIds,
             selectedStoreIds = selectedStoreIds,
             excludedStoreIds = excludedStoreIds,
+            favoriteStoreIds = favoriteStoreIds,
             onToggleGroup = { groupId ->
                 val adding = groupId !in selectedGroupIds
                 selectedGroupIds = if (adding) selectedGroupIds + groupId else selectedGroupIds - groupId
@@ -754,7 +802,18 @@ fun ItemDetailScreen(
                 selectedStoreIds = if (storeId in selectedStoreIds) selectedStoreIds - storeId else selectedStoreIds + storeId
             },
             onToggleExclusion = { storeId ->
-                excludedStoreIds = if (storeId in excludedStoreIds) excludedStoreIds - storeId else excludedStoreIds + storeId
+                val willExclude = storeId !in excludedStoreIds
+                excludedStoreIds = if (willExclude) excludedStoreIds + storeId else excludedStoreIds - storeId
+                if (willExclude) {
+                    favoriteStoreIds = favoriteStoreIds - storeId
+                }
+            },
+            onToggleFavorite = { storeId ->
+                favoriteStoreIds = if (storeId in favoriteStoreIds) {
+                    favoriteStoreIds - storeId
+                } else {
+                    favoriteStoreIds + storeId
+                }
             },
             onDismiss = { showStoreSelectionDialog = false }
         )
@@ -893,9 +952,11 @@ private fun StoreSelectionDialog(
     selectedGroupIds: Set<String>,
     selectedStoreIds: Set<String>,
     excludedStoreIds: Set<String>,
+    favoriteStoreIds: Set<String>,
     onToggleGroup: (String) -> Unit,
     onToggleStore: (String) -> Unit,
     onToggleExclusion: (String) -> Unit,
+    onToggleFavorite: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -968,12 +1029,31 @@ private fun StoreSelectionDialog(
                                     ),
                                     modifier = Modifier.weight(1f)
                                 )
-                                Icon(
-                                    imageVector = Icons.Outlined.Block,
-                                    contentDescription = if (excluded) "Re-include ${member.name}" else "Exclude ${member.name}",
-                                    tint = if (excluded) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                if (!excluded) {
+                                    val isFavorite = member.id in favoriteStoreIds
+                                    IconButton(
+                                        onClick = { onToggleFavorite(member.id) },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                                            contentDescription = if (isFavorite) "Remove ${member.name} from favorites" else "Add ${member.name} to favorites",
+                                            tint = if (isFavorite) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                                IconButton(
+                                    onClick = { onToggleExclusion(member.id) },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Block,
+                                        contentDescription = if (excluded) "Re-include ${member.name}" else "Exclude ${member.name}",
+                                        tint = if (excluded) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
                         } else {
                             Row(
@@ -993,7 +1073,21 @@ private fun StoreSelectionDialog(
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(member.name)
+                                Text(member.name, modifier = Modifier.weight(1f))
+                                if (member.id in selectedStoreIds) {
+                                    val isFavorite = member.id in favoriteStoreIds
+                                    IconButton(
+                                        onClick = { onToggleFavorite(member.id) },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                                            contentDescription = if (isFavorite) "Remove ${member.name} from favorites" else "Add ${member.name} to favorites",
+                                            tint = if (isFavorite) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -1019,7 +1113,21 @@ private fun StoreSelectionDialog(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(store.name)
+                        Text(store.name, modifier = Modifier.weight(1f))
+                        if (store.id in selectedStoreIds) {
+                            val isFavorite = store.id in favoriteStoreIds
+                            IconButton(
+                                onClick = { onToggleFavorite(store.id) },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                                    contentDescription = if (isFavorite) "Remove ${store.name} from favorites" else "Add ${store.name} to favorites",
+                                    tint = if (isFavorite) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }

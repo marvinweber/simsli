@@ -33,8 +33,8 @@ func TestConnectAndMigrateSQLite(t *testing.T) {
 	if err := row.Scan(&version, &dirty); err != nil {
 		t.Fatalf("Failed to query schema_migrations table: %v", err)
 	}
-	if version != 5 {
-		t.Errorf("Expected migration version 5, got %d", version)
+	if version != 6 {
+		t.Errorf("Expected migration version 6, got %d", version)
 	}
 	if dirty {
 		t.Errorf("Expected migration dirty to be false, got true")
@@ -93,8 +93,8 @@ func TestExistingDatabaseAdoption(t *testing.T) {
 	if err := db.QueryRow("SELECT version, dirty FROM schema_migrations").Scan(&version, &dirty); err != nil {
 		t.Fatalf("Failed to query schema_migrations: %v", err)
 	}
-	if version != 5 || dirty {
-		t.Errorf("Expected version 5 (dirty: false), got version %d (dirty: %v)", version, dirty)
+	if version != 6 || dirty {
+		t.Errorf("Expected version 6 (dirty: false), got version %d (dirty: %v)", version, dirty)
 	}
 }
 

@@ -796,7 +796,7 @@ func (r *Repository) GetDeltas(ctx context.Context, householdID string, since ti
 
 	// Full-reconcile tables (item_stores, store_categories, item_store_groups)
 	isRows, err := r.db.QueryContext(ctx,
-		"SELECT item_id, store_id, membership, created_at FROM item_stores WHERE item_id IN (SELECT id FROM items WHERE household_id = ?)",
+		"SELECT item_id, store_id, membership, favorite, created_at FROM item_stores WHERE item_id IN (SELECT id FROM items WHERE household_id = ?)",
 		householdID,
 	)
 	if err != nil {
@@ -806,7 +806,7 @@ func (r *Repository) GetDeltas(ctx context.Context, householdID string, since ti
 	for isRows.Next() {
 		var is model.ItemStore
 		var ca string
-		if err := isRows.Scan(&is.ItemID, &is.StoreID, &is.Membership, &ca); err != nil {
+		if err := isRows.Scan(&is.ItemID, &is.StoreID, &is.Membership, &is.Favorite, &ca); err != nil {
 			return nil, err
 		}
 		is.CreatedAt, _ = parseTime(ca)
@@ -1067,9 +1067,9 @@ func (r *Repository) Flush(ctx context.Context, req *model.FlushRequest) error {
 			membership = "MEMBER"
 		}
 		_, err := tx.ExecContext(ctx,
-			`INSERT INTO item_stores (item_id, store_id, membership, created_at) VALUES (?, ?, ?, ?)
-			 ON CONFLICT(item_id, store_id) DO UPDATE SET membership=excluded.membership`,
-			is.ItemID, is.StoreID, membership, formatTime(is.CreatedAt),
+			`INSERT INTO item_stores (item_id, store_id, membership, favorite, created_at) VALUES (?, ?, ?, ?, ?)
+			 ON CONFLICT(item_id, store_id) DO UPDATE SET membership=excluded.membership, favorite=excluded.favorite`,
+			is.ItemID, is.StoreID, membership, is.Favorite, formatTime(is.CreatedAt),
 		)
 		if err != nil {
 			return fmt.Errorf("flush item_store: %w", err)

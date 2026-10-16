@@ -45,12 +45,15 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.FilterAltOff
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.Storefront
+import androidx.compose.ui.graphics.Color
 import net.marvinweber.simsli.ui.components.LinkUtils
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
@@ -110,6 +113,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -151,6 +155,7 @@ fun ListTabContent(
     val uiState by viewModel.uiState.collectAsState()
     val storeFilter by viewModel.storeFilter.collectAsState()
     val categoryFilter by viewModel.categoryFilter.collectAsState()
+    val favoriteFilter by viewModel.favoriteFilter.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val keyboard = LocalSoftwareKeyboardController.current
 
@@ -225,9 +230,11 @@ fun ListTabContent(
                 categories = uiState.categories,
                 storeFilter = storeFilter,
                 categoryFilter = categoryFilter,
+                favoriteFilter = favoriteFilter,
                 hasSearchQuery = searchQuery.isNotEmpty(),
                 onStoreFilterSelected = viewModel::selectFilter,
                 onCategoryFilterSelected = viewModel::selectCategoryFilter,
+                onToggleFavoriteFilter = viewModel::toggleFavoriteFilter,
                 onAddClick = viewModel::onAddClick,
                 onResetFilters = {
                     viewModel.clearFilters()
@@ -461,15 +468,17 @@ private fun ListFilterBar(
     categories: List<Category>,
     storeFilter: StoreFilter,
     categoryFilter: CategoryFilter,
+    favoriteFilter: Boolean = false,
     hasSearchQuery: Boolean = false,
     onStoreFilterSelected: (StoreFilter) -> Unit,
     onCategoryFilterSelected: (CategoryFilter) -> Unit,
+    onToggleFavoriteFilter: () -> Unit = {},
     onAddClick: () -> Unit,
     onResetFilters: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isFiltered =
-        storeFilter !is StoreFilter.All || categoryFilter !is CategoryFilter.All || hasSearchQuery
+        storeFilter !is StoreFilter.All || categoryFilter !is CategoryFilter.All || hasSearchQuery || favoriteFilter
 
     Surface(
         modifier = modifier
@@ -514,7 +523,9 @@ private fun ListFilterBar(
                     stores = stores,
                     storeGroups = storeGroups,
                     selectedFilter = storeFilter,
-                    onFilterSelected = onStoreFilterSelected
+                    favoriteFilter = favoriteFilter,
+                    onFilterSelected = onStoreFilterSelected,
+                    onToggleFavoriteFilter = onToggleFavoriteFilter
                 )
 
                 CategoryFilterChip(
@@ -565,8 +576,11 @@ private fun StoreFilterChip(
     stores: List<Store>,
     storeGroups: List<StoreGroup>,
     selectedFilter: StoreFilter,
-    onFilterSelected: (StoreFilter) -> Unit
+    favoriteFilter: Boolean,
+    onFilterSelected: (StoreFilter) -> Unit,
+    onToggleFavoriteFilter: () -> Unit
 ) {
+    val canFavorite = selectedFilter is StoreFilter.ByStore || selectedFilter is StoreFilter.ByGroup
     FilterMenuChip(
         label = when (selectedFilter) {
             is StoreFilter.All -> "Store"
@@ -574,7 +588,44 @@ private fun StoreFilterChip(
             is StoreFilter.ByGroup -> storeGroups.firstOrNull { it.id == selectedFilter.groupId }?.name ?: "Store"
             is StoreFilter.NoStore -> "No Store"
         },
-        selected = selectedFilter !is StoreFilter.All
+        selected = selectedFilter !is StoreFilter.All,
+        trailingIcon = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowUp,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                if (canFavorite) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    VerticalDivider(
+                        modifier = Modifier
+                            .height(14.dp)
+                            .width(1.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .clickable(
+                                role = Role.Checkbox,
+                                onClickLabel = if (favoriteFilter) "Show all stores" else "Filter by favorite stores",
+                                onClick = onToggleFavoriteFilter
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (favoriteFilter) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                            contentDescription = if (favoriteFilter) "Remove favorites filter" else "Filter by favorites only",
+                            modifier = Modifier.size(18.dp),
+                            tint = if (favoriteFilter) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
     ) { dismiss ->
         storeGroups.forEach { group ->
             val members = stores.filter { it.groupId == group.id }
@@ -726,6 +777,7 @@ private fun CategoryFilterChip(
 private fun FilterMenuChip(
     label: String,
     selected: Boolean,
+    trailingIcon: (@Composable () -> Unit)? = null,
     menuContent: @Composable ColumnScope.(dismiss: () -> Unit) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -747,7 +799,7 @@ private fun FilterMenuChip(
             } else {
                 null
             },
-            trailingIcon = {
+            trailingIcon = trailingIcon ?: {
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowUp,
                     contentDescription = null,

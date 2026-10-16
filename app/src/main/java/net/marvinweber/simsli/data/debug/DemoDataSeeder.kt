@@ -85,8 +85,8 @@ class DemoDataSeeder @Inject constructor(
 
             // (id index, name, notes, type, category id, store ids, defaultUnit) — indices into id() keep the UUIDs fixed.
             val itemDefs = listOf(
-                ItemDef(1, "Milch", null, ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi), defaultUnit = "l"),
-                ItemDef(2, "Brot", null, ItemType.PERMANENT, backwaren, listOf(rewe, aldi), defaultUnit = "pcs"),
+                ItemDef(1, "Milch", null, ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi), defaultUnit = "l", favorites = listOf(rewe)),
+                ItemDef(2, "Brot", null, ItemType.PERMANENT, backwaren, listOf(rewe, aldi), defaultUnit = "pcs", favorites = listOf(aldi)),
                 ItemDef(3, "Butter", null, ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi), defaultUnit = "pack"),
                 ItemDef(4, "Haferdrink", "Barista-Edition", ItemType.PERMANENT, milchprodukte, listOf(rewe), defaultUnit = "l"),
                 ItemDef(5, "Käse", null, ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi), defaultUnit = "g"),
@@ -161,11 +161,18 @@ class DemoDataSeeder @Inject constructor(
                 itemStoreDao.insertAll(
                     itemDefs.flatMap { def ->
                         def.storeIds.map { storeId ->
-                            DbItemStore(itemId = id(def.idIndex), storeId = storeId, createdAt = daysAgo(12))
+                            DbItemStore(
+                                itemId = id(def.idIndex),
+                                storeId = storeId,
+                                favorite = storeId in def.favorites,
+                                createdAt = daysAgo(12)
+                            )
                         }
                     } + listOf(
                         // Spülmittel: Supermarkt selection with REWE excluded
-                        DbItemStore(itemId = id(12), storeId = rewe, membership = "EXCLUDED", createdAt = daysAgo(12))
+                        DbItemStore(itemId = id(12), storeId = rewe, membership = "EXCLUDED", createdAt = daysAgo(12)),
+                        // Bananen: group-covered favorite on REWE
+                        DbItemStore(itemId = id(8), storeId = rewe, membership = "METADATA", favorite = true, createdAt = daysAgo(12))
                     )
                 )
 
@@ -251,7 +258,8 @@ class DemoDataSeeder @Inject constructor(
         val type: ItemType,
         val categoryId: String?,
         val storeIds: List<String>,
-        val defaultUnit: String? = null
+        val defaultUnit: String? = null,
+        val favorites: List<String> = emptyList()
     )
 
     private data class EntryDef(

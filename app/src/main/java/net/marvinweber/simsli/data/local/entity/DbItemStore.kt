@@ -11,5 +11,6 @@ data class DbItemStore(
     val itemId: String,
     val storeId: String,
     val membership: String = "MEMBER",
+    val favorite: Boolean = false,
     val createdAt: Instant
 )

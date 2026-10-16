@@ -112,16 +112,17 @@ func (s *Service) SeedDemoData(ctx context.Context) error {
 			{ID: id(115), HouseholdID: householdID, CategoryID: nil, Name: "Geschenkpapier", Notes: "", Type: "ONE_TIME", SortOrder: 15.0, CreatedAt: now, UpdatedAt: now},
 		},
 		ItemStores: []model.ItemStore{
-			{ItemID: id(101), StoreID: rewe, CreatedAt: now},
+			{ItemID: id(101), StoreID: rewe, Favorite: true, CreatedAt: now},
 			{ItemID: id(101), StoreID: aldi, CreatedAt: now},
 			{ItemID: id(102), StoreID: rewe, CreatedAt: now},
-			{ItemID: id(102), StoreID: aldi, CreatedAt: now},
+			{ItemID: id(102), StoreID: aldi, Favorite: true, CreatedAt: now},
 			{ItemID: id(103), StoreID: rewe, CreatedAt: now},
 			{ItemID: id(104), StoreID: rewe, CreatedAt: now},
 			{ItemID: id(105), StoreID: aldi, CreatedAt: now},
 			{ItemID: id(106), StoreID: rewe, CreatedAt: now},
 			{ItemID: id(107), StoreID: rewe, CreatedAt: now},
-			// Bananen: covered via the Supermarkt group selection (no explicit rows)
+			// Bananen: covered via the Supermarkt group selection, with REWE favorited
+			{ItemID: id(108), StoreID: rewe, Membership: "METADATA", Favorite: true, CreatedAt: now},
 			{ItemID: id(109), StoreID: rewe, CreatedAt: now},
 			{ItemID: id(110), StoreID: aldi, CreatedAt: now},
 			{ItemID: id(111), StoreID: rewe, CreatedAt: now},

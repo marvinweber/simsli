@@ -88,6 +88,7 @@ data class ListUiState(
     val searchQuery: String = "",
     /** Catalog items matching the search query without an entry — the quick-add chips (SEARCH-1). */
     val searchSuggestions: List<CatalogItemUi> = emptyList(),
+    val favoriteFilter: Boolean = false,
     val isLoading: Boolean = true,
     val isAddSheetOpen: Boolean = false,
     val addQuery: String = "",
@@ -123,6 +124,9 @@ class ListViewModel @Inject constructor(
     private val _categoryFilter = MutableStateFlow<CategoryFilter>(CategoryFilter.All)
     val categoryFilter: StateFlow<CategoryFilter> = _categoryFilter.asStateFlow()
 
+    private val _favoriteFilter = MutableStateFlow(false)
+    val favoriteFilter: StateFlow<Boolean> = _favoriteFilter.asStateFlow()
+
     /** The top-bar search query (SEARCH-1); filtering happens in the final combine, not upstream. */
     private val _searchQuery = MutableStateFlow("")
 
@@ -150,6 +154,9 @@ class ListViewModel @Inject constructor(
 
     private data class ListUiData(
         val household: Household,
+        val storeFilter: StoreFilter,
+        val categoryFilter: CategoryFilter,
+        val favoriteFilter: Boolean,
         val stores: List<Store>,
         val storeGroups: List<StoreGroup>,
         val categories: List<Category>,
@@ -159,21 +166,36 @@ class ListViewModel @Inject constructor(
         val catalog: List<CatalogItemUi>,
         val entryItems: List<ListEntryItem>,
         /** Effective store set per item (STORE-7), for filtering search suggestions. */
-        val effectiveStoreIdsByItem: Map<String, Set<String>>
+        val effectiveStoreIdsByItem: Map<String, Set<String>>,
+        /** Favorited store IDs per item (STORE-5), for filtering search suggestions. */
+        val favoriteStoreIdsByItem: Map<String, Set<String>>
+    )
+
+    private data class FilterState(
+        val household: Household?,
+        val storeFilter: StoreFilter,
+        val categoryFilter: CategoryFilter,
+        val favoriteFilter: Boolean
     )
 
     val uiState: StateFlow<ListUiState> = combine(
         householdRepository.getHousehold(),
         _storeFilter,
-        _categoryFilter
-    ) { household, storeFilter, categoryFilter ->
-        Triple(household, storeFilter, categoryFilter)
-    }.flatMapLatest { (household, storeFilter, categoryFilter) ->
+        _categoryFilter,
+        _favoriteFilter
+    ) { household, storeFilter, categoryFilter, favoriteFilter ->
+        FilterState(household, storeFilter, categoryFilter, favoriteFilter)
+    }.flatMapLatest { (household, storeFilter, categoryFilter, favoriteFilter) ->
         if (household == null) {
             flowOf(null)
         } else {
             val entriesFlow =
-                listEntryRepository.getListEntriesFiltered(household.id, storeFilter, categoryFilter)
+                listEntryRepository.getListEntriesFiltered(
+                    household.id,
+                    storeFilter,
+                    categoryFilter,
+                    favoriteOnly = favoriteFilter
+                )
             val storeCategoriesFlow = when (storeFilter) {
                 is StoreFilter.ByStore -> categoryRepository.getStoreCategories(storeFilter.storeId)
                 else -> flowOf(emptyList<StoreCategory>())
@@ -254,6 +276,9 @@ class ListViewModel @Inject constructor(
 
                 ListUiData(
                     household = household,
+                    storeFilter = storeFilter,
+                    categoryFilter = categoryFilter,
+                    favoriteFilter = favoriteFilter,
                     stores = stores,
                     storeGroups = storeGroups,
                     categories = categories,
@@ -264,7 +289,8 @@ class ListViewModel @Inject constructor(
                         CatalogItemUi(it, it.id in activeItemIds, entryIdByItemId[it.id])
                     },
                     entryItems = entryItems,
-                    effectiveStoreIdsByItem = EffectiveStoreSet.compute(itemStores, itemStoreGroups, stores)
+                    effectiveStoreIdsByItem = EffectiveStoreSet.compute(itemStores, itemStoreGroups, stores),
+                    favoriteStoreIdsByItem = EffectiveStoreSet.computeFavorites(itemStores)
                 )
             }
         }
@@ -275,10 +301,8 @@ class ListViewModel @Inject constructor(
             combine(
                 sheetUi,
                 completingEntryIds,
-                _searchQuery,
-                _storeFilter,
-                _categoryFilter
-            ) { sheet, completing, searchQuery, storeFilter, categoryFilter ->
+                _searchQuery
+            ) { sheet, completing, searchQuery ->
                 val search = applyListSearch(
                     groups = data.activeGroups,
                     activeEntries = data.activeEntries,
@@ -287,9 +311,11 @@ class ListViewModel @Inject constructor(
                     query = searchQuery,
                     effectiveStoreIdsByItem = data.effectiveStoreIdsByItem,
                     stores = data.stores,
-                    storeFilter = storeFilter,
-                    categoryFilter = categoryFilter,
-                    fold = SearchFold::fold
+                    storeFilter = data.storeFilter,
+                    categoryFilter = data.categoryFilter,
+                    fold = SearchFold::fold,
+                    favoriteStoreIdsByItem = data.favoriteStoreIdsByItem,
+                    favoriteFilter = data.favoriteFilter
                 )
                 ListUiState(
                     household = data.household,
@@ -303,6 +329,7 @@ class ListViewModel @Inject constructor(
                     catalog = data.catalog,
                     searchQuery = searchQuery.trim(),
                     searchSuggestions = search.suggestions,
+                    favoriteFilter = data.favoriteFilter,
                     isLoading = false,
                     isAddSheetOpen = sheet.addSheetOpen,
                     addQuery = sheet.addQuery,
@@ -358,16 +385,34 @@ class ListViewModel @Inject constructor(
 
     fun selectFilter(filter: StoreFilter) {
         _storeFilter.value = filter
+        if (filter is StoreFilter.All || filter is StoreFilter.NoStore) {
+            _favoriteFilter.value = false
+        }
     }
 
     fun selectCategoryFilter(filter: CategoryFilter) {
         _categoryFilter.value = filter
     }
 
-    /** Resets store and category filters at once — the bar's (/) button. */
+    /** Toggles the favorite filter (LIST-5): active only when a concrete store or group is selected. */
+    fun toggleFavoriteFilter() {
+        if (_storeFilter.value is StoreFilter.ByStore || _storeFilter.value is StoreFilter.ByGroup) {
+            _favoriteFilter.value = !_favoriteFilter.value
+        }
+    }
+
+    fun setFavoriteFilter(enabled: Boolean) {
+        if (enabled && (_storeFilter.value !is StoreFilter.ByStore && _storeFilter.value !is StoreFilter.ByGroup)) {
+            return
+        }
+        _favoriteFilter.value = enabled
+    }
+
+    /** Resets store and category filters and favorites at once — the bar's (✕) button. */
     fun clearFilters() {
         _storeFilter.value = StoreFilter.All
         _categoryFilter.value = CategoryFilter.All
+        _favoriteFilter.value = false
     }
 
     // --- Top-bar search (SEARCH-1) ----------------------------------------------------

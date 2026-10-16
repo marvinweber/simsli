@@ -15,7 +15,8 @@ interface ListEntryRepository {
     fun getListEntriesFiltered(
         householdId: String,
         storeFilter: StoreFilter,
-        categoryFilter: CategoryFilter
+        categoryFilter: CategoryFilter,
+        favoriteOnly: Boolean = false
     ): Flow<List<ListEntry>>
 
     suspend fun createListEntry(listEntry: ListEntry): Result<ListEntry>

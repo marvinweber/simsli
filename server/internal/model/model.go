@@ -138,6 +138,7 @@ type ItemStore struct {
 	ItemID     string    `json:"item_id"`
 	StoreID    string    `json:"store_id"`
 	Membership string    `json:"membership"` // "MEMBER", "EXCLUDED", "METADATA"; empty = legacy client → MEMBER
+	Favorite   bool      `json:"favorite"`
 	CreatedAt  time.Time `json:"created_at"`
 }
 

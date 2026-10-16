@@ -40,39 +40,53 @@ class ItemStoreRepositoryImpl @Inject constructor(
                 val now = Instant.now()
                 val groupStoreIds = selection.groupIds.flatMap { storeDao.getStoreIdsByGroup(it) }.toSet()
 
-                // --- item_stores reconcile (explicit stores + exclusions) ---
-                val currentRows = itemStoreDao.getRowsForItem(itemId)
-                for (row in currentRows) {
-                    val targetMembership = when {
-                        row.storeId in selection.excludedStoreIds -> ItemStoreMembership.EXCLUDED
-                        row.storeId in groupStoreIds -> ItemStoreMembership.METADATA
-                        row.storeId in selection.memberStoreIds -> ItemStoreMembership.MEMBER
+                // --- item_stores reconcile (explicit stores, exclusions, favorites / metadata) ---
+                data class TargetRow(val membership: ItemStoreMembership, val favorite: Boolean)
+                fun determineTargetForExisting(storeId: String): TargetRow? {
+                    val isFavorite = storeId in selection.favoriteStoreIds
+                    return when {
+                        storeId in selection.excludedStoreIds -> TargetRow(ItemStoreMembership.EXCLUDED, favorite = false)
+                        storeId in groupStoreIds -> TargetRow(ItemStoreMembership.METADATA, favorite = isFavorite)
+                        storeId in selection.memberStoreIds -> TargetRow(ItemStoreMembership.MEMBER, favorite = isFavorite)
+                        isFavorite -> TargetRow(ItemStoreMembership.METADATA, favorite = true)
                         else -> null
                     }
+                }
+
+                fun determineTargetForNew(storeId: String): TargetRow? {
+                    val isFavorite = storeId in selection.favoriteStoreIds
+                    return when {
+                        storeId in selection.excludedStoreIds -> TargetRow(ItemStoreMembership.EXCLUDED, favorite = false)
+                        storeId in selection.memberStoreIds && storeId !in groupStoreIds -> TargetRow(ItemStoreMembership.MEMBER, favorite = isFavorite)
+                        isFavorite -> TargetRow(ItemStoreMembership.METADATA, favorite = true)
+                        else -> null
+                    }
+                }
+
+                val currentRows = itemStoreDao.getRowsForItem(itemId)
+                for (row in currentRows) {
+                    val target = determineTargetForExisting(row.storeId)
                     when {
-                        // Metadata-only rows carry favorite/price without membership
-                        // (STORE-5/6) — selection saves never touch them.
-                        row.membership == ItemStoreMembership.METADATA.name && targetMembership == null -> Unit
-                        targetMembership != null && row.membership != targetMembership.name -> {
-                            itemStoreDao.insert(DbItemStore(itemId, row.storeId, targetMembership.name, row.createdAt))
-                            enqueueItemStoreUpsert(itemId, row.storeId, now)
+                        target != null -> {
+                            if (row.membership != target.membership.name || row.favorite != target.favorite) {
+                                itemStoreDao.insert(DbItemStore(itemId, row.storeId, target.membership.name, target.favorite, row.createdAt))
+                                enqueueItemStoreUpsert(itemId, row.storeId, now)
+                            }
                         }
-                        targetMembership == null -> {
+                        else -> {
                             itemStoreDao.delete(itemId, row.storeId)
                             enqueueItemStoreDelete(itemId, row.storeId, now)
                         }
                     }
                 }
                 val knownStoreIds = currentRows.map { it.storeId }.toSet()
-                for (storeId in selection.memberStoreIds - knownStoreIds) {
-                    if (storeId !in groupStoreIds) {
-                        itemStoreDao.insert(DbItemStore(itemId, storeId, ItemStoreMembership.MEMBER.name, now))
+                val candidateStoreIds = (selection.memberStoreIds + selection.excludedStoreIds + selection.favoriteStoreIds) - knownStoreIds
+                for (storeId in candidateStoreIds) {
+                    val target = determineTargetForNew(storeId)
+                    if (target != null) {
+                        itemStoreDao.insert(DbItemStore(itemId, storeId, target.membership.name, target.favorite, now))
                         enqueueItemStoreUpsert(itemId, storeId, now)
                     }
-                }
-                for (storeId in selection.excludedStoreIds - knownStoreIds) {
-                    itemStoreDao.insert(DbItemStore(itemId, storeId, ItemStoreMembership.EXCLUDED.name, now))
-                    enqueueItemStoreUpsert(itemId, storeId, now)
                 }
 
                 // --- item_store_groups reconcile ---
@@ -116,7 +130,8 @@ class ItemStoreRepositoryImpl @Inject constructor(
             StoreSelection(
                 memberStoreIds = rows.filter { it.membership == ItemStoreMembership.MEMBER.name && it.storeId !in groupStoreIds }.map { it.storeId }.toSet(),
                 excludedStoreIds = rows.filter { it.membership == ItemStoreMembership.EXCLUDED.name }.map { it.storeId }.toSet(),
-                groupIds = groupIds
+                groupIds = groupIds,
+                favoriteStoreIds = rows.filter { it.favorite }.map { it.storeId }.toSet()
             )
         }
     }

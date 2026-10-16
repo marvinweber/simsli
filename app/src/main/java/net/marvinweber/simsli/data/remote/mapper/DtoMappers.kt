@@ -148,6 +148,7 @@ fun ItemStoreDto.toDb(): DbItemStore = DbItemStore(
     itemId = itemId,
     storeId = storeId,
     membership = membership.toMembershipOrDefault().name,
+    favorite = favorite,
     createdAt = createdAt.toInstantOrEpoch()
 )
 
@@ -155,6 +156,7 @@ fun DbItemStore.toDto(): ItemStoreDto = ItemStoreDto(
     itemId = itemId,
     storeId = storeId,
     membership = membership,
+    favorite = favorite,
     createdAt = createdAt.toString()
 )
 

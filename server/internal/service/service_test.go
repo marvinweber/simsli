@@ -616,9 +616,9 @@ func TestFlushStoreGroupsAndJoinDeletions(t *testing.T) {
 			{ItemID: "i-1", GroupID: supermarkt, CreatedAt: now},
 		},
 		ItemStores: []model.ItemStore{
-			// i-2: Supermarkt selection minus Aldi (excluded), dm explicit
+			// i-2: Supermarkt selection minus Aldi (excluded), dm explicit favorite
 			{ItemID: "i-2", StoreID: "s-2", Membership: "EXCLUDED", CreatedAt: now},
-			{ItemID: "i-2", StoreID: "s-3", Membership: "MEMBER", CreatedAt: now},
+			{ItemID: "i-2", StoreID: "s-3", Membership: "MEMBER", Favorite: true, CreatedAt: now},
 		},
 	}
 	if err := svc.Flush(ctx, user.ID, flushReq); err != nil {
@@ -645,13 +645,20 @@ func TestFlushStoreGroupsAndJoinDeletions(t *testing.T) {
 		t.Fatalf("expected item_store_groups in deltas, got %+v", deltas.ItemStoreGroups)
 	}
 	var excluded *model.ItemStore
+	var dmFav *model.ItemStore
 	for i := range deltas.ItemStores {
 		if deltas.ItemStores[i].ItemID == "i-2" && deltas.ItemStores[i].StoreID == "s-2" {
 			excluded = &deltas.ItemStores[i]
 		}
+		if deltas.ItemStores[i].ItemID == "i-2" && deltas.ItemStores[i].StoreID == "s-3" {
+			dmFav = &deltas.ItemStores[i]
+		}
 	}
 	if excluded == nil || excluded.Membership != "EXCLUDED" {
 		t.Fatalf("expected EXCLUDED membership in deltas, got %+v", excluded)
+	}
+	if dmFav == nil || dmFav.Membership != "MEMBER" || !dmFav.Favorite {
+		t.Fatalf("expected MEMBER membership with Favorite=true in deltas, got %+v", dmFav)
 	}
 	// Legacy clients send no membership at all — it must come back as MEMBER.
 	if err := svc.Flush(ctx, user.ID, &model.FlushRequest{

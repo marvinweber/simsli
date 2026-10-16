@@ -51,7 +51,7 @@ import java.util.UUID
         DbSyncState::class,
         DbOutboxEntry::class
     ],
-    version = 7
+    version = 8
 )
 @TypeConverters(Converters::class)
 abstract class SimsliDatabase : RoomDatabase() {
@@ -144,13 +144,20 @@ abstract class SimsliDatabase : RoomDatabase() {
             }
         }
 
+        /** v7 → v8: item_stores.favorite (STORE-5). */
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `item_stores` ADD COLUMN `favorite` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun create(context: Context): SimsliDatabase {
             return Room.databaseBuilder(
                 context,
                 SimsliDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .fallbackToDestructiveMigration()
                 .addCallback(SimsliDatabaseCallback())
                 .build()

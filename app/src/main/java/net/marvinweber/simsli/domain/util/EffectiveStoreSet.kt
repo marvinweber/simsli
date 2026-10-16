@@ -53,4 +53,61 @@ object EffectiveStoreSet {
         itemStoreGroups: List<ItemStoreGroup>,
         stores: List<Store>
     ): Set<String> = compute(itemStores, itemStoreGroups, stores)[itemId].orEmpty()
+
+    /**
+     * Map from itemId to the set of storeIds that are favorited for that item,
+     * excluding EXCLUDED stores.
+     */
+    fun computeFavorites(itemStores: List<ItemStore>): Map<String, Set<String>> {
+        val excludedByItem = itemStores
+            .filter { it.membership == ItemStoreMembership.EXCLUDED }
+            .groupBy({ it.itemId }, { it.storeId })
+
+        return itemStores
+            .filter { it.favorite && it.membership != ItemStoreMembership.EXCLUDED }
+            .filter { it.storeId !in excludedByItem[it.itemId].orEmpty() }
+            .groupBy({ it.itemId }, { it.storeId })
+            .mapValues { it.value.toSet() }
+    }
+
+    /**
+     * Checks if an item matches the given [net.marvinweber.simsli.domain.model.StoreFilter],
+     * optionally restricted to favorites (LIST-5, STORE-5).
+     *
+     * Rule (§2 Concepts):
+     * - Favorite filter OFF: item matches if the store (or any group store) is in its effective store set.
+     * - Favorite filter ON: item matches if the store (or any group store) is favorited for this item;
+     *   an item with NO favorites at all counts for all its stores.
+     */
+    fun matchesStoreFilter(
+        effectiveStoreIds: Set<String>,
+        favoriteStoreIds: Set<String>,
+        filter: net.marvinweber.simsli.domain.model.StoreFilter,
+        stores: List<Store>,
+        favoriteOnly: Boolean
+    ): Boolean {
+        val baseMatch = when (filter) {
+            net.marvinweber.simsli.domain.model.StoreFilter.All -> true
+            is net.marvinweber.simsli.domain.model.StoreFilter.ByStore -> filter.storeId in effectiveStoreIds
+            is net.marvinweber.simsli.domain.model.StoreFilter.ByGroup -> effectiveStoreIds.any { id ->
+                stores.firstOrNull { it.id == id }?.groupId == filter.groupId
+            }
+            net.marvinweber.simsli.domain.model.StoreFilter.NoStore -> effectiveStoreIds.isEmpty()
+        }
+        if (!baseMatch) return false
+        if (!favoriteOnly) return true
+
+        val favoritesInEffective = effectiveStoreIds.intersect(favoriteStoreIds)
+        if (favoritesInEffective.isEmpty()) {
+            return true
+        }
+
+        return when (filter) {
+            is net.marvinweber.simsli.domain.model.StoreFilter.ByStore -> filter.storeId in favoritesInEffective
+            is net.marvinweber.simsli.domain.model.StoreFilter.ByGroup -> favoritesInEffective.any { id ->
+                stores.firstOrNull { it.id == id }?.groupId == filter.groupId
+            }
+            else -> true
+        }
+    }
 }

@@ -35,7 +35,9 @@ internal fun applyListSearch(
     stores: List<Store>,
     storeFilter: StoreFilter,
     categoryFilter: CategoryFilter,
-    fold: (String) -> String = { it.lowercase(Locale.ROOT) }
+    fold: (String) -> String = { it.lowercase(Locale.ROOT) },
+    favoriteStoreIdsByItem: Map<String, Set<String>> = emptyMap(),
+    favoriteFilter: Boolean = false
 ): ListSearchResult {
     val q = fold(query.trim())
     if (q.isEmpty()) {
@@ -55,9 +57,11 @@ internal fun applyListSearch(
         candidate.entryId == null &&
             nameMatches(candidate.item) &&
             matchesStoreFilter(
-                effectiveStoreIdsByItem[candidate.item.id].orEmpty(),
-                storeFilter,
-                stores
+                effectiveStoreIds = effectiveStoreIdsByItem[candidate.item.id].orEmpty(),
+                filter = storeFilter,
+                stores = stores,
+                favoriteStoreIds = favoriteStoreIdsByItem[candidate.item.id].orEmpty(),
+                favoriteOnly = favoriteFilter
             ) &&
             matchesCategoryFilter(candidate.item.categoryId, categoryFilter)
     }
@@ -71,19 +75,22 @@ internal fun applyListSearch(
  * an item matches `ByGroup` when its effective store set (MEMBER ∪ group
  * stores − EXCLUDED, see [net.marvinweber.simsli.domain.util.EffectiveStoreSet])
  * contains any store of the group; `NoStore` when the set is empty.
+ * When `favoriteOnly` is true, an item only matches if the store is in its
+ * favorites (or the item has no favorites at all).
  */
 internal fun matchesStoreFilter(
     effectiveStoreIds: Set<String>,
     filter: StoreFilter,
-    stores: List<Store>
-): Boolean = when (filter) {
-    StoreFilter.All -> true
-    is StoreFilter.ByStore -> filter.storeId in effectiveStoreIds
-    is StoreFilter.ByGroup -> effectiveStoreIds.any { id ->
-        stores.firstOrNull { it.id == id }?.groupId == filter.groupId
-    }
-    StoreFilter.NoStore -> effectiveStoreIds.isEmpty()
-}
+    stores: List<Store>,
+    favoriteStoreIds: Set<String> = emptySet(),
+    favoriteOnly: Boolean = false
+): Boolean = net.marvinweber.simsli.domain.util.EffectiveStoreSet.matchesStoreFilter(
+    effectiveStoreIds = effectiveStoreIds,
+    favoriteStoreIds = favoriteStoreIds,
+    filter = filter,
+    stores = stores,
+    favoriteOnly = favoriteOnly
+)
 
 /** Category-filter check for a single item, mirroring the DAO's category conditions. */
 internal fun matchesCategoryFilter(categoryId: String?, filter: CategoryFilter): Boolean = when (filter) {

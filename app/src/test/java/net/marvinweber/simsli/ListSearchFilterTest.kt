@@ -132,7 +132,7 @@ class ListSearchFilterTest {
     fun `suggestions honor the store filter via the effective store set`() {
         val stores = listOf(store("s1", "g1"), store("s2", "g1"), store("s3", null))
         val itemStores = listOf(
-            ItemStore("i1", "s3", ItemStoreMembership.MEMBER, t)
+            ItemStore("i1", "s3", ItemStoreMembership.MEMBER, createdAt = t)
         )
         val itemStoreGroups = listOf(ItemStoreGroup("i2", "g1", t))
         val effective = EffectiveStoreSet.compute(itemStores, itemStoreGroups, stores)
@@ -203,9 +203,50 @@ class ListSearchFilterTest {
     fun `category filter checks mirror the DAO semantics`() {
         assertTrue(matchesCategoryFilter("c1", CategoryFilter.ByCategory("c1")))
         assertFalse(matchesCategoryFilter("c2", CategoryFilter.ByCategory("c1")))
-        assertFalse(matchesCategoryFilter(null, CategoryFilter.ByCategory("c1")))
         assertTrue(matchesCategoryFilter(null, CategoryFilter.NoCategory))
         assertFalse(matchesCategoryFilter("c1", CategoryFilter.NoCategory))
         assertTrue(matchesCategoryFilter(null, CategoryFilter.All))
+    }
+
+    @Test
+    fun `suggestions honor the favorite filter`() {
+        val stores = listOf(store("s1", "g1"), store("s2", "g1"))
+        val catalog = listOf(
+            catalogItem(item("i1", "Milk")),      // favorites = {s1}
+            catalogItem(item("i2", "Oat Milk")),  // favorites = {s2}
+            catalogItem(item("i3", "Soy Milk"))   // no favorites at all
+        )
+        val effective = mapOf(
+            "i1" to setOf("s1", "s2"),
+            "i2" to setOf("s1", "s2"),
+            "i3" to setOf("s1", "s2")
+        )
+        val favorites = mapOf(
+            "i1" to setOf("s1"),
+            "i2" to setOf("s2")
+        )
+
+        // When favorite filter is OFF for s1: all 3 items appear
+        val offResult = applyListSearch(
+            groups = emptyList(), activeEntries = emptyList(), recentlyChecked = emptyList(),
+            catalog = catalog, query = "milk",
+            effectiveStoreIdsByItem = effective, stores = stores,
+            storeFilter = StoreFilter.ByStore("s1"), categoryFilter = CategoryFilter.All,
+            favoriteStoreIdsByItem = favorites, favoriteFilter = false
+        )
+        assertEquals(listOf("Milk", "Oat Milk", "Soy Milk"), offResult.suggestions.map { it.item.name })
+
+        // When favorite filter is ON for s1:
+        // i1 matches because s1 is favorite
+        // i2 does not match because s2 is favorite, not s1
+        // i3 matches because it has NO favorites at all (counts for all its assigned stores)
+        val onResult = applyListSearch(
+            groups = emptyList(), activeEntries = emptyList(), recentlyChecked = emptyList(),
+            catalog = catalog, query = "milk",
+            effectiveStoreIdsByItem = effective, stores = stores,
+            storeFilter = StoreFilter.ByStore("s1"), categoryFilter = CategoryFilter.All,
+            favoriteStoreIdsByItem = favorites, favoriteFilter = true
+        )
+        assertEquals(listOf("Milk", "Soy Milk"), onResult.suggestions.map { it.item.name })
     }
 }

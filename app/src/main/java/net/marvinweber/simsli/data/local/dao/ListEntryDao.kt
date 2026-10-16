@@ -24,7 +24,8 @@ interface ListEntryDao {
      * boolean switches enable the EXISTS/NOT EXISTS/IS NULL clauses, so the
      * filters compose without a dedicated query per combination. Store filters
      * test the derived effective store set (STORE-7): MEMBER rows ∪ stores of
-     * selected groups − EXCLUDED rows.
+     * selected groups − EXCLUDED rows, and favoriteOnly filters to favorited stores
+     * (or items with zero favorites).
      */
     @Query("""
         SELECT le.* FROM list_entries le
@@ -44,29 +45,85 @@ interface ListEntryDao {
                 SELECT 1 FROM item_stores ex
                 WHERE ex.itemId = le.itemId AND ex.storeId = :storeId AND ex.membership = 'EXCLUDED'
             )
-        ))
-        AND (:filterByGroup = 0 OR (
-            EXISTS (
-                SELECT 1 FROM item_stores ist
-                INNER JOIN stores s ON s.id = ist.storeId
-                WHERE ist.itemId = le.itemId AND ist.membership = 'MEMBER' AND s.groupId = :groupId
-                  AND NOT EXISTS (
-                      SELECT 1 FROM item_stores ex2
-                      WHERE ex2.itemId = le.itemId AND ex2.storeId = ist.storeId AND ex2.membership = 'EXCLUDED'
-                  )
-            ) OR (
+            AND (:favoriteOnly = 0 OR (
                 EXISTS (
-                    SELECT 1 FROM item_store_groups isg
-                    WHERE isg.itemId = le.itemId AND isg.groupId = :groupId
-                )
-                AND EXISTS (
-                    SELECT 1 FROM stores s3 WHERE s3.groupId = :groupId AND s3.deletedAt IS NULL
+                    SELECT 1 FROM item_stores fav
+                    WHERE fav.itemId = le.itemId AND fav.storeId = :storeId AND fav.favorite = 1
+                ) OR NOT EXISTS (
+                    SELECT 1 FROM item_stores anyfav
+                    WHERE anyfav.itemId = le.itemId AND anyfav.favorite = 1
                       AND NOT EXISTS (
-                          SELECT 1 FROM item_stores ex3
-                          WHERE ex3.itemId = le.itemId AND ex3.storeId = s3.id AND ex3.membership = 'EXCLUDED'
+                          SELECT 1 FROM item_stores anyex
+                          WHERE anyex.itemId = le.itemId AND anyex.storeId = anyfav.storeId AND anyex.membership = 'EXCLUDED'
+                      )
+                      AND (
+                          anyfav.membership = 'MEMBER'
+                          OR EXISTS (
+                              SELECT 1 FROM item_store_groups anyisg
+                              INNER JOIN stores anys ON anys.groupId = anyisg.groupId
+                              WHERE anyisg.itemId = le.itemId AND anys.id = anyfav.storeId
+                          )
                       )
                 )
+            ))
+        ))
+        AND (:filterByGroup = 0 OR (
+            (
+                EXISTS (
+                    SELECT 1 FROM item_stores ist
+                    INNER JOIN stores s ON s.id = ist.storeId
+                    WHERE ist.itemId = le.itemId AND ist.membership = 'MEMBER' AND s.groupId = :groupId
+                      AND NOT EXISTS (
+                          SELECT 1 FROM item_stores ex2
+                          WHERE ex2.itemId = le.itemId AND ex2.storeId = ist.storeId AND ex2.membership = 'EXCLUDED'
+                      )
+                ) OR (
+                    EXISTS (
+                        SELECT 1 FROM item_store_groups isg
+                        WHERE isg.itemId = le.itemId AND isg.groupId = :groupId
+                    )
+                    AND EXISTS (
+                        SELECT 1 FROM stores s3 WHERE s3.groupId = :groupId AND s3.deletedAt IS NULL
+                          AND NOT EXISTS (
+                              SELECT 1 FROM item_stores ex3
+                              WHERE ex3.itemId = le.itemId AND ex3.storeId = s3.id AND ex3.membership = 'EXCLUDED'
+                          )
+                    )
+                )
             )
+            AND (:favoriteOnly = 0 OR (
+                EXISTS (
+                    SELECT 1 FROM item_stores fav
+                    INNER JOIN stores s ON s.id = fav.storeId
+                    WHERE fav.itemId = le.itemId AND s.groupId = :groupId AND fav.favorite = 1
+                      AND NOT EXISTS (
+                          SELECT 1 FROM item_stores ex4
+                          WHERE ex4.itemId = le.itemId AND ex4.storeId = fav.storeId AND ex4.membership = 'EXCLUDED'
+                      )
+                      AND (
+                          fav.membership = 'MEMBER'
+                          OR EXISTS (
+                              SELECT 1 FROM item_store_groups isg4
+                              WHERE isg4.itemId = le.itemId AND isg4.groupId = :groupId
+                          )
+                      )
+                ) OR NOT EXISTS (
+                    SELECT 1 FROM item_stores anyfav
+                    WHERE anyfav.itemId = le.itemId AND anyfav.favorite = 1
+                      AND NOT EXISTS (
+                          SELECT 1 FROM item_stores anyex
+                          WHERE anyex.itemId = le.itemId AND anyex.storeId = anyfav.storeId AND anyex.membership = 'EXCLUDED'
+                      )
+                      AND (
+                          anyfav.membership = 'MEMBER'
+                          OR EXISTS (
+                              SELECT 1 FROM item_store_groups anyisg
+                              INNER JOIN stores anys ON anys.groupId = anyisg.groupId
+                              WHERE anyisg.itemId = le.itemId AND anys.id = anyfav.storeId
+                          )
+                      )
+                )
+            ))
         ))
         AND (:noStore = 0 OR (
             NOT EXISTS (
@@ -90,7 +147,8 @@ interface ListEntryDao {
         noStore: Boolean,
         filterByCategory: Boolean,
         categoryId: String,
-        noCategory: Boolean
+        noCategory: Boolean,
+        favoriteOnly: Boolean = false
     ): Flow<List<DbListEntry>>
 
     @Query("SELECT * FROM list_entries WHERE id = :id")

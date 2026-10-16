@@ -4,8 +4,11 @@ import net.marvinweber.simsli.domain.model.ItemStore
 import net.marvinweber.simsli.domain.model.ItemStoreGroup
 import net.marvinweber.simsli.domain.model.ItemStoreMembership
 import net.marvinweber.simsli.domain.model.Store
+import net.marvinweber.simsli.domain.model.StoreFilter
 import net.marvinweber.simsli.domain.util.EffectiveStoreSet
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
 
@@ -88,5 +91,120 @@ class EffectiveStoreSetTest {
         val result = EffectiveStoreSet.compute(emptyList(), emptyList(), listOf(store("s1", null)))
 
         assertEquals(emptySet<String>(), result["item1"].orEmpty())
+    }
+
+    @Test
+    fun `computeFavorites filters out non-favorites and excluded stores`() {
+        val rows = listOf(
+            ItemStore("item1", "s1", ItemStoreMembership.MEMBER, favorite = true, createdAt = t),
+            ItemStore("item1", "s2", ItemStoreMembership.MEMBER, favorite = false, createdAt = t),
+            ItemStore("item1", "s3", ItemStoreMembership.METADATA, favorite = true, createdAt = t),
+            ItemStore("item1", "s4", ItemStoreMembership.EXCLUDED, favorite = true, createdAt = t),
+            ItemStore("item2", "s1", ItemStoreMembership.MEMBER, favorite = false, createdAt = t)
+        )
+        val favorites = EffectiveStoreSet.computeFavorites(rows)
+        assertEquals(setOf("s1", "s3"), favorites["item1"])
+        assertEquals(null, favorites["item2"])
+    }
+
+    @Test
+    fun `matchesStoreFilter with favorite filter OFF matches effective stores`() {
+        val stores = listOf(store("s1", "g1"), store("s2", "g1"), store("s3", null))
+        val effective = setOf("s1", "s2")
+        val favorites = setOf("s1")
+
+        assertTrue(
+            EffectiveStoreSet.matchesStoreFilter(
+                effectiveStoreIds = effective,
+                favoriteStoreIds = favorites,
+                filter = StoreFilter.ByStore("s2"),
+                stores = stores,
+                favoriteOnly = false
+            )
+        )
+    }
+
+    @Test
+    fun `matchesStoreFilter with favorite filter ON requires store to be favorited if item has favorites`() {
+        val stores = listOf(store("s1", "g1"), store("s2", "g1"), store("s3", null))
+        val effective = setOf("s1", "s2")
+        val favorites = setOf("s1")
+
+        // s1 is favorited -> matches
+        assertTrue(
+            EffectiveStoreSet.matchesStoreFilter(
+                effectiveStoreIds = effective,
+                favoriteStoreIds = favorites,
+                filter = StoreFilter.ByStore("s1"),
+                stores = stores,
+                favoriteOnly = true
+            )
+        )
+
+        // s2 is in effective set, but NOT favorited and item has other favorites -> does NOT match
+        assertFalse(
+            EffectiveStoreSet.matchesStoreFilter(
+                effectiveStoreIds = effective,
+                favoriteStoreIds = favorites,
+                filter = StoreFilter.ByStore("s2"),
+                stores = stores,
+                favoriteOnly = true
+            )
+        )
+    }
+
+    @Test
+    fun `matchesStoreFilter with favorite filter ON matches all assigned stores if item has NO favorites`() {
+        val stores = listOf(store("s1", "g1"), store("s2", "g1"))
+        val effective = setOf("s1", "s2")
+        val favorites = emptySet<String>()
+
+        // No favorites for this item: item counts for all its stores even when favorite filter is ON
+        assertTrue(
+            EffectiveStoreSet.matchesStoreFilter(
+                effectiveStoreIds = effective,
+                favoriteStoreIds = favorites,
+                filter = StoreFilter.ByStore("s1"),
+                stores = stores,
+                favoriteOnly = true
+            )
+        )
+        assertTrue(
+            EffectiveStoreSet.matchesStoreFilter(
+                effectiveStoreIds = effective,
+                favoriteStoreIds = favorites,
+                filter = StoreFilter.ByStore("s2"),
+                stores = stores,
+                favoriteOnly = true
+            )
+        )
+    }
+
+    @Test
+    fun `matchesStoreFilter with favorite filter ON checks group favorites`() {
+        val stores = listOf(store("s1", "g1"), store("s2", "g1"), store("s3", "g2"))
+        val effective = setOf("s1", "s2", "s3")
+
+        // Favorited s3 in g2, but filtering by g1: item has favorites, but none in g1 -> does NOT match g1
+        assertFalse(
+            EffectiveStoreSet.matchesStoreFilter(
+                effectiveStoreIds = effective,
+                favoriteStoreIds = setOf("s3"),
+                filter = StoreFilter.ByGroup("g1"),
+                stores = stores,
+                favoriteOnly = true
+            )
+        )
+
+        // Favorited s1 in g1: matches g1
+        assertTrue(
+            EffectiveStoreSet.matchesStoreFilter(
+                effectiveStoreIds = effective,
+                favoriteStoreIds = setOf("s1"),
+                filter = StoreFilter.ByGroup("g1"),
+                stores = stores,
+                favoriteOnly = true
+            )
+        )
     }
 }
