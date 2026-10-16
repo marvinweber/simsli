@@ -88,6 +88,7 @@ enum class CatalogTab(
 fun CatalogScreen(
     onNavigateToItemDetail: (String?) -> Unit,
     isSyncing: Boolean = false,
+    isOffline: Boolean = false,
     householdIcon: String? = null,
     householdName: String? = null,
     onNavigateToSettings: () -> Unit = {},
@@ -123,6 +124,7 @@ fun CatalogScreen(
             SimsliSearchTopAppBar(
                 title = "Catalog",
                 isSyncing = isSyncing,
+                isOffline = isOffline,
                 isSearchActive = isSearchActive,
                 query = activeQuery,
                 onQueryChange = { query ->

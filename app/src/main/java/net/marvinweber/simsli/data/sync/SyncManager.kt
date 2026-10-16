@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -93,6 +94,7 @@ class SyncManager @Inject constructor(
     private val syncStateDao: SyncStateDao,
     private val outboxDao: OutboxDao,
     private val syncScheduler: SyncScheduler,
+    private val connectivityObserver: ConnectivityObserver,
     private val diag: SyncDiagnostics,
     @ApplicationScope private val externalScope: CoroutineScope,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
@@ -106,6 +108,23 @@ class SyncManager @Inject constructor(
     val isSyncing: StateFlow<Boolean> = pendingSyncs
         .map { it > 0 }
         .stateIn(externalScope, SharingStarted.Eagerly, false)
+
+    /** True when the last signed-in sync run failed (network or server error). Resets per process. */
+    private val _lastSyncFailed = MutableStateFlow(false)
+
+    /**
+     * True while a signed-in user's data cannot reach the server: either the device
+     * has no usable network, or the most recent sync attempt failed. Drives the
+     * top-bar warning icon. Not persisted — a fresh process starts optimistic and
+     * the sign-in sync run corrects it within seconds if the server is still down.
+     */
+    val isOffline: StateFlow<Boolean> = combine(
+        connectivityObserver.isOnline,
+        _lastSyncFailed,
+        authRepository.authState
+    ) { online, lastFailed, authState ->
+        authState is AuthState.SignedIn && (!online || lastFailed)
+    }.stateIn(externalScope, SharingStarted.Eagerly, false)
 
     /** Update notice state, set once per process when a min-app-version mismatch is detected. */
     private val _appUpdateNotice = MutableStateFlow<AppUpdateNotice?>(null)
@@ -156,6 +175,18 @@ class SyncManager @Inject constructor(
             }
         }
         externalScope.launch {
+            // Retry as soon as the network comes back — otherwise the next sync
+            // would wait for a write or realtime event that may never arrive.
+            var wasOnline = connectivityObserver.isOnline.value
+            connectivityObserver.isOnline.collect { online ->
+                if (online && !wasOnline && authRepository.currentUserId() != null) {
+                    diag.d(TAG, "Network restored — requesting sync")
+                    syncScheduler.requestSync("connectivity-restored")
+                }
+                wasOnline = online
+            }
+        }
+        externalScope.launch {
             // Debounced: a burst of writes / realtime events collapses into one sync.
             // The run itself must NOT be cancellable (collectLatest would kill it when
             // the next poke arrives — e.g. the realtime echo of its own flush): a run
@@ -181,7 +212,7 @@ class SyncManager @Inject constructor(
                 withContext(ioDispatcher) {
                     try {
                         val userId = authRepository.currentUserId()
-                            ?: return@withContext Result.success(Unit) // signed out — nothing to sync
+                            ?: return@withContext Result.success(Unit) // signed out — flag untouched, nothing to sync
 
                         diag.d(TAG, "Sync ($trigger) started")
                         resolveHousehold(userId)
@@ -190,6 +221,7 @@ class SyncManager @Inject constructor(
                         pullDeltas()
                         gcExpiredEntries()
                         checkMinAppVersion()
+                        _lastSyncFailed.value = false
                         Result.success(Unit).also {
                             // Outbox size after the run: in a refill loop this never reaches 0.
                             diag.d(
@@ -201,6 +233,7 @@ class SyncManager @Inject constructor(
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
+                        _lastSyncFailed.value = true
                         diag.w(
                             TAG,
                             "Sync ($trigger) failed after ${System.currentTimeMillis() - startedAt}ms: " +
@@ -232,7 +265,7 @@ class SyncManager @Inject constructor(
                 withContext(ioDispatcher) {
                     try {
                         val userId = authRepository.currentUserId()
-                            ?: return@withContext Result.success(Unit) // signed out — nothing to resync
+                            ?: return@withContext Result.success(Unit) // signed out — flag untouched, nothing to resync
 
                         diag.d(TAG, "Full resync ($trigger) started")
                         resolveHousehold(userId)
@@ -247,12 +280,14 @@ class SyncManager @Inject constructor(
                         pullDeltas()
                         gcExpiredEntries()
                         checkMinAppVersion()
+                        _lastSyncFailed.value = false
                         Result.success(Unit).also {
                             diag.d(TAG, "Full resync ($trigger) finished in ${System.currentTimeMillis() - startedAt}ms")
                         }
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
+                        _lastSyncFailed.value = true
                         diag.w(
                             TAG,
                             "Full resync ($trigger) failed after ${System.currentTimeMillis() - startedAt}ms: " +

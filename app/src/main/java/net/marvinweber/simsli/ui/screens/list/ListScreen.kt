@@ -142,6 +142,7 @@ private const val MAX_SUGGESTIONS = 5
 fun ListTabContent(
     onNavigateToItemDetail: (String?) -> Unit,
     isSyncing: Boolean = false,
+    isOffline: Boolean = false,
     householdIcon: String? = null,
     householdName: String? = null,
     onNavigateToSettings: () -> Unit = {},
@@ -205,6 +206,7 @@ fun ListTabContent(
             SimsliSearchTopAppBar(
                 title = "Simsli",
                 isSyncing = isSyncing,
+                isOffline = isOffline,
                 isSearchActive = isSearchActive,
                 query = searchQuery,
                 onQueryChange = { searchQuery = it },

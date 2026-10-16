@@ -110,10 +110,11 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToHousehold: () -> Unit,
     onNavigateToHouseholdStatistics: () -> Unit,
-    isSyncing: Boolean = false,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val isSyncing by viewModel.isSyncing.collectAsState()
+    val isOffline by viewModel.isOffline.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -163,7 +164,8 @@ fun SettingsScreen(
                 title = {
                     SimsliTopAppBarTitle(
                         title = "Settings",
-                        isSyncing = isSyncing
+                        isSyncing = isSyncing,
+                        isOffline = isOffline
                     )
                 }
             )

@@ -49,6 +49,7 @@ fun HomeScreen(
     var selectedTabName by rememberSaveable { mutableStateOf(HomeTab.LIST.name) }
     val selectedTab = HomeTab.entries.firstOrNull { it.name == selectedTabName } ?: HomeTab.LIST
     val isSyncing by viewModel.isSyncing.collectAsState()
+    val isOffline by viewModel.isOffline.collectAsState()
     val household by viewModel.household.collectAsState()
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -97,6 +98,7 @@ fun HomeScreen(
                 HomeTab.DASHBOARD -> tabStateHolder.SaveableStateProvider(HomeTab.DASHBOARD.name) {
                     DashboardScreen(
                         isSyncing = isSyncing,
+                        isOffline = isOffline,
                         householdIcon = household?.icon,
                         householdName = household?.name,
                         onNavigateToSettings = onNavigateToSettings
@@ -106,6 +108,7 @@ fun HomeScreen(
                     ListTabContent(
                         onNavigateToItemDetail = onNavigateToItemDetail,
                         isSyncing = isSyncing,
+                        isOffline = isOffline,
                         householdIcon = household?.icon,
                         householdName = household?.name,
                         onNavigateToSettings = onNavigateToSettings
@@ -115,6 +118,7 @@ fun HomeScreen(
                     CatalogScreen(
                         onNavigateToItemDetail = onNavigateToItemDetail,
                         isSyncing = isSyncing,
+                        isOffline = isOffline,
                         householdIcon = household?.icon,
                         householdName = household?.name,
                         onNavigateToSettings = onNavigateToSettings

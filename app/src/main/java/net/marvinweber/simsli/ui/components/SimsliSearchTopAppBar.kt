@@ -65,6 +65,7 @@ import androidx.core.view.WindowInsetsCompat
 fun SimsliSearchTopAppBar(
     title: String,
     isSyncing: Boolean,
+    isOffline: Boolean,
     isSearchActive: Boolean,
     query: String,
     onQueryChange: (String) -> Unit,
@@ -144,7 +145,8 @@ fun SimsliSearchTopAppBar(
                 } else {
                     SimsliTopAppBarTitle(
                         title = title,
-                        isSyncing = isSyncing
+                        isSyncing = isSyncing,
+                        isOffline = isOffline
                     )
                 }
             }

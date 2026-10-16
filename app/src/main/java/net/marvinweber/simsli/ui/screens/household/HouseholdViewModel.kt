@@ -65,6 +65,9 @@ class HouseholdViewModel @Inject constructor(
 
     val isSyncing: StateFlow<Boolean> = syncManager.isSyncing
 
+    /** True while the server cannot be reached — drives the top-bar warning icon. */
+    val isOffline: StateFlow<Boolean> = syncManager.isOffline
+
     private data class DialogState(
         val inviteCode: String?,
         val showJoinWarning: Boolean,

@@ -100,6 +100,12 @@ class SettingsViewModel @Inject constructor(
     private val endpointHealth = MutableStateFlow(EndpointHealth())
     private val members = MutableStateFlow<List<HouseholdMember>>(emptyList())
 
+    /** True while a sync run is executing (or queued) — drives the top-bar progress indicator. */
+    val isSyncing: StateFlow<Boolean> = syncManager.isSyncing
+
+    /** True while the server cannot be reached — drives the top-bar warning icon. */
+    val isOffline: StateFlow<Boolean> = syncManager.isOffline
+
     /** Dialog visibility + content, bundled to keep every combine on a typed overload. */
     private data class DialogInputs(
         val inviteCode: String?,
