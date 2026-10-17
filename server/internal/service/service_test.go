@@ -255,6 +255,75 @@ func TestHouseholdIconFlushAndOwnerGate(t *testing.T) {
 	}
 }
 
+func TestHouseholdCurrencyFlushAndOwnerGate(t *testing.T) {
+	svc, _ := setupTestService(t)
+	ctx := context.Background()
+
+	owner, _ := svc.AdminCreateUser(ctx, "owner@simsli.de")
+	member, _ := svc.AdminCreateUser(ctx, "member@simsli.de")
+	hh, _ := svc.CreateHousehold(ctx, owner.ID, "hh-currency-test", "Currency Household")
+
+	// New households default to EUR (column default)
+	got, err := svc.GetHousehold(ctx, owner.ID, hh.ID)
+	if err != nil {
+		t.Fatalf("get household failed: %v", err)
+	}
+	if got.Currency == nil || *got.Currency != "EUR" {
+		t.Fatalf("expected default currency EUR, got %+v", got.Currency)
+	}
+
+	invite, err := svc.CreateInvite(ctx, owner.ID, hh.ID)
+	if err != nil {
+		t.Fatalf("create invite failed: %v", err)
+	}
+	if _, err := svc.AcceptInvite(ctx, member.ID, invite.Token); err != nil {
+		t.Fatalf("accept invite failed: %v", err)
+	}
+
+	usd := "USD"
+	now := time.Now().UTC()
+	ownerFlush := &model.FlushRequest{
+		HouseholdID: hh.ID,
+		Household:   &model.Household{ID: hh.ID, Name: "Currency Household", Currency: &usd, UpdatedAt: now},
+	}
+	if err := svc.Flush(ctx, owner.ID, ownerFlush); err != nil {
+		t.Fatalf("owner flush with currency failed: %v", err)
+	}
+
+	deltas, err := svc.GetDeltas(ctx, owner.ID, hh.ID, time.Time{})
+	if err != nil {
+		t.Fatalf("get deltas failed: %v", err)
+	}
+	if deltas.Household == nil || deltas.Household.Currency == nil || *deltas.Household.Currency != "USD" {
+		t.Fatalf("expected household currency USD in deltas, got %+v", deltas.Household)
+	}
+
+	// Member flushing a household row must be forbidden
+	memberFlush := &model.FlushRequest{
+		HouseholdID: hh.ID,
+		Household:   &model.Household{ID: hh.ID, Name: "Hijacked", Currency: &usd, UpdatedAt: now},
+	}
+	if err := svc.Flush(ctx, member.ID, memberFlush); err != ErrForbidden {
+		t.Fatalf("expected ErrForbidden for member household flush, got %v", err)
+	}
+
+	// Legacy flush (currency nil) must preserve the stored currency
+	legacyFlush := &model.FlushRequest{
+		HouseholdID: hh.ID,
+		Household:   &model.Household{ID: hh.ID, Name: "Currency Household", UpdatedAt: now},
+	}
+	if err := svc.Flush(ctx, owner.ID, legacyFlush); err != nil {
+		t.Fatalf("legacy flush failed: %v", err)
+	}
+	got, err = svc.GetHousehold(ctx, owner.ID, hh.ID)
+	if err != nil {
+		t.Fatalf("get household after legacy flush failed: %v", err)
+	}
+	if got.Currency == nil || *got.Currency != "USD" {
+		t.Fatalf("expected currency USD preserved after legacy flush, got %+v", got.Currency)
+	}
+}
+
 func TestSeedDemoData(t *testing.T) {
 	svc, _ := setupTestService(t)
 	ctx := context.Background()

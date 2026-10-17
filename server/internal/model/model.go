@@ -46,7 +46,8 @@ type HouseholdStatsResponse struct {
 type Household struct {
 	ID               string     `json:"id"`
 	Name             string     `json:"name"`
-	Icon             *string    `json:"icon,omitempty"` // nullable emoji; nil on Flush = legacy client, preserve
+	Icon             *string    `json:"icon,omitempty"`     // nullable emoji; nil on Flush = legacy client, preserve
+	Currency         *string    `json:"currency,omitempty"` // ISO 4217 code; nil on Flush = legacy client, preserve (column default EUR)
 	Plan             string     `json:"plan"`
 	Status           string     `json:"status"`
 	CurrentPeriodEnd *time.Time `json:"current_period_end,omitempty"`
