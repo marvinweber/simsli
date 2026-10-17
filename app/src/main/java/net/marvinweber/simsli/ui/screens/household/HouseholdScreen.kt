@@ -82,6 +82,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
+import net.marvinweber.simsli.domain.model.CurrencyPresets
+import net.marvinweber.simsli.ui.components.CurrencyPickerDialog
 import net.marvinweber.simsli.ui.components.EmojiPickerDialog
 import net.marvinweber.simsli.ui.components.SimsliTopAppBarTitle
 
@@ -200,59 +202,97 @@ fun HouseholdScreen(
         val renameValue = uiState.renameInput
         if (renameValue != null) {
             val currentIcon = uiState.householdIcon
+            val currentCurrency = uiState.householdCurrency
             var emoji by rememberSaveable { mutableStateOf(currentIcon ?: "") }
+            var currency by rememberSaveable { mutableStateOf(currentCurrency) }
             var showEmojiPicker by rememberSaveable { mutableStateOf(false) }
+            var showCurrencyPicker by rememberSaveable { mutableStateOf(false) }
 
             AlertDialog(
                 onDismissRequest = viewModel::dismissRename,
                 icon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
                 title = { Text("Edit household") },
                 text = {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(
-                            onClick = { showEmojiPicker = true },
-                            shape = MaterialTheme.shapes.medium,
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            modifier = Modifier.size(56.dp)
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
+                            Surface(
+                                onClick = { showEmojiPicker = true },
+                                shape = MaterialTheme.shapes.medium,
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.size(56.dp)
                             ) {
-                                if (emoji.isNotBlank()) {
-                                    Text(
-                                        text = emoji,
-                                        style = MaterialTheme.typography.headlineMedium
-                                    )
-                                } else {
-                                    Text(
-                                        text = "🏠",
-                                        style = MaterialTheme.typography.headlineSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                    )
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (emoji.isNotBlank()) {
+                                        Text(
+                                            text = emoji,
+                                            style = MaterialTheme.typography.headlineMedium
+                                        )
+                                    } else {
+                                        Text(
+                                            text = "🏠",
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                        )
+                                    }
                                 }
                             }
+
+                            OutlinedTextField(
+                                value = renameValue,
+                                onValueChange = viewModel::onRenameChange,
+                                label = { Text("Household name") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            )
                         }
 
-                        OutlinedTextField(
-                            value = renameValue,
-                            onValueChange = viewModel::onRenameChange,
-                            label = { Text("Household name") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
-                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Surface(
+                            onClick = { showCurrencyPicker = true },
+                            enabled = !uiState.isBusy && uiState.isOwner,
+                            shape = MaterialTheme.shapes.medium,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Currency",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (uiState.isOwner) {
+                                        MaterialTheme.colorScheme.onSurface
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                )
+                                Spacer(modifier = Modifier.weight(1f))
+                                Text(
+                                    text = "$currency ${CurrencyPresets.symbolFor(currency)}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
                 },
                 confirmButton = {
                     TextButton(
-                        onClick = { viewModel.confirmRename(emoji.ifBlank { null }) },
+                        onClick = { viewModel.confirmRename(emoji.ifBlank { null }, currency) },
                         enabled = renameValue.isNotBlank() &&
-                                (renameValue != uiState.householdName || emoji != (currentIcon ?: ""))
+                                (renameValue != uiState.householdName ||
+                                        emoji != (currentIcon ?: "") ||
+                                        currency != currentCurrency)
                     ) {
                         Text("Save")
                     }
@@ -272,6 +312,17 @@ fun HouseholdScreen(
                         showEmojiPicker = false
                     },
                     onDismiss = { showEmojiPicker = false }
+                )
+            }
+
+            if (showCurrencyPicker) {
+                CurrencyPickerDialog(
+                    currentCode = currency,
+                    onPicked = { picked ->
+                        currency = picked
+                        showCurrencyPicker = false
+                    },
+                    onDismiss = { showCurrencyPicker = false }
                 )
             }
         }

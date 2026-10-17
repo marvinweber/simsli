@@ -10,6 +10,7 @@ data class DbHousehold(
     val id: String,
     val name: String,
     val icon: String? = null,
+    val currency: String = "EUR",
     val createdAt: Instant,
     val updatedAt: Instant,
     val deletedAt: Instant? = null

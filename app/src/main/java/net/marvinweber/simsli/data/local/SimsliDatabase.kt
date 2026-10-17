@@ -54,7 +54,7 @@ import java.util.UUID
         DbOutboxEntry::class,
         DbSeenListEntry::class
     ],
-    version = 9
+    version = 10
 )
 @TypeConverters(Converters::class)
 abstract class SimsliDatabase : RoomDatabase() {
@@ -167,6 +167,13 @@ abstract class SimsliDatabase : RoomDatabase() {
             }
         }
 
+        /** v9 → v10: households.currency (HH-9, ISO 4217 code, default EUR). */
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `households` ADD COLUMN `currency` TEXT NOT NULL DEFAULT 'EUR'")
+            }
+        }
+
         fun create(context: Context): SimsliDatabase {
             return Room.databaseBuilder(
                 context,
@@ -175,7 +182,7 @@ abstract class SimsliDatabase : RoomDatabase() {
             )
                 .addMigrations(
                     MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
-                    MIGRATION_7_8, MIGRATION_8_9
+                    MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10
                 )
                 .fallbackToDestructiveMigration()
                 .addCallback(SimsliDatabaseCallback())

@@ -7,6 +7,7 @@ fun DbHousehold.toDomain(): Household = Household(
     id = id,
     name = name,
     icon = icon,
+    currency = currency,
     createdAt = createdAt,
     updatedAt = updatedAt
 )
@@ -15,6 +16,7 @@ fun Household.toDb(): DbHousehold = DbHousehold(
     id = id,
     name = name,
     icon = icon,
+    currency = currency,
     createdAt = createdAt,
     updatedAt = updatedAt,
     deletedAt = null

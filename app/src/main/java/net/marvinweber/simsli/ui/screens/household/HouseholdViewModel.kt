@@ -25,6 +25,7 @@ import javax.inject.Inject
 data class HouseholdUiState(
     val householdName: String? = null,
     val householdIcon: String? = null,
+    val householdCurrency: String = "EUR",
     val householdId: String? = null,
     val memberCount: Int = 1,
     val currentUserRole: MemberRole? = null,
@@ -124,6 +125,7 @@ class HouseholdViewModel @Inject constructor(
         HouseholdUiState(
             householdName = household?.name,
             householdIcon = household?.icon,
+            householdCurrency = household?.currency ?: "EUR",
             householdId = household?.id,
             memberCount = memberCount,
             currentUserRole = role,
@@ -186,7 +188,7 @@ class HouseholdViewModel @Inject constructor(
         renameInput.value = null
     }
 
-    fun confirmRename(newEmoji: String?) {
+    fun confirmRename(newEmoji: String?, newCurrency: String) {
         if (!uiState.value.isOwner) {
             statusMessage.value = "Only the household owner can edit the household"
             return
@@ -194,6 +196,7 @@ class HouseholdViewModel @Inject constructor(
         val newName = renameInput.value?.trim().orEmpty()
         if (newName.isEmpty()) return
         val normalizedIcon = newEmoji?.trim()?.ifBlank { null }
+        val normalizedCurrency = newCurrency.trim().ifBlank { "EUR" }
 
         viewModelScope.launch {
             isBusy.value = true
@@ -202,10 +205,14 @@ class HouseholdViewModel @Inject constructor(
             val household = householdRepository.getHousehold().first()
             if (household == null) {
                 statusMessage.value = "No household set up yet"
-            } else if (household.name == newName && household.icon == normalizedIcon) {
+            } else if (household.name == newName && household.icon == normalizedIcon &&
+                household.currency == normalizedCurrency
+            ) {
                 // No change
             } else {
-                householdRepository.updateHousehold(household.copy(name = newName, icon = normalizedIcon))
+                householdRepository.updateHousehold(
+                    household.copy(name = newName, icon = normalizedIcon, currency = normalizedCurrency)
+                )
                     .onSuccess {
                         if (uiState.value.isSignedIn) {
                             syncManager.syncNow()

@@ -6,6 +6,7 @@ data class Household(
     val id: String,
     val name: String,
     val icon: String? = null,
+    val currency: String = "EUR",
     val createdAt: Instant,
     val updatedAt: Instant
 )

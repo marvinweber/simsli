@@ -10,6 +10,9 @@ data class HouseholdDto(
     // Non-null with "" default: explicitNulls = false would drop a null on encode,
     // making "clear icon" unrepresentable on push. "" = clear (server stores NULL).
     @SerialName("icon") val icon: String = "",
+    // Always encoded (non-null): currency never clears. Decode default matches
+    // the server column default (HH-9).
+    @SerialName("currency") val currency: String = "EUR",
     @SerialName("created_at") val createdAt: String,
     @SerialName("updated_at") val updatedAt: String,
     @SerialName("deleted_at") val deletedAt: String? = null
