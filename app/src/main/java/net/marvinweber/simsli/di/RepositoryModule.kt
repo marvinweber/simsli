@@ -10,6 +10,7 @@ import net.marvinweber.simsli.data.repository.CategoryRepository
 import net.marvinweber.simsli.data.repository.ItemRepository
 import net.marvinweber.simsli.data.repository.ItemStoreRepository
 import net.marvinweber.simsli.data.repository.ListEntryRepository
+import net.marvinweber.simsli.data.repository.SeenListEntryRepository
 import net.marvinweber.simsli.data.repository.StoreGroupRepository
 import net.marvinweber.simsli.data.repository.StoreRepository
 import net.marvinweber.simsli.data.repository.impl.AuthRepositoryImpl
@@ -18,6 +19,7 @@ import net.marvinweber.simsli.data.repository.impl.HouseholdRepositoryImpl
 import net.marvinweber.simsli.data.repository.impl.ItemRepositoryImpl
 import net.marvinweber.simsli.data.repository.impl.ItemStoreRepositoryImpl
 import net.marvinweber.simsli.data.repository.impl.ListEntryRepositoryImpl
+import net.marvinweber.simsli.data.repository.impl.SeenListEntryRepositoryImpl
 import net.marvinweber.simsli.data.repository.impl.StoreGroupRepositoryImpl
 import net.marvinweber.simsli.data.repository.impl.StoreRepositoryImpl
 
@@ -64,4 +66,9 @@ abstract class RepositoryModule {
     abstract fun bindStoreGroupRepository(
         impl: StoreGroupRepositoryImpl
     ): StoreGroupRepository
+
+    @Binds
+    abstract fun bindSeenListEntryRepository(
+        impl: SeenListEntryRepositoryImpl
+    ): SeenListEntryRepository
 }

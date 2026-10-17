@@ -98,6 +98,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -105,6 +106,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -114,6 +117,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -158,6 +163,15 @@ fun ListTabContent(
     val favoriteFilter by viewModel.favoriteFilter.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val keyboard = LocalSoftwareKeyboardController.current
+
+    // LIST-9: dots stay for the whole visit and clear once the list stops being
+    // the active view — tab switch/push away (dispose) or app to background (pause).
+    DisposableEffect(Unit) {
+        onDispose { viewModel.markNewEntriesSeen() }
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) {
+        viewModel.markNewEntriesSeen()
+    }
 
     // Top-bar search state (SEARCH-1): hoisted + saveable so it survives tab switches.
     // The field binds to this state directly (not through the ViewModel) to avoid the
@@ -1035,6 +1049,15 @@ private fun ActiveListEntryRow(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false)
                         )
+                        if (listEntryItem.isNew) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary)
+                                    .semantics { contentDescription = "New, added by someone else" }
+                            )
+                        }
                         if (hasNote) {
                             Icon(
                                 imageVector = Icons.Outlined.Description,

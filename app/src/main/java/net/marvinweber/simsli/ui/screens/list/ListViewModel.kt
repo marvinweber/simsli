@@ -25,6 +25,7 @@ import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.data.repository.ItemRepository
 import net.marvinweber.simsli.data.repository.ItemStoreRepository
 import net.marvinweber.simsli.data.repository.ListEntryRepository
+import net.marvinweber.simsli.data.repository.SeenListEntryRepository
 import net.marvinweber.simsli.data.repository.StoreGroupRepository
 import net.marvinweber.simsli.data.repository.StoreRepository
 import net.marvinweber.simsli.data.sync.SyncManager
@@ -42,13 +43,16 @@ import net.marvinweber.simsli.domain.model.StoreCategory
 import net.marvinweber.simsli.domain.model.StoreGroup
 import net.marvinweber.simsli.domain.util.EffectiveStoreSet
 import net.marvinweber.simsli.domain.util.NameOrder
+import net.marvinweber.simsli.domain.util.isNewFromOthers
 import net.marvinweber.simsli.domain.util.SearchFold
 import java.time.Instant
 import javax.inject.Inject
 
 data class ListEntryItem(
     val listEntry: ListEntry,
-    val item: Item?
+    val item: Item?,
+    /** LIST-9: created by another member and not yet displayed on this device. */
+    val isNew: Boolean = false
 )
 
 /** A group of active list entries belonging to a category (LIST-6). */
@@ -113,6 +117,7 @@ class ListViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
     private val itemStoreRepository: ItemStoreRepository,
     private val listEntryRepository: ListEntryRepository,
+    private val seenListEntryRepository: SeenListEntryRepository,
     private val categoryRepository: CategoryRepository,
     private val quickActionManager: net.marvinweber.simsli.ui.navigation.QuickActionManager,
     private val syncManager: SyncManager
@@ -208,16 +213,27 @@ class ListViewModel @Inject constructor(
             ) { stores, groups, itemStores, itemStoreGroups ->
                 StoresData(stores, groups, itemStores, itemStoreGroups)
             }
+            // LIST-9: pair entries with the device-local seen-state so the dot clears
+            // once a row has been displayed (the 5-ary combine is at its typed-overload limit).
+            val entriesWithSeenFlow = combine(
+                entriesFlow,
+                seenListEntryRepository.observeSeenEntryIds()
+            ) { entries, seenIds -> entries to seenIds }
             combine(
                 storesWithGroupsFlow,
                 categoryRepository.getCategoriesByHousehold(household.id),
                 storeCategoriesFlow,
-                entriesFlow,
+                entriesWithSeenFlow,
                 itemRepository.getItemsByHousehold(household.id)
-            ) { (stores, storeGroups, itemStores, itemStoreGroups), categories, storeCategories, listEntries, items ->
+            ) { (stores, storeGroups, itemStores, itemStoreGroups), categories, storeCategories, (listEntries, seenEntryIds), items ->
+                val currentUserId = authRepository.currentUserId()
                 val itemMap = items.associateBy { it.id }
                 val entryItems = listEntries.map { entry ->
-                    ListEntryItem(entry, itemMap[entry.itemId])
+                    ListEntryItem(
+                        entry,
+                        itemMap[entry.itemId],
+                        isNew = isNewFromOthers(entry, seenEntryIds, currentUserId)
+                    )
                 }
                 val activeItemIds = listEntries.filter { !it.done }.map { it.itemId }.toSet()
                 val entryIdByItemId = listEntries.associate { it.itemId to it.id }
@@ -476,6 +492,21 @@ class ListViewModel @Inject constructor(
                 .onFailure { error ->
                     _events.emit(ListUiEvent.ShowError("Failed to revert item: ${error.message}"))
                 }
+        }
+    }
+
+    /**
+     * LIST-9: marks every currently-new active entry as displayed on this device
+     * (clears the "new" dots). Called when the list stops being the active view —
+     * tab switch away or app to background — so dots survive the whole visit.
+     * Device-local only; done entries are never marked, so reverting one to
+     * active brings its dot back.
+     */
+    fun markNewEntriesSeen() {
+        val newIds = uiState.value.activeEntries.filter { it.isNew }.map { it.listEntry.id }
+        if (newIds.isEmpty()) return
+        viewModelScope.launch {
+            newIds.forEach { seenListEntryRepository.markSeen(it) }
         }
     }
 

@@ -17,6 +17,7 @@ import net.marvinweber.simsli.data.local.dao.ItemStoreDao
 import net.marvinweber.simsli.data.local.dao.ItemStoreGroupDao
 import net.marvinweber.simsli.data.local.dao.ListEntryDao
 import net.marvinweber.simsli.data.local.dao.OutboxDao
+import net.marvinweber.simsli.data.local.dao.SeenListEntryDao
 import net.marvinweber.simsli.data.local.dao.StoreCategoryDao
 import net.marvinweber.simsli.data.local.dao.StoreDao
 import net.marvinweber.simsli.data.local.dao.StoreGroupDao
@@ -29,6 +30,7 @@ import net.marvinweber.simsli.data.local.entity.DbItemStore
 import net.marvinweber.simsli.data.local.entity.DbItemStoreGroup
 import net.marvinweber.simsli.data.local.entity.DbListEntry
 import net.marvinweber.simsli.data.local.entity.DbOutboxEntry
+import net.marvinweber.simsli.data.local.entity.DbSeenListEntry
 import net.marvinweber.simsli.data.local.entity.DbStore
 import net.marvinweber.simsli.data.local.entity.DbStoreCategory
 import net.marvinweber.simsli.data.local.entity.DbStoreGroup
@@ -49,9 +51,10 @@ import java.util.UUID
         DbStoreGroup::class,
         DbItemStoreGroup::class,
         DbSyncState::class,
-        DbOutboxEntry::class
+        DbOutboxEntry::class,
+        DbSeenListEntry::class
     ],
-    version = 8
+    version = 9
 )
 @TypeConverters(Converters::class)
 abstract class SimsliDatabase : RoomDatabase() {
@@ -66,6 +69,7 @@ abstract class SimsliDatabase : RoomDatabase() {
     abstract fun itemStoreGroupDao(): ItemStoreGroupDao
     abstract fun syncStateDao(): SyncStateDao
     abstract fun outboxDao(): OutboxDao
+    abstract fun seenListEntryDao(): SeenListEntryDao
 
     companion object {
         private const val DATABASE_NAME = "simsli_database"
@@ -151,13 +155,28 @@ abstract class SimsliDatabase : RoomDatabase() {
             }
         }
 
+        /** v8 → v9: seen_list_entries (LIST-9), device-local seen-state for the "new" indicator. */
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `seen_list_entries` (" +
+                        "`entryId` TEXT NOT NULL, " +
+                        "`seenAt` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`entryId`))"
+                )
+            }
+        }
+
         fun create(context: Context): SimsliDatabase {
             return Room.databaseBuilder(
                 context,
                 SimsliDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                .addMigrations(
+                    MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
+                    MIGRATION_7_8, MIGRATION_8_9
+                )
                 .fallbackToDestructiveMigration()
                 .addCallback(SimsliDatabaseCallback())
                 .build()

@@ -776,6 +776,10 @@ class SyncManager @Inject constructor(
     // --- 4. Garbage collection ------------------------------------------------------
 
     private suspend fun gcExpiredEntries() {
+        // LIST-9: prune seen-markers whose entries were hard-deleted (sync pull or GC).
+        // Runs even when nothing expired — pull-deletes orphan rows too.
+        db.seenListEntryDao().deleteOrphaned()
+
         val cutoff = Instant.now().minus(SyncContract.RECENTLY_CHECKED_TTL)
         val expired = listEntryDao.getExpiredDoneEntries(cutoff)
         if (expired.isEmpty()) return

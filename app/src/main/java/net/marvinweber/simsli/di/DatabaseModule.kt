@@ -15,6 +15,7 @@ import net.marvinweber.simsli.data.local.dao.ItemStoreDao
 import net.marvinweber.simsli.data.local.dao.ItemStoreGroupDao
 import net.marvinweber.simsli.data.local.dao.ListEntryDao
 import net.marvinweber.simsli.data.local.dao.OutboxDao
+import net.marvinweber.simsli.data.local.dao.SeenListEntryDao
 import net.marvinweber.simsli.data.local.dao.StoreCategoryDao
 import net.marvinweber.simsli.data.local.dao.StoreDao
 import net.marvinweber.simsli.data.local.dao.StoreGroupDao
@@ -84,5 +85,10 @@ object DatabaseModule {
     @Provides
     fun provideOutboxDao(database: SimsliDatabase): OutboxDao {
         return database.outboxDao()
+    }
+
+    @Provides
+    fun provideSeenListEntryDao(database: SimsliDatabase): SeenListEntryDao {
+        return database.seenListEntryDao()
     }
 }

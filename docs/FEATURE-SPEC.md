@@ -22,7 +22,7 @@ Milestone tags are assignments, not promises — moving a feature between milest
 | 3.1 Auth (AUTH)          | AUTH-1, AUTH-2, AUTH-3 | —                    | —                      | —              | AUTH-4       | —            | —         |
 | 3.2 Household (HH)       | HH-1–5, HH-10          | —                    | HH-9                   | —              | HH-6, HH-7   | —            | HH-8      |
 | 3.3 Catalog items (ITEM) | ITEM-1–5               | —                    | ITEM-6                 | —              | —            | —            | —         |
-| 3.4 Shopping list (LIST) | LIST-1–7               | —                    | —                      | —              | LIST-8       | —            | —         |
+| 3.4 Shopping list (LIST) | LIST-1–7, LIST-9       | —                    | —                      | —              | LIST-8       | —            | —         |
 | 3.5 Stores (STORE)       | STORE-1–5, STORE-7     | —                    | STORE-6                | —              | —            | —            | —         |
 | 3.6 Categories (CAT)     | CAT-1, CAT-2, CAT-3   | —                    | CAT-4                  | —              | —            | —            | —         |
 | 3.7 Sync (SYNC)          | SYNC-1–4, SYNC-6, SYNC-8 | SYNC-5             | —                      | —              | SYNC-7       | —            | —         |
@@ -36,7 +36,7 @@ Milestone tags are assignments, not promises — moving a feature between milest
 
 Each feature appears once, under its current status; extensions tagged to later milestones (e.g. HH-2 admin role → v1.5, STORE-1 drag & drop → v1) stay tracked in the §3 entry. DATA-2 ships per path (removal with HH-5 in v0.1, leave/delete with HH-6/7 in v1). BIZ-4 is unlisted — its decision is open (OQ-1). **STORE-7 (store groups) and STORE-5 (favorite stores) are implemented** — effective store set derived, favorites configured on explicit and group-covered stores and filtered via the LIST-5 star toggle (STORE-6 store prices will build on top of it).
 
-Last updated: 2026-10-16
+Last updated: 2026-10-17
 
 ---
 
@@ -106,6 +106,7 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 - **LIST-6 Category grouping ✅** — the list is always grouped by category (v1 has exactly one view): store-filtered → that store's category order, unordered categories appended in global order (STORE-4); unfiltered → global order. Uncategorized items form an implicit group at the end. "Recently checked" stays a flat section after all groups.
 - **LIST-7 Ordering ✅** — within a group, items are ordered **alphabetically**: locale-aware and case-insensitive (ICU Collator, `NameOrder`), so "Äpfel" sorts next to "Ananas" and case doesn't split words apart. The same order applies to the catalog's Items tab (SCREENS-2) and the "Recently checked" section. No drag & drop for items; the item `sortOrder` column is retained (schema/sync) but no longer drives display order.
 - **LIST-8 Shopping mode 📋 v1** — full-screen focused check-off view, available when a store filter is active: large touch targets, one tap to check, checked items collapse immediately (no "Recently checked" section here). Exit via back or "Done shopping" — exiting changes nothing (the TTL GC is the cleanup, LIST-3).
+- **LIST-9 New indicator ✅** — entries created by **another member** show a small primary-colored dot next to the item name (before the note/link icons). The dot stays for the whole visit and clears when the list stops being the active view — tab switch/push away or app to background (all currently-new entries are marked seen then). Strictly per-device state (`seen_list_entries`, local-only Room table, never in the sync contract, never in the outbox); orphaned rows are pruned by the sync GC pass. Own entries never dot; offline-created entries don't dot either (`createdBy` is only filled at push/pull time); signed-out usage never dots. Active entries only — "Recently checked" renders neither the dot nor seen-marking, so an entry created *and* checked by another member before you looked stays eligible and dots if reverted to active.
 
 ### 3.5 Stores (STORE)
 
