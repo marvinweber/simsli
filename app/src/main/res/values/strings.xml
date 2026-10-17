@@ -10,4 +10,6 @@
     <string name="shortcut_add_item_long">Add item to list</string>
     <string name="sync_offline">Offline</string>
     <string name="sync_offline_toast">Can\'t reach the server. Your changes are saved on this device and sync automatically once you\'re back online.</string>
+    <string name="sync_pending">Pending changes</string>
+    <string name="sync_pending_toast">Your changes are being synced to the server.</string>
 </resources>

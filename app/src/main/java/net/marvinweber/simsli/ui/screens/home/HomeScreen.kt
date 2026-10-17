@@ -50,6 +50,7 @@ fun HomeScreen(
     val selectedTab = HomeTab.entries.firstOrNull { it.name == selectedTabName } ?: HomeTab.LIST
     val isSyncing by viewModel.isSyncing.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
+    val hasPendingWrites by viewModel.hasPendingWrites.collectAsState()
     val household by viewModel.household.collectAsState()
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -99,6 +100,7 @@ fun HomeScreen(
                     DashboardScreen(
                         isSyncing = isSyncing,
                         isOffline = isOffline,
+                        hasPendingWrites = hasPendingWrites,
                         householdIcon = household?.icon,
                         householdName = household?.name,
                         onNavigateToSettings = onNavigateToSettings
@@ -109,6 +111,7 @@ fun HomeScreen(
                         onNavigateToItemDetail = onNavigateToItemDetail,
                         isSyncing = isSyncing,
                         isOffline = isOffline,
+                        hasPendingWrites = hasPendingWrites,
                         householdIcon = household?.icon,
                         householdName = household?.name,
                         onNavigateToSettings = onNavigateToSettings
@@ -119,6 +122,7 @@ fun HomeScreen(
                         onNavigateToItemDetail = onNavigateToItemDetail,
                         isSyncing = isSyncing,
                         isOffline = isOffline,
+                        hasPendingWrites = hasPendingWrites,
                         householdIcon = household?.icon,
                         householdName = household?.name,
                         onNavigateToSettings = onNavigateToSettings

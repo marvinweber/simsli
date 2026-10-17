@@ -126,6 +126,18 @@ class SyncManager @Inject constructor(
         authState is AuthState.SignedIn && (!online || lastFailed)
     }.stateIn(externalScope, SharingStarted.Eagerly, false)
 
+    /**
+     * True while a signed-in user has local writes queued in the outbox that have
+     * not reached the server yet (SYNC-5). Signed-in gated like [isOffline] —
+     * signed-out devices enqueue to the outbox too, but have no sync path.
+     */
+    val hasPendingWrites: StateFlow<Boolean> = combine(
+        outboxDao.countFlow(),
+        authRepository.authState
+    ) { pendingCount, authState ->
+        authState is AuthState.SignedIn && pendingCount > 0
+    }.stateIn(externalScope, SharingStarted.Eagerly, false)
+
     /** Update notice state, set once per process when a min-app-version mismatch is detected. */
     private val _appUpdateNotice = MutableStateFlow<AppUpdateNotice?>(null)
 

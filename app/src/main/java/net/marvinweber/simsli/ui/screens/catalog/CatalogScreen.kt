@@ -89,6 +89,7 @@ fun CatalogScreen(
     onNavigateToItemDetail: (String?) -> Unit,
     isSyncing: Boolean = false,
     isOffline: Boolean = false,
+    hasPendingWrites: Boolean = false,
     householdIcon: String? = null,
     householdName: String? = null,
     onNavigateToSettings: () -> Unit = {},
@@ -125,6 +126,7 @@ fun CatalogScreen(
                 title = "Catalog",
                 isSyncing = isSyncing,
                 isOffline = isOffline,
+                hasPendingWrites = hasPendingWrites,
                 isSearchActive = isSearchActive,
                 query = activeQuery,
                 onQueryChange = { query ->

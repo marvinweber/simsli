@@ -27,6 +27,9 @@ class HomeViewModel @Inject constructor(
     /** True while the server cannot be reached — drives the top-bar warning icon. */
     val isOffline: StateFlow<Boolean> = syncManager.isOffline
 
+    /** True while signed-in writes await their sync run — drives the top-bar pending icon. */
+    val hasPendingWrites: StateFlow<Boolean> = syncManager.hasPendingWrites
+
     /** Household row for the Settings tab's personalized label + icon (SCREENS-1/4). */
     val household: StateFlow<Household?> = householdRepository.getHousehold()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)

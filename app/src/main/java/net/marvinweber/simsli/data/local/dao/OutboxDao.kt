@@ -3,6 +3,7 @@ package net.marvinweber.simsli.data.local.dao
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 import net.marvinweber.simsli.data.local.entity.DbOutboxEntry
 
 @Dao
@@ -24,4 +25,8 @@ interface OutboxDao {
 
     @Query("SELECT COUNT(*) FROM outbox")
     suspend fun count(): Int
+
+    /** Emits on every outbox change — drives the pending-writes indicator (SYNC-5). */
+    @Query("SELECT COUNT(*) FROM outbox")
+    fun countFlow(): Flow<Int>
 }

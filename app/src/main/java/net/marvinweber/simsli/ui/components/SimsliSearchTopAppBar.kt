@@ -66,6 +66,7 @@ fun SimsliSearchTopAppBar(
     title: String,
     isSyncing: Boolean,
     isOffline: Boolean,
+    hasPendingWrites: Boolean,
     isSearchActive: Boolean,
     query: String,
     onQueryChange: (String) -> Unit,
@@ -146,7 +147,8 @@ fun SimsliSearchTopAppBar(
                     SimsliTopAppBarTitle(
                         title = title,
                         isSyncing = isSyncing,
-                        isOffline = isOffline
+                        isOffline = isOffline,
+                        hasPendingWrites = hasPendingWrites
                     )
                 }
             }

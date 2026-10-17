@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
@@ -38,16 +39,17 @@ import kotlinx.coroutines.delay
 import net.marvinweber.simsli.R
 
 /** What the fixed 32.dp slot left of the title currently shows. */
-private enum class TitleSlot { Offline, Syncing, Logo }
+private enum class TitleSlot { Offline, Syncing, Pending, Logo }
 
 /**
  * Top app bar title component displaying the Simsli logo alongside the screen title.
  *
  * The slot shows (in precedence order): a warning icon while the server cannot be
  * reached ([isOffline], tap for an explanatory toast), a Material 3 Expressive
- * [LoadingIndicator] while synchronization is active ([isSyncing]), otherwise the
- * logo — all within the same fixed 32.dp space, preventing any layout shift or
- * UI flickering.
+ * [LoadingIndicator] while synchronization is active ([isSyncing]), a subdued
+ * upload icon while signed-in writes await their sync run ([hasPendingWrites],
+ * tap for an explanatory toast), otherwise the logo — all within the same fixed
+ * 32.dp space, preventing any layout shift or UI flickering.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -55,6 +57,7 @@ fun SimsliTopAppBarTitle(
     title: String,
     isSyncing: Boolean,
     isOffline: Boolean,
+    hasPendingWrites: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -75,6 +78,7 @@ fun SimsliTopAppBarTitle(
     val slot = when {
         isOffline -> TitleSlot.Offline
         displaySyncing -> TitleSlot.Syncing
+        hasPendingWrites -> TitleSlot.Pending
         else -> TitleSlot.Logo
     }
 
@@ -117,6 +121,20 @@ fun SimsliTopAppBarTitle(
                     TitleSlot.Syncing -> LoadingIndicator(
                         modifier = Modifier.size(30.dp),
                         color = MaterialTheme.colorScheme.primary
+                    )
+                    TitleSlot.Pending -> Icon(
+                        imageVector = Icons.Outlined.CloudUpload,
+                        contentDescription = stringResource(R.string.sync_pending),
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clickable {
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.sync_pending_toast),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
                     )
                     TitleSlot.Logo -> Image(
                         painter = painterResource(R.drawable.ic_simsli_logo),

@@ -106,6 +106,9 @@ class SettingsViewModel @Inject constructor(
     /** True while the server cannot be reached — drives the top-bar warning icon. */
     val isOffline: StateFlow<Boolean> = syncManager.isOffline
 
+    /** True while signed-in writes await their sync run — drives the top-bar pending icon. */
+    val hasPendingWrites: StateFlow<Boolean> = syncManager.hasPendingWrites
+
     /** Dialog visibility + content, bundled to keep every combine on a typed overload. */
     private data class DialogInputs(
         val inviteCode: String?,

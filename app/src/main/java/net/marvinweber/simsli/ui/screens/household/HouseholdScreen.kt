@@ -102,6 +102,7 @@ fun HouseholdScreen(
     val uiState by viewModel.uiState.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
+    val hasPendingWrites by viewModel.hasPendingWrites.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -151,7 +152,8 @@ fun HouseholdScreen(
                     SimsliTopAppBarTitle(
                         title = "Household",
                         isSyncing = isSyncing,
-                        isOffline = isOffline
+                        isOffline = isOffline,
+                        hasPendingWrites = hasPendingWrites
                     )
                 }
             )

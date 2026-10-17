@@ -50,6 +50,7 @@ import net.marvinweber.simsli.ui.components.SimsliTopAppBarTitle
 fun DashboardScreen(
     isSyncing: Boolean,
     isOffline: Boolean,
+    hasPendingWrites: Boolean,
     householdIcon: String?,
     householdName: String? = null,
     onNavigateToSettings: () -> Unit,
@@ -63,7 +64,8 @@ fun DashboardScreen(
                     SimsliTopAppBarTitle(
                         title = "Dashboard",
                         isSyncing = isSyncing,
-                        isOffline = isOffline
+                        isOffline = isOffline,
+                        hasPendingWrites = hasPendingWrites
                     )
                 },
                 actions = {
