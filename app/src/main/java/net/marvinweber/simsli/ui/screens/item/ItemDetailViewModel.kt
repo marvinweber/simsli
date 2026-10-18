@@ -158,7 +158,8 @@ class ItemDetailViewModel @Inject constructor(
                 // Prices screen rows: effective-set stores in store order with DB truth;
                 // draft edits are applied on top at display time.
                 val effectiveIds = EffectiveStoreSet.forItem(itemId.orEmpty(), itemStores, itemStoreGroups, stores)
-                val rowsByStore = itemStores.associateBy { it.storeId }
+                // item_stores is keyed by (item, store) — this item's rows only
+                val rowsByStore = itemStores.filter { it.itemId == itemId }.associateBy { it.storeId }
                 val priceRows = stores
                     .sortedBy { it.sortOrder }
                     .filter { it.id in effectiveIds }
