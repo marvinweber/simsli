@@ -124,6 +124,7 @@ fun ItemDto.toDb(): DbItem = DbItem(
     type = type.toItemTypeOrDefault(),
     categoryId = categoryId,
     defaultUnit = defaultUnit,
+    referenceSize = referenceSize,
     sortOrder = sortOrder.toFloat(),
     links = links,
     createdAt = createdAt.toInstantOrEpoch(),
@@ -139,6 +140,7 @@ fun DbItem.toDto(): ItemDto = ItemDto(
     type = type.toDtoName(),
     categoryId = categoryId,
     defaultUnit = defaultUnit,
+    referenceSize = referenceSize,
     sortOrder = sortOrder.toDouble(),
     links = links,
     createdAt = createdAt.toString(),
@@ -151,6 +153,7 @@ fun ItemStoreDto.toDb(): DbItemStore = DbItemStore(
     storeId = storeId,
     membership = membership.toMembershipOrDefault().name,
     favorite = favorite,
+    priceMinor = priceMinor,
     createdAt = createdAt.toInstantOrEpoch()
 )
 
@@ -159,6 +162,7 @@ fun DbItemStore.toDto(): ItemStoreDto = ItemStoreDto(
     storeId = storeId,
     membership = membership,
     favorite = favorite,
+    priceMinor = priceMinor,
     createdAt = createdAt.toString()
 )
 

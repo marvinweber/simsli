@@ -69,9 +69,15 @@ class ItemStoreRepositoryImpl @Inject constructor(
                     when {
                         target != null -> {
                             if (row.membership != target.membership.name || row.favorite != target.favorite) {
-                                itemStoreDao.insert(DbItemStore(itemId, row.storeId, target.membership.name, target.favorite, row.createdAt))
+                                // priceMinor rides along untouched — membership/favorite rewrites never clear a price
+                                itemStoreDao.insert(row.copy(membership = target.membership.name, favorite = target.favorite))
                                 enqueueItemStoreUpsert(itemId, row.storeId, now)
                             }
+                        }
+                        row.priceMinor != null -> {
+                            // Dormant METADATA: the price survives coverage loss (STORE-6/STORE-7)
+                            itemStoreDao.insert(row.copy(membership = ItemStoreMembership.METADATA.name, favorite = false))
+                            enqueueItemStoreUpsert(itemId, row.storeId, now)
                         }
                         else -> {
                             itemStoreDao.delete(itemId, row.storeId)
@@ -84,7 +90,15 @@ class ItemStoreRepositoryImpl @Inject constructor(
                 for (storeId in candidateStoreIds) {
                     val target = determineTargetForNew(storeId)
                     if (target != null) {
-                        itemStoreDao.insert(DbItemStore(itemId, storeId, target.membership.name, target.favorite, now))
+                        itemStoreDao.insert(
+                            DbItemStore(
+                                itemId = itemId,
+                                storeId = storeId,
+                                membership = target.membership.name,
+                                favorite = target.favorite,
+                                createdAt = now
+                            )
+                        )
                         enqueueItemStoreUpsert(itemId, storeId, now)
                     }
                 }
@@ -115,6 +129,50 @@ class ItemStoreRepositoryImpl @Inject constructor(
                 }
 
                 syncScheduler.requestSync("item_store:selection")
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    override suspend fun savePrices(itemId: String, prices: Map<String, Long?>): Result<Unit> {
+        return withContext(ioDispatcher) {
+            try {
+                val now = Instant.now()
+                val currentRows = itemStoreDao.getRowsForItem(itemId).associateBy { it.storeId }
+                for ((storeId, priceMinor) in prices) {
+                    val row = currentRows[storeId]
+                    when {
+                        row == null -> {
+                            if (priceMinor != null) {
+                                itemStoreDao.insert(
+                                    DbItemStore(
+                                        itemId = itemId,
+                                        storeId = storeId,
+                                        membership = ItemStoreMembership.METADATA.name,
+                                        favorite = false,
+                                        priceMinor = priceMinor,
+                                        createdAt = now
+                                    )
+                                )
+                                enqueueItemStoreUpsert(itemId, storeId, now)
+                            }
+                        }
+                        // Setting a price never changes membership (no pinning, STORE-7)
+                        row.priceMinor != priceMinor -> {
+                            if (priceMinor == null && row.membership == ItemStoreMembership.METADATA.name && !row.favorite) {
+                                itemStoreDao.delete(itemId, storeId)
+                                enqueueItemStoreDelete(itemId, storeId, now)
+                            } else {
+                                itemStoreDao.insert(row.copy(priceMinor = priceMinor))
+                                enqueueItemStoreUpsert(itemId, storeId, now)
+                            }
+                        }
+                    }
+                }
+
+                syncScheduler.requestSync("item_store:prices")
                 Result.success(Unit)
             } catch (e: Exception) {
                 Result.failure(e)

@@ -54,7 +54,7 @@ import java.util.UUID
         DbOutboxEntry::class,
         DbSeenListEntry::class
     ],
-    version = 10
+    version = 11
 )
 @TypeConverters(Converters::class)
 abstract class SimsliDatabase : RoomDatabase() {
@@ -174,6 +174,14 @@ abstract class SimsliDatabase : RoomDatabase() {
             }
         }
 
+        /** v10 → v11: items.referenceSize (ITEM-6) + item_stores.priceMinor (STORE-6, minor units). */
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `items` ADD COLUMN `referenceSize` TEXT")
+                db.execSQL("ALTER TABLE `item_stores` ADD COLUMN `priceMinor` INTEGER")
+            }
+        }
+
         fun create(context: Context): SimsliDatabase {
             return Room.databaseBuilder(
                 context,
@@ -182,7 +190,7 @@ abstract class SimsliDatabase : RoomDatabase() {
             )
                 .addMigrations(
                     MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
-                    MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10
+                    MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11
                 )
                 .fallbackToDestructiveMigration()
                 .addCallback(SimsliDatabaseCallback())

@@ -9,6 +9,7 @@ fun DbItemStore.toDomain(): ItemStore = ItemStore(
     storeId = storeId,
     membership = membership.toMembershipOrDefault(),
     favorite = favorite,
+    priceMinor = priceMinor,
     createdAt = createdAt
 )
 
@@ -17,6 +18,7 @@ fun ItemStore.toDb(): DbItemStore = DbItemStore(
     storeId = storeId,
     membership = membership.name,
     favorite = favorite,
+    priceMinor = priceMinor,
     createdAt = createdAt
 )
 

@@ -312,4 +312,105 @@ class ItemStoreRepositoryTest {
         val loaded = fixture.repository.getStoreSelection("item1")
         assertTrue(loaded.favoriteStoreIds.isEmpty())
     }
+
+@Test
+fun `excluding a store preserves its price`() = runBlocking {
+    val fixture = createFixture(
+        initialStores = listOf(
+            DbItemStore("item1", "store_rewe", ItemStoreMembership.MEMBER.name, priceMinor = 199L, createdAt = Instant.now())
+        )
+    )
+    val selection = StoreSelection(excludedStoreIds = setOf("store_rewe"))
+    fixture.repository.saveStoreSelection("item1", selection).getOrThrow()
+
+    val row = fixture.itemStores.single()
+    assertEquals(ItemStoreMembership.EXCLUDED.name, row.membership)
+    assertEquals(false, row.favorite)
+    assertEquals(199L, row.priceMinor)
+}
+
+@Test
+fun `unassigning a priced store keeps it as dormant metadata`() = runBlocking {
+    val fixture = createFixture(
+        initialStores = listOf(
+            DbItemStore("item1", "store_rewe", ItemStoreMembership.MEMBER.name, priceMinor = 199L, createdAt = Instant.now())
+        )
+    )
+    // Selection drops the store entirely (no member, no group, no favorite)
+    fixture.repository.saveStoreSelection("item1", StoreSelection()).getOrThrow()
+
+    val row = fixture.itemStores.single()
+    assertEquals(ItemStoreMembership.METADATA.name, row.membership)
+    assertEquals(false, row.favorite)
+    assertEquals(199L, row.priceMinor)
+}
+
+@Test
+fun `clearing the price of an empty metadata row deletes it`() = runBlocking {
+    val fixture = createFixture(
+        initialStores = listOf(
+            DbItemStore("item1", "store_rewe", ItemStoreMembership.METADATA.name, priceMinor = 199L, createdAt = Instant.now())
+        )
+    )
+    fixture.repository.savePrices("item1", mapOf("store_rewe" to null)).getOrThrow()
+
+    assertTrue(fixture.itemStores.isEmpty())
+}
+
+@Test
+fun `clearing the price of a favorited metadata row keeps the row`() = runBlocking {
+    val fixture = createFixture(
+        initialStores = listOf(
+            DbItemStore("item1", "store_rewe", ItemStoreMembership.METADATA.name, favorite = true, priceMinor = 199L, createdAt = Instant.now())
+        )
+    )
+    fixture.repository.savePrices("item1", mapOf("store_rewe" to null)).getOrThrow()
+
+    val row = fixture.itemStores.single()
+    assertEquals(ItemStoreMembership.METADATA.name, row.membership)
+    assertEquals(true, row.favorite)
+    assertEquals(null, row.priceMinor)
+}
+
+@Test
+fun `savePrices on a store without a row creates a metadata row`() = runBlocking {
+    val fixture = createFixture()
+    fixture.repository.savePrices("item1", mapOf("store_dm" to 129L)).getOrThrow()
+
+    val row = fixture.itemStores.single()
+    assertEquals("store_dm", row.storeId)
+    assertEquals(ItemStoreMembership.METADATA.name, row.membership)
+    assertEquals(129L, row.priceMinor)
+}
+
+@Test
+fun `selection rewrite never nulls an existing price`() = runBlocking {
+    val fixture = createFixture(
+        initialStores = listOf(
+            DbItemStore("item1", "store_rewe", ItemStoreMembership.MEMBER.name, priceMinor = 199L, createdAt = Instant.now())
+        )
+    )
+    // Member stays member but gains a favorite → row rewrite path
+    val selection = StoreSelection(memberStoreIds = setOf("store_rewe"), favoriteStoreIds = setOf("store_rewe"))
+    fixture.repository.saveStoreSelection("item1", selection).getOrThrow()
+
+    val row = fixture.itemStores.single()
+    assertEquals(true, row.favorite)
+    assertEquals(199L, row.priceMinor)
+}
+
+@Test
+fun `store re-entering the effective set reactivates the dormant price`() = runBlocking {
+    val fixture = createFixture(
+        initialStores = listOf(
+            DbItemStore("item1", "store_rewe", ItemStoreMembership.EXCLUDED.name, priceMinor = 129L, createdAt = Instant.now())
+        )
+    )
+    // Re-include REWE as an explicit member
+    fixture.repository.saveStoreSelection("item1", StoreSelection(memberStoreIds = setOf("store_rewe"))).getOrThrow()
+
+    val row = fixture.itemStores.single()
+    assertEquals(ItemStoreMembership.MEMBER.name, row.membership)
+    assertEquals(129L, row.priceMinor)
+}
 }

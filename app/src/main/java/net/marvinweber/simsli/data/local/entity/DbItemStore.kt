@@ -12,5 +12,7 @@ data class DbItemStore(
     val storeId: String,
     val membership: String = "MEMBER",
     val favorite: Boolean = false,
+    /** Minor units (cents); null = unpriced (STORE-6). */
+    val priceMinor: Long? = null,
     val createdAt: Instant
 )

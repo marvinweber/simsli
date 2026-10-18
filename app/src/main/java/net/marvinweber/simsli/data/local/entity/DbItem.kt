@@ -17,6 +17,8 @@ data class DbItem(
     /** Zero or one category (CAT-2); null = uncategorized. */
     val categoryId: String? = null,
     val defaultUnit: String? = null,
+    /** Informational reference size ("1 l", "500 g") shown next to prices (ITEM-6). */
+    val referenceSize: String? = null,
     val sortOrder: Float,
     val links: List<ItemLink> = emptyList(),
     val createdAt: Instant,

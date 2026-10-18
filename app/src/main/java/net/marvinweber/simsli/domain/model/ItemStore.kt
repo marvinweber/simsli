@@ -14,6 +14,8 @@ data class ItemStore(
     val storeId: String,
     val membership: ItemStoreMembership = ItemStoreMembership.MEMBER,
     val favorite: Boolean = false,
+    /** Minor units (cents); null = unpriced (STORE-6). */
+    val priceMinor: Long? = null,
     val createdAt: Instant
 )
 

@@ -9,5 +9,6 @@ data class ItemStoreDto(
     @SerialName("store_id") val storeId: String,
     val membership: String = "MEMBER",
     val favorite: Boolean = false,
+    @SerialName("price_minor") val priceMinor: Long? = null,
     @SerialName("created_at") val createdAt: String
 )

@@ -12,6 +12,8 @@ data class Item(
     val categoryId: String? = null,
     /** Optional unit preset preselected when adding to list (ITEM-5). */
     val defaultUnit: String? = null,
+    /** Informational reference size ("1 l", "500 g") shown next to prices (ITEM-6). */
+    val referenceSize: String? = null,
     val sortOrder: Float = 0f,
     val links: List<ItemLink> = emptyList(),
     val createdAt: Instant,
