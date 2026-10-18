@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -42,6 +43,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -57,6 +60,7 @@ import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -74,6 +78,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -369,300 +374,141 @@ fun ItemDetailScreen(
                             .fillMaxWidth()
                             .verticalScroll(rememberScrollState())
                             .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        // 12dp between modules; the DetailCards own the inner rhythm
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Item name (required)
+                        // Item name (required): hero field — no outline, large type
                         OutlinedTextField(
                             value = itemName,
                             onValueChange = { itemName = it },
-                            label = { Text("Item name *") },
+                            placeholder = { Text("Item name") },
                             singleLine = true,
+                            textStyle = MaterialTheme.typography.headlineSmall,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedBorderColor = Color.Transparent
+                            ),
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        // Category
-                        Text(
-                            text = "Category",
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        Box {
-                            val selectedCategory = uiState.categories.find { it.id == selectedCategoryId }
-                            val categoryLabel = if (selectedCategory != null) {
-                                if (!selectedCategory.emoji.isNullOrBlank()) "${selectedCategory.emoji} ${selectedCategory.name}" else selectedCategory.name
-                            } else {
-                                "None (Uncategorized)"
-                            }
-                            FilterChip(
-                                selected = selectedCategoryId != null,
-                                onClick = { categoryMenuExpanded = true },
-                                label = { Text(categoryLabel) },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Category,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
+                        // Details: category + default unit — the descriptive fields
+                        DetailCard(
+                            title = "Details"
+                        ) {
+                            // Category: full-width row opening the dropdown
+                            Box {
+                                val selectedCategory = uiState.categories.find { it.id == selectedCategoryId }
+                                val categoryLabel = if (selectedCategory != null) {
+                                    if (!selectedCategory.emoji.isNullOrBlank()) "${selectedCategory.emoji} ${selectedCategory.name}" else selectedCategory.name
+                                } else {
+                                    "None (Uncategorized)"
+                                }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(MaterialTheme.shapes.small)
+                                        .clickable { categoryMenuExpanded = true }
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Category",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.weight(1f)
                                     )
-                                },
-                                trailingIcon = {
+                                    Text(text = categoryLabel, style = MaterialTheme.typography.bodyLarge)
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Icon(
                                         imageVector = Icons.Default.KeyboardArrowDown,
                                         contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                            )
-                            DropdownMenu(
-                                expanded = categoryMenuExpanded,
-                                onDismissRequest = { categoryMenuExpanded = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("None (Uncategorized)") },
-                                    onClick = {
-                                        selectedCategoryId = null
-                                        categoryMenuExpanded = false
-                                    },
-                                    leadingIcon = {
-                                        if (selectedCategoryId == null) {
-                                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                                        }
-                                    }
-                                )
-                                uiState.categories.forEach { category ->
+                                DropdownMenu(
+                                    expanded = categoryMenuExpanded,
+                                    onDismissRequest = { categoryMenuExpanded = false }
+                                ) {
                                     DropdownMenuItem(
-                                        text = {
-                                            val catText = if (!category.emoji.isNullOrBlank()) "${category.emoji} ${category.name}" else category.name
-                                            Text(catText)
-                                        },
+                                        text = { Text("None (Uncategorized)") },
                                         onClick = {
-                                            selectedCategoryId = category.id
+                                            selectedCategoryId = null
                                             categoryMenuExpanded = false
                                         },
                                         leadingIcon = {
-                                            if (selectedCategoryId == category.id) {
+                                            if (selectedCategoryId == null) {
                                                 Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                                             }
                                         }
                                     )
-                                }
-                            }
-                        }
-
-                        // Stores (STORE-7): group + explicit store chips, edited in the tree dialog
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Stores",
-                                style = MaterialTheme.typography.titleSmall
-                            )
-                            TextButton(
-                                onClick = { showStoreSelectionDialog = true },
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Edit,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.size(4.dp))
-                                Text("Edit", style = MaterialTheme.typography.labelMedium)
-                            }
-                        }
-
-                        val explicitStores = uiState.stores.filter { it.id in selectedStoreIds && it.groupId !in selectedGroupIds }
-                        val selectedGroups = uiState.storeGroups.filter { it.id in selectedGroupIds }
-
-                        if (uiState.stores.isEmpty() && uiState.storeGroups.isEmpty()) {
-                            Text(
-                                text = "No stores created yet",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        } else if (selectedGroups.isEmpty() && explicitStores.isEmpty()) {
-                            Text(
-                                text = "No stores assigned",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
-                        } else {
-                            FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                selectedGroups.forEach { group ->
-                                    val excludedStores = uiState.stores
-                                        .filter { it.groupId == group.id && it.id in excludedStoreIds }
-                                    val groupFavorites = uiState.stores
-                                        .filter { it.groupId == group.id && it.id !in excludedStoreIds && it.id in favoriteStoreIds }
-                                    InputChip(
-                                        selected = true,
-                                        // Chips are display-only; editing happens in the selection dialog
-                                        onClick = { showStoreSelectionDialog = true },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Outlined.Category,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        },
-                                        colors = InputChipDefaults.inputChipColors(
-                                            containerColor = MaterialTheme.colorScheme.secondaryContainer
-                                        ),
-                                        label = {
-                                            if (excludedStores.isEmpty() && groupFavorites.isEmpty()) {
-                                                Text(group.name)
-                                            } else {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Text(group.name)
-                                                    if (groupFavorites.isNotEmpty()) {
-                                                        Spacer(modifier = Modifier.width(6.dp))
-                                                        groupFavorites.forEach { fav ->
-                                                            Icon(
-                                                                imageVector = Icons.Filled.Star,
-                                                                contentDescription = null,
-                                                                modifier = Modifier.size(13.dp),
-                                                                tint = Color(0xFFFFB300)
-                                                            )
-                                                            Spacer(modifier = Modifier.width(2.dp))
-                                                            Text(
-                                                                text = fav.name,
-                                                                style = MaterialTheme.typography.bodySmall,
-                                                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                                                            )
-                                                            Spacer(modifier = Modifier.width(4.dp))
-                                                        }
-                                                    }
-                                                    if (excludedStores.isNotEmpty()) {
-                                                        Spacer(modifier = Modifier.width(4.dp))
-                                                        excludedStores.forEach { store ->
-                                                            Text(
-                                                                text = "⊘ ${store.name}",
-                                                                textDecoration = TextDecoration.LineThrough,
-                                                                style = MaterialTheme.typography.bodySmall,
-                                                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
-                                                            )
-                                                            Spacer(modifier = Modifier.width(4.dp))
-                                                        }
-                                                    }
+                                    uiState.categories.forEach { category ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                val catText = if (!category.emoji.isNullOrBlank()) "${category.emoji} ${category.name}" else category.name
+                                                Text(catText)
+                                            },
+                                            onClick = {
+                                                selectedCategoryId = category.id
+                                                categoryMenuExpanded = false
+                                            },
+                                            leadingIcon = {
+                                                if (selectedCategoryId == category.id) {
+                                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                                                 }
                                             }
-                                        }
-                                    )
-                                }
-                                explicitStores.forEach { store ->
-                                    InputChip(
-                                        selected = true,
-                                        // Chips are display-only; editing happens in the selection dialog
-                                        onClick = { showStoreSelectionDialog = true },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Outlined.Storefront,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        },
-                                        label = {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                if (store.id in favoriteStoreIds) {
-                                                    Icon(
-                                                        imageVector = Icons.Filled.Star,
-                                                        contentDescription = "Favorite",
-                                                        modifier = Modifier.size(14.dp),
-                                                        tint = Color(0xFFFFB300)
-                                                    )
-                                                    Spacer(modifier = Modifier.width(4.dp))
-                                                }
-                                                Text(store.name)
-                                            }
-                                        }
-                                    )
-                                }
-                            }
-                        }
-
-                        // Store prices (STORE-6): pushed screen with reference size + per-store prices
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onNavigateToItemPrices() },
-                            shape = MaterialTheme.shapes.medium,
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Payments,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Store prices",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                                Spacer(modifier = Modifier.weight(1f))
-                                uiState.priceEdits
-                                    .effectiveReferenceSize(uiState.existingItem?.referenceSize)
-                                    ?.let { refSize ->
-                                        Text(
-                                            text = refSize,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
-                                        Spacer(modifier = Modifier.width(8.dp))
                                     }
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                }
                             }
-                        }
 
-                        // Default unit (optional, ITEM-5)
-                        Text(
-                            text = "Default unit (optional)",
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            UnitPresets.ALL.forEach { preset ->
-                                val isSelected = itemDefaultUnit.equals(preset, ignoreCase = true)
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = {
-                                        itemDefaultUnit = if (isSelected) "" else preset
-                                    },
-                                    label = { Text(preset) }
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
+
+                            // Default unit (optional, ITEM-5)
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "Default unit (optional)",
+                                    style = MaterialTheme.typography.titleSmall
+                                )
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    UnitPresets.ALL.forEach { preset ->
+                                        val isSelected = itemDefaultUnit.equals(preset, ignoreCase = true)
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = {
+                                                itemDefaultUnit = if (isSelected) "" else preset
+                                            },
+                                            label = { Text(preset) }
+                                        )
+                                    }
+                                }
+                                OutlinedTextField(
+                                    value = itemDefaultUnit,
+                                    onValueChange = { itemDefaultUnit = it },
+                                    label = { Text("Custom unit") },
+                                    placeholder = { Text("e.g. pcs, pack, kg, bottle …") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Text(
+                                    text = "Preselected when adding this item to the shopping list.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
-                        OutlinedTextField(
-                            value = itemDefaultUnit,
-                            onValueChange = { itemDefaultUnit = it },
-                            label = { Text("Custom unit") },
-                            placeholder = { Text("e.g. pcs, pack, kg, bottle …") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Text(
-                            text = "Preselected when adding this item to the shopping list.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
 
                         // Item type: only show for existing ONE_TIME items to allow promoting to permanent
                         if (uiState.existingItem != null && itemType == ItemType.ONE_TIME) {
                             Surface(
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(20.dp),
                                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
@@ -702,56 +548,234 @@ fun ItemDetailScreen(
                             }
                         }
 
-                        // Notes
-                        OutlinedTextField(
-                            value = itemNotes,
-                            onValueChange = { newText ->
-                                val stripResult = LinkUtils.stripUrls(newText)
-                                itemNotes = stripResult.remainingText
-                                if (stripResult.extractedUrls.isNotEmpty()) {
-                                    stripResult.extractedUrls.forEach { url ->
-                                        viewModel.addLink(url)
+                        // Stores (STORE-7): group + explicit store chips, edited in the tree dialog
+                        DetailCard(
+                            title = "Stores",
+                            action = {
+                                TextButton(
+                                    onClick = { showStoreSelectionDialog = true },
+                                    // Fixed height: the touch-target minimum would inflate
+                                    // the header row and push the chips far below it
+                                    modifier = Modifier.height(28.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Edit,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.size(4.dp))
+                                    Text("Edit", style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+                        ) {
+                            val explicitStores = uiState.stores.filter { it.id in selectedStoreIds && it.groupId !in selectedGroupIds }
+                            val selectedGroups = uiState.storeGroups.filter { it.id in selectedGroupIds }
+
+                            if (uiState.stores.isEmpty() && uiState.storeGroups.isEmpty()) {
+                                Text(
+                                    text = "No stores created yet",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else if (selectedGroups.isEmpty() && explicitStores.isEmpty()) {
+                                Text(
+                                    text = "No stores assigned",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                )
+                            } else {
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    selectedGroups.forEach { group ->
+                                        val excludedStores = uiState.stores
+                                            .filter { it.groupId == group.id && it.id in excludedStoreIds }
+                                        val groupFavorites = uiState.stores
+                                            .filter { it.groupId == group.id && it.id !in excludedStoreIds && it.id in favoriteStoreIds }
+                                        InputChip(
+                                            selected = true,
+                                            // Chips are display-only; editing happens in the selection dialog
+                                            onClick = { showStoreSelectionDialog = true },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Outlined.Category,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            },
+                                            colors = InputChipDefaults.inputChipColors(
+                                                containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                            ),
+                                            label = {
+                                                if (excludedStores.isEmpty() && groupFavorites.isEmpty()) {
+                                                    Text(group.name)
+                                                } else {
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Text(group.name)
+                                                        if (groupFavorites.isNotEmpty()) {
+                                                            Spacer(modifier = Modifier.width(6.dp))
+                                                            groupFavorites.forEach { fav ->
+                                                                Icon(
+                                                                    imageVector = Icons.Filled.Star,
+                                                                    contentDescription = null,
+                                                                    modifier = Modifier.size(13.dp),
+                                                                    tint = Color(0xFFFFB300)
+                                                                )
+                                                                Spacer(modifier = Modifier.width(2.dp))
+                                                                Text(
+                                                                    text = fav.name,
+                                                                    style = MaterialTheme.typography.bodySmall,
+                                                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                                                )
+                                                                Spacer(modifier = Modifier.width(4.dp))
+                                                            }
+                                                        }
+                                                        if (excludedStores.isNotEmpty()) {
+                                                            Spacer(modifier = Modifier.width(4.dp))
+                                                            excludedStores.forEach { store ->
+                                                                Text(
+                                                                    text = "⊘ ${store.name}",
+                                                                    textDecoration = TextDecoration.LineThrough,
+                                                                    style = MaterialTheme.typography.bodySmall,
+                                                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                                                                )
+                                                                Spacer(modifier = Modifier.width(4.dp))
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        )
+                                    }
+                                    explicitStores.forEach { store ->
+                                        InputChip(
+                                            selected = true,
+                                            // Chips are display-only; editing happens in the selection dialog
+                                            onClick = { showStoreSelectionDialog = true },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Outlined.Storefront,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            },
+                                            label = {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    if (store.id in favoriteStoreIds) {
+                                                        Icon(
+                                                            imageVector = Icons.Filled.Star,
+                                                            contentDescription = "Favorite",
+                                                            modifier = Modifier.size(14.dp),
+                                                            tint = Color(0xFFFFB300)
+                                                        )
+                                                        Spacer(modifier = Modifier.width(4.dp))
+                                                    }
+                                                    Text(store.name)
+                                                }
+                                            }
+                                        )
                                     }
                                 }
-                            },
-                            label = { Text("Notes (optional)") },
-                            placeholder = { Text("Any additional details") },
-                            modifier = Modifier.fillMaxWidth(),
-                            minLines = 2,
-                            maxLines = 4
-                        )
-
-                        // Links section
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Links",
-                                style = MaterialTheme.typography.titleSmall
-                            )
-                            TextButton(
-                                onClick = { showAddLinkDialog = true },
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.size(4.dp))
-                                Text("Add link", style = MaterialTheme.typography.labelMedium)
                             }
                         }
 
-                        if (uiState.links.isNotEmpty()) {
-                            ItemLinkChipsRow(
-                                links = uiState.links,
-                                onRemove = { link -> viewModel.removeLink(link.url) }
+                        // Store prices (STORE-6): pushed screen with reference size + per-store prices
+                        Card(
+                            onClick = onNavigateToItemPrices,
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                            ),
+                            shape = RoundedCornerShape(20.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Payments,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Store prices",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Spacer(modifier = Modifier.weight(1f))
+                                uiState.priceEdits
+                                    .effectiveReferenceSize(uiState.existingItem?.referenceSize)
+                                    ?.let { refSize ->
+                                        Text(
+                                            text = refSize,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                    }
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        // Notes & links: links are pasted into notes (auto-extracted) or added via dialog
+                        DetailCard(
+                            title = "Notes & links",
+                            action = {
+                                TextButton(
+                                    onClick = { showAddLinkDialog = true },
+                                    // Same as the Stores header: keep the row hug-sized
+                                    modifier = Modifier.height(28.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.size(4.dp))
+                                    Text("Add link", style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+                        ) {
+                            OutlinedTextField(
+                                value = itemNotes,
+                                onValueChange = { newText ->
+                                    val stripResult = LinkUtils.stripUrls(newText)
+                                    itemNotes = stripResult.remainingText
+                                    if (stripResult.extractedUrls.isNotEmpty()) {
+                                        stripResult.extractedUrls.forEach { url ->
+                                            viewModel.addLink(url)
+                                        }
+                                    }
+                                },
+                                placeholder = { Text("Any additional details") },
+                                modifier = Modifier.fillMaxWidth(),
+                                minLines = 2,
+                                maxLines = 4,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent
+                                )
                             )
-                        } else {
-                            Text(
-                                text = "Paste a link into notes or tap \"Add link\"",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
+
+                            if (uiState.links.isNotEmpty()) {
+                                ItemLinkChipsRow(
+                                    links = uiState.links,
+                                    onRemove = { link -> viewModel.removeLink(link.url) }
+                                )
+                            } else {
+                                Text(
+                                    text = "Paste a link into notes or tap \"Add link\"",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                )
+                            }
                         }
 
                         if (showAddLinkDialog) {
@@ -871,6 +895,44 @@ fun ItemDetailScreen(
                 duplicateWarningIsSimilar = false
             }
         )
+    }
+}
+
+/**
+ * Rounded container for one form module (details, stores, notes …). The card
+ * carries the belonging: tight rhythm inside (10dp), section spacing between
+ * cards (12dp, set by the parent column).
+ */
+@Composable
+private fun DetailCard(
+    title: String,
+    modifier: Modifier = Modifier,
+    action: (@Composable () -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        shape = RoundedCornerShape(20.dp),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = title, style = MaterialTheme.typography.titleSmall)
+                action?.invoke()
+            }
+            content()
+        }
     }
 }
 
