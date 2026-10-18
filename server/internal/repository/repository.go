@@ -744,7 +744,7 @@ func (r *Repository) GetDeltas(ctx context.Context, householdID string, since ti
 
 	// Items
 	itemRows, err := r.db.QueryContext(ctx,
-		"SELECT id, household_id, category_id, name, notes, type, default_unit, sort_order, links, created_at, updated_at, deleted_at FROM items WHERE household_id = ? AND updated_at > ?",
+		"SELECT id, household_id, category_id, name, notes, type, default_unit, reference_size, sort_order, links, created_at, updated_at, deleted_at FROM items WHERE household_id = ? AND updated_at > ?",
 		householdID, sinceStr,
 	)
 	if err != nil {
@@ -753,9 +753,9 @@ func (r *Repository) GetDeltas(ctx context.Context, householdID string, since ti
 	defer itemRows.Close()
 	for itemRows.Next() {
 		var i model.Item
-		var catID, du, da, linksStr sql.NullString
+		var catID, du, rs, da, linksStr sql.NullString
 		var ca, ua string
-		if err := itemRows.Scan(&i.ID, &i.HouseholdID, &catID, &i.Name, &i.Notes, &i.Type, &du, &i.SortOrder, &linksStr, &ca, &ua, &da); err != nil {
+		if err := itemRows.Scan(&i.ID, &i.HouseholdID, &catID, &i.Name, &i.Notes, &i.Type, &du, &rs, &i.SortOrder, &linksStr, &ca, &ua, &da); err != nil {
 			return nil, err
 		}
 		if catID.Valid {
@@ -763,6 +763,9 @@ func (r *Repository) GetDeltas(ctx context.Context, householdID string, since ti
 		}
 		if du.Valid {
 			i.DefaultUnit = &du.String
+		}
+		if rs.Valid {
+			i.ReferenceSize = &rs.String
 		}
 		if linksStr.Valid && linksStr.String != "" {
 			_ = json.Unmarshal([]byte(linksStr.String), &i.Links)
@@ -815,7 +818,7 @@ func (r *Repository) GetDeltas(ctx context.Context, householdID string, since ti
 
 	// Full-reconcile tables (item_stores, store_categories, item_store_groups)
 	isRows, err := r.db.QueryContext(ctx,
-		"SELECT item_id, store_id, membership, favorite, created_at FROM item_stores WHERE item_id IN (SELECT id FROM items WHERE household_id = ?)",
+		"SELECT item_id, store_id, membership, favorite, price_minor, created_at FROM item_stores WHERE item_id IN (SELECT id FROM items WHERE household_id = ?)",
 		householdID,
 	)
 	if err != nil {
@@ -824,9 +827,13 @@ func (r *Repository) GetDeltas(ctx context.Context, householdID string, since ti
 	defer isRows.Close()
 	for isRows.Next() {
 		var is model.ItemStore
+		var price sql.NullInt64
 		var ca string
-		if err := isRows.Scan(&is.ItemID, &is.StoreID, &is.Membership, &is.Favorite, &ca); err != nil {
+		if err := isRows.Scan(&is.ItemID, &is.StoreID, &is.Membership, &is.Favorite, &price, &ca); err != nil {
 			return nil, err
+		}
+		if price.Valid {
+			is.Price = &price.Int64
 		}
 		is.CreatedAt, _ = parseTime(ca)
 		resp.ItemStores = append(resp.ItemStores, is)
@@ -993,19 +1000,20 @@ func (r *Repository) Flush(ctx context.Context, req *model.FlushRequest) error {
 			}
 		}
 		_, err := tx.ExecContext(ctx,
-			`INSERT INTO items (id, household_id, category_id, name, notes, type, default_unit, sort_order, links, created_at, updated_at, deleted_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`INSERT INTO items (id, household_id, category_id, name, notes, type, default_unit, reference_size, sort_order, links, created_at, updated_at, deleted_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			 ON CONFLICT(id) DO UPDATE SET
 			   category_id=excluded.category_id,
 			   name=excluded.name,
 			   notes=excluded.notes,
 			   type=excluded.type,
 			   default_unit=excluded.default_unit,
+			   reference_size=excluded.reference_size,
 			   sort_order=excluded.sort_order,
 			   links=excluded.links,
 			   updated_at=?,
 			   deleted_at=excluded.deleted_at`,
-			it.ID, req.HouseholdID, it.CategoryID, it.Name, it.Notes, it.Type, it.DefaultUnit, it.SortOrder, linksJSON, formatTime(it.CreatedAt), nowStr, daStr, nowStr,
+			it.ID, req.HouseholdID, it.CategoryID, it.Name, it.Notes, it.Type, it.DefaultUnit, it.ReferenceSize, it.SortOrder, linksJSON, formatTime(it.CreatedAt), nowStr, daStr, nowStr,
 		)
 		if err != nil {
 			return fmt.Errorf("flush item: %w", err)
@@ -1092,9 +1100,9 @@ func (r *Repository) Flush(ctx context.Context, req *model.FlushRequest) error {
 			membership = "MEMBER"
 		}
 		_, err := tx.ExecContext(ctx,
-			`INSERT INTO item_stores (item_id, store_id, membership, favorite, created_at) VALUES (?, ?, ?, ?, ?)
-			 ON CONFLICT(item_id, store_id) DO UPDATE SET membership=excluded.membership, favorite=excluded.favorite`,
-			is.ItemID, is.StoreID, membership, is.Favorite, formatTime(is.CreatedAt),
+			`INSERT INTO item_stores (item_id, store_id, membership, favorite, price_minor, created_at) VALUES (?, ?, ?, ?, ?, ?)
+			 ON CONFLICT(item_id, store_id) DO UPDATE SET membership=excluded.membership, favorite=excluded.favorite, price_minor=excluded.price_minor`,
+			is.ItemID, is.StoreID, membership, is.Favorite, is.Price, formatTime(is.CreatedAt),
 		)
 		if err != nil {
 			return fmt.Errorf("flush item_store: %w", err)

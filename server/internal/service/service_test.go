@@ -817,3 +817,75 @@ func TestFlushStaleStoreGroupTimestampRemainsVisible(t *testing.T) {
 		t.Errorf("expected created_at preserved from client, got %v", group.CreatedAt)
 	}
 }
+
+func TestItemReferenceSizeAndPricesFlushAndDeltas(t *testing.T) {
+	svc, _ := setupTestService(t)
+	ctx := context.Background()
+
+	owner, _ := svc.AdminCreateUser(ctx, "prices-owner@simsli.de")
+	hh, _ := svc.CreateHousehold(ctx, owner.ID, "prices-test", "Prices Household")
+
+	now := time.Now().UTC()
+	refSize := "1 l"
+	price := int64(119)
+	flush := &model.FlushRequest{
+		HouseholdID: hh.ID,
+		Stores: []model.Store{
+			{ID: "s-rewe", HouseholdID: hh.ID, Name: "REWE", SortOrder: 1.0, CreatedAt: now, UpdatedAt: now},
+			{ID: "s-aldi", HouseholdID: hh.ID, Name: "Aldi", SortOrder: 2.0, CreatedAt: now, UpdatedAt: now},
+		},
+		Items: []model.Item{
+			{ID: "i-1", HouseholdID: hh.ID, Name: "Milch", Type: "PERMANENT", DefaultUnit: &[]string{"l"}[0], ReferenceSize: &refSize, CreatedAt: now, UpdatedAt: now},
+		},
+		ItemStores: []model.ItemStore{
+			{ItemID: "i-1", StoreID: "s-rewe", Membership: "MEMBER", Price: &price, CreatedAt: now},
+			{ItemID: "i-1", StoreID: "s-aldi", Membership: "MEMBER", CreatedAt: now},
+		},
+	}
+	if err := svc.Flush(ctx, owner.ID, flush); err != nil {
+		t.Fatalf("flush failed: %v", err)
+	}
+
+	deltas, err := svc.GetDeltas(ctx, owner.ID, hh.ID, time.Time{})
+	if err != nil {
+		t.Fatalf("get deltas failed: %v", err)
+	}
+	if len(deltas.Items) != 1 || deltas.Items[0].ReferenceSize == nil || *deltas.Items[0].ReferenceSize != "1 l" {
+		t.Fatalf("expected reference size 1 l in deltas, got %+v", deltas.Items)
+	}
+	var rewe *model.ItemStore
+	for i := range deltas.ItemStores {
+		if deltas.ItemStores[i].StoreID == "s-rewe" {
+			rewe = &deltas.ItemStores[i]
+		}
+	}
+	if rewe == nil || rewe.Price == nil || *rewe.Price != 119 {
+		t.Fatalf("expected REWE price 119 in deltas, got %+v", rewe)
+	}
+
+	// Re-flush without the fields → plain overwrite (no legacy-preserve for item fields)
+	clearFlush := &model.FlushRequest{
+		HouseholdID: hh.ID,
+		Items: []model.Item{
+			{ID: "i-1", HouseholdID: hh.ID, Name: "Milch", Type: "PERMANENT", CreatedAt: now, UpdatedAt: now.Add(time.Second)},
+		},
+		ItemStores: []model.ItemStore{
+			{ItemID: "i-1", StoreID: "s-rewe", Membership: "MEMBER", CreatedAt: now},
+		},
+	}
+	if err := svc.Flush(ctx, owner.ID, clearFlush); err != nil {
+		t.Fatalf("clear flush failed: %v", err)
+	}
+	deltas, err = svc.GetDeltas(ctx, owner.ID, hh.ID, time.Time{})
+	if err != nil {
+		t.Fatalf("get deltas failed: %v", err)
+	}
+	if len(deltas.Items) != 1 || deltas.Items[0].ReferenceSize != nil {
+		t.Fatalf("expected reference size cleared after overwrite flush, got %+v", deltas.Items)
+	}
+	for _, is := range deltas.ItemStores {
+		if is.StoreID == "s-rewe" && is.Price != nil {
+			t.Fatalf("expected REWE price cleared after overwrite flush, got %+v", is)
+		}
+	}
+}

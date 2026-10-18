@@ -121,18 +121,19 @@ type ItemLink struct {
 }
 
 type Item struct {
-	ID          string     `json:"id"`
-	HouseholdID string     `json:"household_id"`
-	CategoryID  *string    `json:"category_id,omitempty"`
-	Name        string     `json:"name"`
-	Notes       string     `json:"notes"`
-	Type        string     `json:"type"` // "PERMANENT", "ONE_TIME", "CHECKLIST"
-	DefaultUnit *string    `json:"default_unit,omitempty"`
-	SortOrder   float64    `json:"sort_order"`
-	Links       []ItemLink `json:"links"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
+	ID            string     `json:"id"`
+	HouseholdID   string     `json:"household_id"`
+	CategoryID    *string    `json:"category_id,omitempty"`
+	Name          string     `json:"name"`
+	Notes         string     `json:"notes"`
+	Type          string     `json:"type"` // "PERMANENT", "ONE_TIME", "CHECKLIST"
+	DefaultUnit   *string    `json:"default_unit,omitempty"`
+	ReferenceSize *string    `json:"reference_size,omitempty"` // informational, never translated (ITEM-6)
+	SortOrder     float64    `json:"sort_order"`
+	Links         []ItemLink `json:"links"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+	DeletedAt     *time.Time `json:"deleted_at,omitempty"`
 }
 
 type ItemStore struct {
@@ -140,6 +141,7 @@ type ItemStore struct {
 	StoreID    string    `json:"store_id"`
 	Membership string    `json:"membership"` // "MEMBER", "EXCLUDED", "METADATA"; empty = legacy client → MEMBER
 	Favorite   bool      `json:"favorite"`
+	Price      *int64    `json:"price_minor,omitempty"` // minor units, nil = unpriced (STORE-6)
 	CreatedAt  time.Time `json:"created_at"`
 }
 

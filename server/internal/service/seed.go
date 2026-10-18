@@ -14,6 +14,8 @@ func (s *Service) SeedDemoData(ctx context.Context) error {
 	id := func(n int) string {
 		return fmt.Sprintf("dd000000-0000-0000-0000-%012d", n)
 	}
+	ref := func(s string) *string { return &s }
+	price := func(v int64) *int64 { return &v }
 
 	householdID := id(1)
 	rewe := id(2)
@@ -95,8 +97,8 @@ func (s *Service) SeedDemoData(ctx context.Context) error {
 			{StoreID: dm, CategoryID: sonstiges, SortOrder: 2.0},
 		},
 		Items: []model.Item{
-			{ID: id(101), HouseholdID: householdID, CategoryID: &milch, Name: "Milch", Notes: "3.8% Vollmilch", Type: "PERMANENT", SortOrder: 1.0, CreatedAt: now, UpdatedAt: now},
-			{ID: id(102), HouseholdID: householdID, CategoryID: &back, Name: "Brot", Notes: "", Type: "PERMANENT", SortOrder: 2.0, CreatedAt: now, UpdatedAt: now},
+			{ID: id(101), HouseholdID: householdID, CategoryID: &milch, Name: "Milch", Notes: "3.8% Vollmilch", Type: "PERMANENT", ReferenceSize: ref("1 l"), SortOrder: 1.0, CreatedAt: now, UpdatedAt: now},
+			{ID: id(102), HouseholdID: householdID, CategoryID: &back, Name: "Brot", Notes: "", Type: "PERMANENT", ReferenceSize: ref("750 g"), SortOrder: 2.0, CreatedAt: now, UpdatedAt: now},
 			{ID: id(103), HouseholdID: householdID, CategoryID: &milch, Name: "Butter", Notes: "", Type: "PERMANENT", SortOrder: 3.0, CreatedAt: now, UpdatedAt: now},
 			{ID: id(104), HouseholdID: householdID, CategoryID: &milch, Name: "Haferdrink", Notes: "Barista-Edition", Type: "PERMANENT", SortOrder: 4.0, CreatedAt: now, UpdatedAt: now},
 			{ID: id(105), HouseholdID: householdID, CategoryID: &milch, Name: "Käse", Notes: "Gouda jung", Type: "PERMANENT", SortOrder: 5.0, CreatedAt: now, UpdatedAt: now},
@@ -106,14 +108,14 @@ func (s *Service) SeedDemoData(ctx context.Context) error {
 			{ID: id(109), HouseholdID: householdID, CategoryID: &grund, Name: "Kaffee", Notes: "Bohnen, dunkle Röstung", Type: "PERMANENT", SortOrder: 9.0, CreatedAt: now, UpdatedAt: now},
 			{ID: id(110), HouseholdID: householdID, CategoryID: &grund, Name: "Nudeln", Notes: "Spaghetti No. 5", Type: "PERMANENT", SortOrder: 10.0, CreatedAt: now, UpdatedAt: now},
 			{ID: id(111), HouseholdID: householdID, CategoryID: &grund, Name: "Tomatenpassata", Notes: "", Type: "PERMANENT", SortOrder: 11.0, CreatedAt: now, UpdatedAt: now},
-			{ID: id(112), HouseholdID: householdID, CategoryID: &haushalt, Name: "Spülmittel", Notes: "", Type: "PERMANENT", SortOrder: 12.0, CreatedAt: now, UpdatedAt: now},
+			{ID: id(112), HouseholdID: householdID, CategoryID: &haushalt, Name: "Spülmittel", Notes: "", Type: "PERMANENT", ReferenceSize: ref("500 ml"), SortOrder: 12.0, CreatedAt: now, UpdatedAt: now},
 			{ID: id(113), HouseholdID: householdID, CategoryID: &haushalt, Name: "Toilettenpapier", Notes: "dreilagig", Type: "PERMANENT", SortOrder: 13.0, CreatedAt: now, UpdatedAt: now},
 			{ID: id(114), HouseholdID: householdID, CategoryID: &sonstiges, Name: "Geburtstagskerzen", Notes: "", Type: "ONE_TIME", SortOrder: 14.0, CreatedAt: now, UpdatedAt: now},
 			{ID: id(115), HouseholdID: householdID, CategoryID: nil, Name: "Geschenkpapier", Notes: "", Type: "ONE_TIME", SortOrder: 15.0, CreatedAt: now, UpdatedAt: now},
 		},
 		ItemStores: []model.ItemStore{
-			{ItemID: id(101), StoreID: rewe, Favorite: true, CreatedAt: now},
-			{ItemID: id(101), StoreID: aldi, CreatedAt: now},
+			{ItemID: id(101), StoreID: rewe, Favorite: true, Price: price(119), CreatedAt: now},
+			{ItemID: id(101), StoreID: aldi, Price: price(109), CreatedAt: now},
 			{ItemID: id(102), StoreID: rewe, CreatedAt: now},
 			{ItemID: id(102), StoreID: aldi, Favorite: true, CreatedAt: now},
 			{ItemID: id(103), StoreID: rewe, CreatedAt: now},
@@ -122,12 +124,12 @@ func (s *Service) SeedDemoData(ctx context.Context) error {
 			{ItemID: id(106), StoreID: rewe, CreatedAt: now},
 			{ItemID: id(107), StoreID: rewe, CreatedAt: now},
 			// Bananen: covered via the Supermarkt group selection, with REWE favorited
-			{ItemID: id(108), StoreID: rewe, Membership: "METADATA", Favorite: true, CreatedAt: now},
+			{ItemID: id(108), StoreID: rewe, Membership: "METADATA", Favorite: true, Price: price(139), CreatedAt: now},
 			{ItemID: id(109), StoreID: rewe, CreatedAt: now},
 			{ItemID: id(110), StoreID: aldi, CreatedAt: now},
 			{ItemID: id(111), StoreID: rewe, CreatedAt: now},
-			// Spülmittel: Supermarkt selection with REWE excluded, dm explicit
-			{ItemID: id(112), StoreID: rewe, Membership: "EXCLUDED", CreatedAt: now},
+			// Spülmittel: Supermarkt selection with REWE excluded, dm explicit (excluded price stays dormant)
+			{ItemID: id(112), StoreID: rewe, Membership: "EXCLUDED", Price: price(129), CreatedAt: now},
 			{ItemID: id(112), StoreID: dm, CreatedAt: now},
 			{ItemID: id(113), StoreID: aldi, CreatedAt: now},
 			{ItemID: id(113), StoreID: dm, CreatedAt: now},
