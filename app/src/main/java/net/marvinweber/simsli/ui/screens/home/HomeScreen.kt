@@ -20,16 +20,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
+import androidx.annotation.StringRes
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
+import net.marvinweber.simsli.R
 import net.marvinweber.simsli.ui.screens.catalog.CatalogScreen
 import net.marvinweber.simsli.ui.screens.dashboard.DashboardScreen
 import net.marvinweber.simsli.ui.screens.list.ListTabContent
 
-enum class HomeTab(val label: String) {
-    DASHBOARD("Dashboard"),
-    LIST("Shopping List"),
-    CATALOG("Catalog")
+enum class HomeTab(@StringRes val labelRes: Int) {
+    DASHBOARD(R.string.nav_tab_dashboard),
+    LIST(R.string.nav_tab_list),
+    CATALOG(R.string.nav_tab_catalog)
 }
 
 /**
@@ -82,7 +85,7 @@ fun HomeScreen(
                             )
                         },
                         label = {
-                            Text(tab.label)
+                            Text(stringResource(tab.labelRes))
                         }
                     )
                 }

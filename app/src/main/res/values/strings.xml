@@ -12,4 +12,52 @@
     <string name="sync_offline_toast">Can\'t reach the server. Your changes are saved on this device and sync automatically once you\'re back online.</string>
     <string name="sync_pending">Pending changes</string>
     <string name="sync_pending_toast">Your changes are being synced to the server.</string>
+
+    <!-- Navigation -->
+    <string name="nav_tab_dashboard">Dashboard</string>
+    <string name="nav_tab_list">Shopping List</string>
+    <string name="nav_tab_catalog">Catalog</string>
+
+    <!-- Shared -->
+    <string name="category_uncategorized">Uncategorized</string>
+    <string name="common_error_no_household">No household found</string>
+    <string name="common_error_update_order_failed">Failed to update order: %1$s</string>
+    <string name="common_error_sync_failed">Sync failed: %1$s</string>
+
+    <!-- Item detail -->
+    <string name="item_error_empty_name">Item name cannot be empty</string>
+    <string name="item_error_create_failed">Failed to create item: %1$s</string>
+    <string name="item_error_save_failed">Failed to save item: %1$s</string>
+    <string name="item_error_save_prices_failed">Failed to save prices: %1$s</string>
+    <string name="item_error_delete_failed">Failed to delete item: %1$s</string>
+
+    <!-- Categories -->
+    <string name="categories_error_empty_name">Category name cannot be empty</string>
+    <string name="categories_error_not_found">Category not found</string>
+    <string name="categories_error_create_failed">Failed to create category: %1$s</string>
+    <string name="categories_error_update_failed">Failed to update category: %1$s</string>
+    <string name="categories_error_delete_failed">Failed to delete category: %1$s</string>
+
+    <!-- Stores -->
+    <string name="stores_error_empty_name">Store name cannot be empty</string>
+    <string name="stores_error_not_found">Store not found</string>
+    <string name="stores_error_create_failed">Failed to create store: %1$s</string>
+    <string name="stores_error_update_failed">Failed to update store: %1$s</string>
+    <string name="stores_error_update_category_order_failed">Failed to update category order: %1$s</string>
+    <string name="stores_error_delete_failed">Failed to delete store: %1$s</string>
+    <string name="stores_error_empty_group_name">Group name cannot be empty</string>
+    <string name="stores_error_group_not_found">Group not found</string>
+    <string name="stores_error_create_group_failed">Failed to create group: %1$s</string>
+    <string name="stores_error_update_group_failed">Failed to update group: %1$s</string>
+    <string name="stores_error_delete_group_failed">Failed to delete group: %1$s</string>
+
+    <!-- Shopping list -->
+    <string name="list_error_create_household_failed">Failed to create household: %1$s</string>
+    <string name="list_error_update_item_failed">Failed to update item: %1$s</string>
+    <string name="list_error_revert_item_failed">Failed to revert item: %1$s</string>
+    <string name="list_error_add_item_failed">Failed to add item: %1$s</string>
+    <string name="list_error_create_item_failed">Failed to create item: %1$s</string>
+    <string name="list_error_save_failed">Failed to save: %1$s</string>
+    <string name="list_error_remove_item_failed">Failed to remove item: %1$s</string>
+    <string name="list_error_clear_items_failed">Failed to clear items: %1$s</string>
 </resources>

@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import net.marvinweber.simsli.R
 import net.marvinweber.simsli.data.repository.CategoryRepository
 import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.data.repository.ItemRepository
@@ -30,6 +31,7 @@ import net.marvinweber.simsli.domain.model.Store
 import net.marvinweber.simsli.domain.model.StoreGroup
 import net.marvinweber.simsli.domain.model.StoreSelection
 import net.marvinweber.simsli.domain.util.EffectiveStoreSet
+import net.marvinweber.simsli.ui.UiMessage
 import net.marvinweber.simsli.ui.components.WebTitleFetcher
 import java.time.Instant
 import javax.inject.Inject
@@ -81,7 +83,7 @@ data class ItemDetailUiState(
 
 sealed class ItemDetailUiEvent {
     data object NavigateBack : ItemDetailUiEvent()
-    data class ShowError(val message: String) : ItemDetailUiEvent()
+    data class ShowError(val message: UiMessage) : ItemDetailUiEvent()
     data class ShowDuplicateWarning(
         val matchedName: String,
         val matchType: net.marvinweber.simsli.domain.model.ItemMatchType
@@ -251,12 +253,12 @@ class ItemDetailViewModel @Inject constructor(
         viewModelScope.launch {
             val household = uiState.value.household
             if (household == null) {
-                _events.value = ItemDetailUiEvent.ShowError("No household found")
+                _events.value = ItemDetailUiEvent.ShowError(UiMessage(R.string.common_error_no_household))
                 return@launch
             }
             val trimmedName = name.trim()
             if (trimmedName.isBlank()) {
-                _events.value = ItemDetailUiEvent.ShowError("Item name cannot be empty")
+                _events.value = ItemDetailUiEvent.ShowError(UiMessage(R.string.item_error_empty_name))
                 return@launch
             }
 
@@ -305,7 +307,7 @@ class ItemDetailViewModel @Inject constructor(
                     }
                     .onFailure { error ->
                         isSaving.value = false
-                        _events.value = ItemDetailUiEvent.ShowError("Failed to create item: ${error.message}")
+                        _events.value = ItemDetailUiEvent.ShowError(UiMessage(R.string.item_error_create_failed, listOf(error.message.orEmpty())))
                     }
             } else {
                 itemRepository.updateItem(
@@ -326,7 +328,7 @@ class ItemDetailViewModel @Inject constructor(
                     _events.value = ItemDetailUiEvent.NavigateBack
                 }.onFailure { error ->
                     isSaving.value = false
-                    _events.value = ItemDetailUiEvent.ShowError("Failed to save item: ${error.message}")
+                    _events.value = ItemDetailUiEvent.ShowError(UiMessage(R.string.item_error_save_failed, listOf(error.message.orEmpty())))
                 }
             }
         }
@@ -337,7 +339,7 @@ class ItemDetailViewModel @Inject constructor(
         if (edits.prices.isNotEmpty()) {
             itemStoreRepository.savePrices(targetItemId, edits.prices)
                 .onFailure { error ->
-                    _events.value = ItemDetailUiEvent.ShowError("Failed to save prices: ${error.message}")
+                    _events.value = ItemDetailUiEvent.ShowError(UiMessage(R.string.item_error_save_prices_failed, listOf(error.message.orEmpty())))
                 }
         }
         clearPriceEdits()
@@ -354,7 +356,7 @@ class ItemDetailViewModel @Inject constructor(
                 }
                 .onFailure { error ->
                     isSaving.value = false
-                    _events.value = ItemDetailUiEvent.ShowError("Failed to delete item: ${error.message}")
+                    _events.value = ItemDetailUiEvent.ShowError(UiMessage(R.string.item_error_delete_failed, listOf(error.message.orEmpty())))
                 }
         }
     }

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
 import net.marvinweber.simsli.R
 import net.marvinweber.simsli.ui.components.SimsliSearchTopAppBar
+import net.marvinweber.simsli.ui.resolve
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -115,6 +116,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -186,6 +189,7 @@ fun ListTabContent(
         viewModel.clearSearchQuery()
     }
 
+    val context = LocalContext.current
     LaunchedEffect(Unit) {
         var snackbarJob: Job? = null
         viewModel.events.collect { event ->
@@ -194,7 +198,7 @@ fun ListTabContent(
                     snackbarJob?.cancel()
                     snackbarJob = launch {
                         snackbarHostState.showSnackbar(
-                            message = event.message,
+                            message = event.message.resolve(context),
                             withDismissAction = true,
                             duration = SnackbarDuration.Short
                         )
@@ -358,9 +362,9 @@ fun ListTabContent(
                     uiState.activeGroups.forEach { group ->
                         item(key = "category_header_${group.key}") {
                             CategorySectionHeader(
-                                title = group.title,
+                                title = if (group.isImplicit) stringResource(R.string.category_uncategorized) else group.title,
                                 emoji = group.emoji,
-                                isImplicit = group.key == "uncategorized",
+                                isImplicit = group.isImplicit,
                                 modifier = Modifier.animateItem()
                             )
                         }

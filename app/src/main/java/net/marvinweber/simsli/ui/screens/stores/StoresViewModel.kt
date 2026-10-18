@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import net.marvinweber.simsli.R
 import net.marvinweber.simsli.data.repository.CategoryRepository
 import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.data.repository.StoreGroupRepository
@@ -23,6 +24,7 @@ import net.marvinweber.simsli.domain.model.Store
 import net.marvinweber.simsli.domain.model.StoreCategory
 import net.marvinweber.simsli.domain.model.StoreGroup
 import net.marvinweber.simsli.domain.util.SearchFold
+import net.marvinweber.simsli.ui.UiMessage
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -40,7 +42,7 @@ data class StoresUiState(
 )
 
 sealed class StoresUiEvent {
-    data class ShowError(val message: String) : StoresUiEvent()
+    data class ShowError(val message: UiMessage) : StoresUiEvent()
     data class ConfirmDeleteStore(val storeId: String, val storeName: String) : StoresUiEvent()
     data class ConfirmDeleteGroup(val groupId: String, val groupName: String) : StoresUiEvent()
 }
@@ -112,12 +114,12 @@ class StoresViewModel @Inject constructor(
         viewModelScope.launch {
             val household = uiState.value.household
             if (household == null) {
-                _events.value = StoresUiEvent.ShowError("No household found")
+                _events.value = StoresUiEvent.ShowError(UiMessage(R.string.common_error_no_household))
                 return@launch
             }
 
             if (name.isBlank()) {
-                _events.value = StoresUiEvent.ShowError("Store name cannot be empty")
+                _events.value = StoresUiEvent.ShowError(UiMessage(R.string.stores_error_empty_name))
                 return@launch
             }
 
@@ -134,7 +136,7 @@ class StoresViewModel @Inject constructor(
 
             storeRepository.createStore(store)
                 .onFailure { error ->
-                    _events.value = StoresUiEvent.ShowError("Failed to create store: ${error.message}")
+                    _events.value = StoresUiEvent.ShowError(UiMessage(R.string.stores_error_create_failed, listOf(error.message.orEmpty())))
                 }
         }
     }
@@ -148,21 +150,21 @@ class StoresViewModel @Inject constructor(
         viewModelScope.launch {
             val store = uiState.value.stores.find { it.id == storeId }
             if (store == null) {
-                _events.value = StoresUiEvent.ShowError("Store not found")
+                _events.value = StoresUiEvent.ShowError(UiMessage(R.string.stores_error_not_found))
                 return@launch
             }
             if (name.isBlank()) {
-                _events.value = StoresUiEvent.ShowError("Store name cannot be empty")
+                _events.value = StoresUiEvent.ShowError(UiMessage(R.string.stores_error_empty_name))
                 return@launch
             }
             val updateStoreResult = storeRepository.updateStore(store.copy(name = name.trim(), groupId = groupId))
             if (updateStoreResult.isFailure) {
-                _events.value = StoresUiEvent.ShowError("Failed to update store: ${updateStoreResult.exceptionOrNull()?.message}")
+                _events.value = StoresUiEvent.ShowError(UiMessage(R.string.stores_error_update_failed, listOf(updateStoreResult.exceptionOrNull()?.message.orEmpty())))
                 return@launch
             }
             val updateCategoriesResult = categoryRepository.saveStoreCategories(storeId, orderedCategoryIds)
             if (updateCategoriesResult.isFailure) {
-                _events.value = StoresUiEvent.ShowError("Failed to update category order: ${updateCategoriesResult.exceptionOrNull()?.message}")
+                _events.value = StoresUiEvent.ShowError(UiMessage(R.string.stores_error_update_category_order_failed, listOf(updateCategoriesResult.exceptionOrNull()?.message.orEmpty())))
             }
         }
     }
@@ -171,7 +173,7 @@ class StoresViewModel @Inject constructor(
         viewModelScope.launch {
             val store = uiState.value.stores.find { it.id == storeId }
             if (store == null) {
-                _events.value = StoresUiEvent.ShowError("Store not found")
+                _events.value = StoresUiEvent.ShowError(UiMessage(R.string.stores_error_not_found))
                 return@launch
             }
 
@@ -183,7 +185,7 @@ class StoresViewModel @Inject constructor(
         viewModelScope.launch {
             storeRepository.deleteStore(storeId)
                 .onFailure { error ->
-                    _events.value = StoresUiEvent.ShowError("Failed to delete store: ${error.message}")
+                    _events.value = StoresUiEvent.ShowError(UiMessage(R.string.stores_error_delete_failed, listOf(error.message.orEmpty())))
                 }
         }
     }
@@ -192,11 +194,11 @@ class StoresViewModel @Inject constructor(
         viewModelScope.launch {
             val household = uiState.value.household
             if (household == null) {
-                _events.value = StoresUiEvent.ShowError("No household found")
+                _events.value = StoresUiEvent.ShowError(UiMessage(R.string.common_error_no_household))
                 return@launch
             }
             if (name.isBlank()) {
-                _events.value = StoresUiEvent.ShowError("Group name cannot be empty")
+                _events.value = StoresUiEvent.ShowError(UiMessage(R.string.stores_error_empty_group_name))
                 return@launch
             }
             val now = Instant.now()
@@ -210,7 +212,7 @@ class StoresViewModel @Inject constructor(
             )
             storeGroupRepository.upsertGroup(group)
                 .onFailure { error ->
-                    _events.value = StoresUiEvent.ShowError("Failed to create group: ${error.message}")
+                    _events.value = StoresUiEvent.ShowError(UiMessage(R.string.stores_error_create_group_failed, listOf(error.message.orEmpty())))
                 }
         }
     }
@@ -219,16 +221,16 @@ class StoresViewModel @Inject constructor(
         viewModelScope.launch {
             val group = uiState.value.storeGroups.find { it.id == groupId }
             if (group == null) {
-                _events.value = StoresUiEvent.ShowError("Group not found")
+                _events.value = StoresUiEvent.ShowError(UiMessage(R.string.stores_error_group_not_found))
                 return@launch
             }
             if (name.isBlank()) {
-                _events.value = StoresUiEvent.ShowError("Group name cannot be empty")
+                _events.value = StoresUiEvent.ShowError(UiMessage(R.string.stores_error_empty_group_name))
                 return@launch
             }
             storeGroupRepository.upsertGroup(group.copy(name = name.trim()))
                 .onFailure { error ->
-                    _events.value = StoresUiEvent.ShowError("Failed to update group: ${error.message}")
+                    _events.value = StoresUiEvent.ShowError(UiMessage(R.string.stores_error_update_group_failed, listOf(error.message.orEmpty())))
                 }
         }
     }
@@ -237,7 +239,7 @@ class StoresViewModel @Inject constructor(
         viewModelScope.launch {
             val group = uiState.value.storeGroups.find { it.id == groupId }
             if (group == null) {
-                _events.value = StoresUiEvent.ShowError("Group not found")
+                _events.value = StoresUiEvent.ShowError(UiMessage(R.string.stores_error_group_not_found))
                 return@launch
             }
             _events.value = StoresUiEvent.ConfirmDeleteGroup(groupId, group.name)
@@ -248,7 +250,7 @@ class StoresViewModel @Inject constructor(
         viewModelScope.launch {
             storeGroupRepository.deleteGroup(groupId)
                 .onFailure { error ->
-                    _events.value = StoresUiEvent.ShowError("Failed to delete group: ${error.message}")
+                    _events.value = StoresUiEvent.ShowError(UiMessage(R.string.stores_error_delete_group_failed, listOf(error.message.orEmpty())))
                 }
         }
     }
@@ -269,7 +271,7 @@ class StoresViewModel @Inject constructor(
                 if (newSortOrder != null) {
                     storeGroupRepository.updateGroupSortOrders(listOf(movedItem.id to newSortOrder))
                         .onFailure { error ->
-                            _events.value = StoresUiEvent.ShowError("Failed to update order: ${error.message}")
+                            _events.value = StoresUiEvent.ShowError(UiMessage(R.string.common_error_update_order_failed, listOf(error.message.orEmpty())))
                         }
                     return@launch
                 }
@@ -280,7 +282,7 @@ class StoresViewModel @Inject constructor(
             }
             storeGroupRepository.updateGroupSortOrders(updates)
                 .onFailure { error ->
-                    _events.value = StoresUiEvent.ShowError("Failed to update order: ${error.message}")
+                    _events.value = StoresUiEvent.ShowError(UiMessage(R.string.common_error_update_order_failed, listOf(error.message.orEmpty())))
                 }
         }
     }

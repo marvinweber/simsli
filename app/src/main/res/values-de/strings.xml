@@ -1,0 +1,63 @@
+<resources>
+    <string name="app_name">Simsli</string>
+    <string name="settings">Einstellungen</string>
+    <string name="stores">Geschäfte</string>
+    <string name="add_item">Artikel hinzufügen</string>
+    <string name="all_stores">Alle</string>
+    <string name="empty_list">Deine Liste ist leer</string>
+    <string name="empty_list_hint">Füge Artikel hinzu, um loszulegen</string>
+    <string name="shortcut_add_item_short">Artikel hinzufügen</string>
+    <string name="shortcut_add_item_long">Artikel zur Liste hinzufügen</string>
+    <string name="sync_offline">Offline</string>
+    <string name="sync_offline_toast">Server nicht erreichbar. Deine Änderungen werden auf diesem Gerät gespeichert und automatisch synchronisiert, sobald du wieder online bist.</string>
+    <string name="sync_pending">Ausstehende Änderungen</string>
+    <string name="sync_pending_toast">Deine Änderungen werden mit dem Server synchronisiert.</string>
+
+    <!-- Navigation -->
+    <string name="nav_tab_dashboard">Dashboard</string>
+    <string name="nav_tab_list">Einkaufsliste</string>
+    <string name="nav_tab_catalog">Katalog</string>
+
+    <!-- Shared -->
+    <string name="category_uncategorized">Ohne Kategorie</string>
+    <string name="common_error_no_household">Kein Haushalt gefunden</string>
+    <string name="common_error_update_order_failed">Reihenfolge konnte nicht aktualisiert werden: %1$s</string>
+    <string name="common_error_sync_failed">Synchronisierung fehlgeschlagen: %1$s</string>
+
+    <!-- Item detail -->
+    <string name="item_error_empty_name">Der Artikelname darf nicht leer sein</string>
+    <string name="item_error_create_failed">Artikel konnte nicht erstellt werden: %1$s</string>
+    <string name="item_error_save_failed">Artikel konnte nicht gespeichert werden: %1$s</string>
+    <string name="item_error_save_prices_failed">Preise konnten nicht gespeichert werden: %1$s</string>
+    <string name="item_error_delete_failed">Artikel konnte nicht gelöscht werden: %1$s</string>
+
+    <!-- Categories -->
+    <string name="categories_error_empty_name">Der Kategoriename darf nicht leer sein</string>
+    <string name="categories_error_not_found">Kategorie nicht gefunden</string>
+    <string name="categories_error_create_failed">Kategorie konnte nicht erstellt werden: %1$s</string>
+    <string name="categories_error_update_failed">Kategorie konnte nicht aktualisiert werden: %1$s</string>
+    <string name="categories_error_delete_failed">Kategorie konnte nicht gelöscht werden: %1$s</string>
+
+    <!-- Stores -->
+    <string name="stores_error_empty_name">Der Geschäftsname darf nicht leer sein</string>
+    <string name="stores_error_not_found">Geschäft nicht gefunden</string>
+    <string name="stores_error_create_failed">Geschäft konnte nicht erstellt werden: %1$s</string>
+    <string name="stores_error_update_failed">Geschäft konnte nicht aktualisiert werden: %1$s</string>
+    <string name="stores_error_update_category_order_failed">Kategorien-Reihenfolge konnte nicht aktualisiert werden: %1$s</string>
+    <string name="stores_error_delete_failed">Geschäft konnte nicht gelöscht werden: %1$s</string>
+    <string name="stores_error_empty_group_name">Der Gruppenname darf nicht leer sein</string>
+    <string name="stores_error_group_not_found">Gruppe nicht gefunden</string>
+    <string name="stores_error_create_group_failed">Gruppe konnte nicht erstellt werden: %1$s</string>
+    <string name="stores_error_update_group_failed">Gruppe konnte nicht aktualisiert werden: %1$s</string>
+    <string name="stores_error_delete_group_failed">Gruppe konnte nicht gelöscht werden: %1$s</string>
+
+    <!-- Shopping list -->
+    <string name="list_error_create_household_failed">Haushalt konnte nicht erstellt werden: %1$s</string>
+    <string name="list_error_update_item_failed">Eintrag konnte nicht aktualisiert werden: %1$s</string>
+    <string name="list_error_revert_item_failed">Eintrag konnte nicht zurückgesetzt werden: %1$s</string>
+    <string name="list_error_add_item_failed">Eintrag konnte nicht hinzugefügt werden: %1$s</string>
+    <string name="list_error_create_item_failed">Artikel konnte nicht erstellt werden: %1$s</string>
+    <string name="list_error_save_failed">Speichern fehlgeschlagen: %1$s</string>
+    <string name="list_error_remove_item_failed">Eintrag konnte nicht entfernt werden: %1$s</string>
+    <string name="list_error_clear_items_failed">Einträge konnten nicht entfernt werden: %1$s</string>
+</resources>

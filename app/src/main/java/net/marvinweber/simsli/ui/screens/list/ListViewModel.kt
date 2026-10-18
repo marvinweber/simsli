@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.marvinweber.simsli.R
 import net.marvinweber.simsli.data.repository.AuthRepository
 import net.marvinweber.simsli.data.repository.AuthState
 import net.marvinweber.simsli.data.repository.CategoryRepository
@@ -45,6 +46,7 @@ import net.marvinweber.simsli.domain.util.EffectiveStoreSet
 import net.marvinweber.simsli.domain.util.NameOrder
 import net.marvinweber.simsli.domain.util.isNewFromOthers
 import net.marvinweber.simsli.domain.util.SearchFold
+import net.marvinweber.simsli.ui.UiMessage
 import java.time.Instant
 import javax.inject.Inject
 
@@ -58,8 +60,10 @@ data class ListEntryItem(
 /** A group of active list entries belonging to a category (LIST-6). */
 data class CategoryGroupUi(
     val key: String,
+    /** Category name; empty for the implicit uncategorized group (resolved in the UI). */
     val title: String,
     val emoji: String? = null,
+    val isImplicit: Boolean = false,
     val entries: List<ListEntryItem>
 )
 
@@ -103,7 +107,7 @@ data class ListUiState(
 )
 
 sealed interface ListUiEvent {
-    data class ShowError(val message: String) : ListUiEvent
+    data class ShowError(val message: UiMessage) : ListUiEvent
     data class ItemCompleted(val entryId: String, val itemName: String) : ListUiEvent
 }
 
@@ -281,8 +285,9 @@ class ListViewModel @Inject constructor(
                     activeGroups.add(
                         CategoryGroupUi(
                             key = "uncategorized",
-                            title = "Uncategorized",
+                            title = "",
                             emoji = null,
+                            isImplicit = true,
                             entries = uncategorizedEntries.sortedWith(
                                 NameOrder.byName<ListEntryItem> { it.item?.name ?: "" }
                             )
@@ -393,7 +398,7 @@ class ListViewModel @Inject constructor(
             if (householdRepository.getHousehold().first() == null) {
                 householdRepository.createHousehold("My household")
                     .onFailure { error ->
-                        _events.emit(ListUiEvent.ShowError("Failed to create household: ${error.message}"))
+                        _events.emit(ListUiEvent.ShowError(UiMessage(R.string.list_error_create_household_failed, listOf(error.message.orEmpty()))))
                     }
             }
         }
@@ -473,14 +478,14 @@ class ListViewModel @Inject constructor(
                         _events.emit(ListUiEvent.ItemCompleted(listEntryId, itemName))
                     }
                     .onFailure { error ->
-                        _events.emit(ListUiEvent.ShowError("Failed to update item: ${error.message}"))
+                        _events.emit(ListUiEvent.ShowError(UiMessage(R.string.list_error_update_item_failed, listOf(error.message.orEmpty()))))
                     }
                 completingEntryIds.update { it - listEntryId }
             } else {
                 // Done -> Active: immediately uncheck
                 listEntryRepository.updateListEntryDoneStatus(listEntryId, false)
                     .onFailure { error ->
-                        _events.emit(ListUiEvent.ShowError("Failed to update item: ${error.message}"))
+                        _events.emit(ListUiEvent.ShowError(UiMessage(R.string.list_error_update_item_failed, listOf(error.message.orEmpty()))))
                     }
             }
         }
@@ -490,7 +495,7 @@ class ListViewModel @Inject constructor(
         viewModelScope.launch {
             listEntryRepository.updateListEntryDoneStatus(listEntryId, false)
                 .onFailure { error ->
-                    _events.emit(ListUiEvent.ShowError("Failed to revert item: ${error.message}"))
+                    _events.emit(ListUiEvent.ShowError(UiMessage(R.string.list_error_revert_item_failed, listOf(error.message.orEmpty()))))
                 }
         }
     }
@@ -610,7 +615,7 @@ class ListViewModel @Inject constructor(
                     }
                 }
             }.onFailure { error ->
-                _events.emit(ListUiEvent.ShowError("Failed to add item: ${error.message}"))
+                _events.emit(ListUiEvent.ShowError(UiMessage(R.string.list_error_add_item_failed, listOf(error.message.orEmpty()))))
                 sheetUi.update { it.copy(isAddInProgress = false) }
             }
         }
@@ -654,11 +659,11 @@ class ListViewModel @Inject constructor(
                     dismissAddSheet()
                     onCreated(created.id)
                 }.onFailure { error ->
-                    _events.emit(ListUiEvent.ShowError("Failed to add item: ${error.message}"))
+                    _events.emit(ListUiEvent.ShowError(UiMessage(R.string.list_error_add_item_failed, listOf(error.message.orEmpty()))))
                     sheetUi.update { it.copy(isAddInProgress = false) }
                 }
             }.onFailure { error ->
-                _events.emit(ListUiEvent.ShowError("Failed to create item: ${error.message}"))
+                _events.emit(ListUiEvent.ShowError(UiMessage(R.string.list_error_create_item_failed, listOf(error.message.orEmpty()))))
                 sheetUi.update { it.copy(isAddInProgress = false) }
             }
         }
@@ -682,7 +687,7 @@ class ListViewModel @Inject constructor(
                 unit = unit,
                 comment = comment
             ).onFailure { error ->
-                _events.emit(ListUiEvent.ShowError("Failed to save: ${error.message}"))
+                _events.emit(ListUiEvent.ShowError(UiMessage(R.string.list_error_save_failed, listOf(error.message.orEmpty()))))
             }
             dismissEntryEditor()
         }
@@ -692,7 +697,7 @@ class ListViewModel @Inject constructor(
         viewModelScope.launch {
             listEntryRepository.deleteListEntry(listEntryId)
                 .onFailure { error ->
-                    _events.emit(ListUiEvent.ShowError("Failed to remove item: ${error.message}"))
+                    _events.emit(ListUiEvent.ShowError(UiMessage(R.string.list_error_remove_item_failed, listOf(error.message.orEmpty()))))
                 }
             dismissEntryEditor()
         }
@@ -704,7 +709,7 @@ class ListViewModel @Inject constructor(
         viewModelScope.launch {
             listEntryRepository.deleteListEntries(entryIds)
                 .onFailure { error ->
-                    _events.emit(ListUiEvent.ShowError("Failed to clear items: ${error.message}"))
+                    _events.emit(ListUiEvent.ShowError(UiMessage(R.string.list_error_clear_items_failed, listOf(error.message.orEmpty()))))
                 }
         }
     }
@@ -713,7 +718,7 @@ class ListViewModel @Inject constructor(
         viewModelScope.launch {
             syncManager.syncNow("manual")
                 .onFailure { error ->
-                    _events.emit(ListUiEvent.ShowError("Sync failed: ${error.message}"))
+                    _events.emit(ListUiEvent.ShowError(UiMessage(R.string.common_error_sync_failed, listOf(error.message.orEmpty()))))
                 }
         }
     }

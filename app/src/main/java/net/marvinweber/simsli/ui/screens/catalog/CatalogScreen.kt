@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.ui.graphics.vector.ImageVector
+import net.marvinweber.simsli.R
 import net.marvinweber.simsli.domain.model.ItemType
 import net.marvinweber.simsli.ui.components.CategorySectionHeader
 import net.marvinweber.simsli.ui.components.LinkUtils
@@ -55,6 +56,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
@@ -325,7 +327,7 @@ private fun ItemsTabContent(
                     uiState.groups.forEach { group ->
                         item(key = "catalog_group_${group.key}") {
                             CategorySectionHeader(
-                                title = group.title,
+                                title = if (group.isImplicit) stringResource(R.string.category_uncategorized) else group.title,
                                 emoji = group.emoji,
                                 isImplicit = group.isImplicit,
                                 modifier = Modifier.animateItem()

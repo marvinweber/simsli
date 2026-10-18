@@ -30,6 +30,7 @@ data class CatalogItemRow(
 
 data class CatalogCategoryGroup(
     val key: String,
+    /** Category name; empty for the implicit uncategorized group (resolved in the UI). */
     val title: String,
     val emoji: String?,
     val isImplicit: Boolean,
@@ -117,7 +118,7 @@ class CatalogViewModel @Inject constructor(
                         groups.add(
                             CatalogCategoryGroup(
                                 key = "uncategorized",
-                                title = "Uncategorized",
+                                title = "",
                                 emoji = null,
                                 isImplicit = true,
                                 items = uncategorizedRows.sortedWith(NameOrder.byName { it.item.name })

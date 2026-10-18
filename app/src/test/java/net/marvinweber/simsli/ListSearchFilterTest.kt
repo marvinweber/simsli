@@ -54,7 +54,7 @@ class ListSearchFilterTest {
     fun `matching is case-insensitive on the item name`() {
         val active = listOf(entryItem("Milk"))
         val result = applyListSearch(
-            groups = listOf(CategoryGroupUi("c1", "Cat", null, active)),
+            groups = listOf(CategoryGroupUi("c1", "Cat", null, entries = active)),
             activeEntries = active, recentlyChecked = emptyList(), catalog = emptyList(),
             query = "milk",
             effectiveStoreIdsByItem = emptyMap(), stores = emptyList(),
@@ -71,7 +71,7 @@ class ListSearchFilterTest {
         // the fold is injected so the filtering logic is testable with a stub.
         val active = listOf(entryItem("Äpfel"))
         val result = applyListSearch(
-            groups = listOf(CategoryGroupUi("c1", "Obst", null, active)),
+            groups = listOf(CategoryGroupUi("c1", "Obst", null, entries = active)),
             activeEntries = active, recentlyChecked = emptyList(), catalog = emptyList(),
             query = "apfel",
             effectiveStoreIdsByItem = emptyMap(), stores = emptyList(),
@@ -100,7 +100,7 @@ class ListSearchFilterTest {
         val active = listOf(entryItem("Milk"))
         val catalog = listOf(catalogItem(item("i1", "Cookies")))
         val result = applyListSearch(
-            groups = listOf(CategoryGroupUi("c1", "Cat", null, active)),
+            groups = listOf(CategoryGroupUi("c1", "Cat", null, entries = active)),
             activeEntries = active, recentlyChecked = emptyList(), catalog = catalog,
             query = "   ",
             effectiveStoreIdsByItem = emptyMap(), stores = emptyList(),
@@ -172,8 +172,8 @@ class ListSearchFilterTest {
     @Test
     fun `groups left empty by the query are dropped`() {
         val groups = listOf(
-            CategoryGroupUi("c1", "Dairy", null, listOf(entryItem("Milk"))),
-            CategoryGroupUi("c2", "Bakery", null, listOf(entryItem("Bread")))
+            CategoryGroupUi("c1", "Dairy", null, entries = listOf(entryItem("Milk"))),
+            CategoryGroupUi("c2", "Bakery", null, entries = listOf(entryItem("Bread")))
         )
         val result = applyListSearch(
             groups = groups,

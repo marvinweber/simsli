@@ -13,11 +13,13 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import net.marvinweber.simsli.R
 import net.marvinweber.simsli.data.repository.CategoryRepository
 import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.Household
 import net.marvinweber.simsli.domain.util.SearchFold
+import net.marvinweber.simsli.ui.UiMessage
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -32,7 +34,7 @@ data class CategoriesUiState(
 )
 
 sealed class CategoriesUiEvent {
-    data class ShowError(val message: String) : CategoriesUiEvent()
+    data class ShowError(val message: UiMessage) : CategoriesUiEvent()
     data class ConfirmDeleteCategory(val categoryId: String, val categoryName: String, val categoryEmoji: String?) : CategoriesUiEvent()
 }
 
@@ -86,12 +88,12 @@ class CategoriesViewModel @Inject constructor(
         viewModelScope.launch {
             val household = uiState.value.household
             if (household == null) {
-                _events.value = CategoriesUiEvent.ShowError("No household found")
+                _events.value = CategoriesUiEvent.ShowError(UiMessage(R.string.common_error_no_household))
                 return@launch
             }
 
             if (name.isBlank()) {
-                _events.value = CategoriesUiEvent.ShowError("Category name cannot be empty")
+                _events.value = CategoriesUiEvent.ShowError(UiMessage(R.string.categories_error_empty_name))
                 return@launch
             }
 
@@ -108,7 +110,7 @@ class CategoriesViewModel @Inject constructor(
 
             categoryRepository.createCategory(category)
                 .onFailure { error ->
-                    _events.value = CategoriesUiEvent.ShowError("Failed to create category: ${error.message}")
+                    _events.value = CategoriesUiEvent.ShowError(UiMessage(R.string.categories_error_create_failed, listOf(error.message.orEmpty())))
                 }
         }
     }
@@ -117,12 +119,12 @@ class CategoriesViewModel @Inject constructor(
         viewModelScope.launch {
             val existing = uiState.value.categories.firstOrNull { it.id == categoryId }
             if (existing == null) {
-                _events.value = CategoriesUiEvent.ShowError("Category not found")
+                _events.value = CategoriesUiEvent.ShowError(UiMessage(R.string.categories_error_not_found))
                 return@launch
             }
 
             if (name.isBlank()) {
-                _events.value = CategoriesUiEvent.ShowError("Category name cannot be empty")
+                _events.value = CategoriesUiEvent.ShowError(UiMessage(R.string.categories_error_empty_name))
                 return@launch
             }
 
@@ -134,7 +136,7 @@ class CategoriesViewModel @Inject constructor(
 
             categoryRepository.updateCategory(updated)
                 .onFailure { error ->
-                    _events.value = CategoriesUiEvent.ShowError("Failed to update category: ${error.message}")
+                    _events.value = CategoriesUiEvent.ShowError(UiMessage(R.string.categories_error_update_failed, listOf(error.message.orEmpty())))
                 }
         }
     }
@@ -143,7 +145,7 @@ class CategoriesViewModel @Inject constructor(
         viewModelScope.launch {
             val category = uiState.value.categories.firstOrNull { it.id == categoryId }
             if (category == null) {
-                _events.value = CategoriesUiEvent.ShowError("Category not found")
+                _events.value = CategoriesUiEvent.ShowError(UiMessage(R.string.categories_error_not_found))
                 return@launch
             }
 
@@ -155,7 +157,7 @@ class CategoriesViewModel @Inject constructor(
         viewModelScope.launch {
             categoryRepository.deleteCategory(categoryId)
                 .onFailure { error ->
-                    _events.value = CategoriesUiEvent.ShowError("Failed to delete category: ${error.message}")
+                    _events.value = CategoriesUiEvent.ShowError(UiMessage(R.string.categories_error_delete_failed, listOf(error.message.orEmpty())))
                 }
         }
     }
@@ -176,7 +178,7 @@ class CategoriesViewModel @Inject constructor(
                 if (newSortOrder != null) {
                     categoryRepository.updateCategorySortOrder(movedItem.id, newSortOrder)
                         .onFailure { error ->
-                            _events.value = CategoriesUiEvent.ShowError("Failed to update order: ${error.message}")
+                            _events.value = CategoriesUiEvent.ShowError(UiMessage(R.string.common_error_update_order_failed, listOf(error.message.orEmpty())))
                         }
                     return@launch
                 }
@@ -188,7 +190,7 @@ class CategoriesViewModel @Inject constructor(
             }
             categoryRepository.reorderCategories(updates)
                 .onFailure { error ->
-                    _events.value = CategoriesUiEvent.ShowError("Failed to update order: ${error.message}")
+                    _events.value = CategoriesUiEvent.ShowError(UiMessage(R.string.common_error_update_order_failed, listOf(error.message.orEmpty())))
                 }
         }
     }

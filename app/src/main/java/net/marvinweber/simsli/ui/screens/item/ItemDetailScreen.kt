@@ -88,6 +88,7 @@ import net.marvinweber.simsli.domain.model.Store
 import net.marvinweber.simsli.domain.model.StoreGroup
 import net.marvinweber.simsli.domain.model.StoreSelection
 import net.marvinweber.simsli.domain.model.UnitPresets
+import net.marvinweber.simsli.ui.text
 import net.marvinweber.simsli.ui.components.ItemLinkChipsRow
 import net.marvinweber.simsli.ui.components.LinkUtils
 
@@ -227,8 +228,9 @@ fun ItemDetailScreen(
                 viewModel.onEventConsumed()
             }
             is ItemDetailUiEvent.ShowError -> {
+                val message = event.message.text()
                 LaunchedEffect(event) {
-                    snackbarHostState.showSnackbar(event.message)
+                    snackbarHostState.showSnackbar(message)
                     viewModel.onEventConsumed()
                 }
             }
