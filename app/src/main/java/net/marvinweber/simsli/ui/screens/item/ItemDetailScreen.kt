@@ -25,7 +25,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Star
@@ -499,6 +498,7 @@ fun ItemDetailScreen(
                                         .filter { it.groupId == group.id && it.id !in excludedStoreIds && it.id in favoriteStoreIds }
                                     InputChip(
                                         selected = true,
+                                        // Chips are display-only; editing happens in the selection dialog
                                         onClick = { showStoreSelectionDialog = true },
                                         leadingIcon = {
                                             Icon(
@@ -541,33 +541,21 @@ fun ItemDetailScreen(
                                                                 text = "⊘ ${store.name}",
                                                                 textDecoration = TextDecoration.LineThrough,
                                                                 style = MaterialTheme.typography.bodySmall,
-                                                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
-                                                                modifier = Modifier.clickable {
-                                                                    // Tap an excluded store to re-include it
-                                                                    excludedStoreIds = excludedStoreIds - store.id
-                                                                }
+                                                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
                                                             )
                                                             Spacer(modifier = Modifier.width(4.dp))
                                                         }
                                                     }
                                                 }
                                             }
-                                        },
-                                        trailingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Default.Close,
-                                                contentDescription = "Remove ${group.name}",
-                                                modifier = Modifier
-                                                    .size(16.dp)
-                                                    .clickable { selectedGroupIds = selectedGroupIds - group.id }
-                                            )
                                         }
                                     )
                                 }
                                 explicitStores.forEach { store ->
                                     InputChip(
                                         selected = true,
-                                        onClick = { selectedStoreIds = selectedStoreIds - store.id },
+                                        // Chips are display-only; editing happens in the selection dialog
+                                        onClick = { showStoreSelectionDialog = true },
                                         leadingIcon = {
                                             Icon(
                                                 imageVector = Icons.Outlined.Storefront,
@@ -588,13 +576,6 @@ fun ItemDetailScreen(
                                                 }
                                                 Text(store.name)
                                             }
-                                        },
-                                        trailingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Default.Close,
-                                                contentDescription = "Remove ${store.name}",
-                                                modifier = Modifier.size(16.dp)
-                                            )
                                         }
                                     )
                                 }
