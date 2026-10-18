@@ -38,6 +38,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -446,6 +447,9 @@ fun ListTabContent(
                 onAddAndEdit = { quantity, unit, comment ->
                     viewModel.addAndEditInCatalog(quantity, unit, comment, onNavigateToItemDetail)
                 },
+                onOpenItemDetails = (uiState.addSelection as? AddSelection.Existing)
+                    ?.item?.id?.takeIf { it.isNotBlank() }
+                    ?.let { id -> { onNavigateToItemDetail(id) } },
                 onDismiss = viewModel::dismissAddSheet
             )
         }
@@ -464,6 +468,8 @@ fun ListTabContent(
                     viewModel.saveEntryDetails(entryItem.listEntry.id, quantity, unit, comment)
                 },
                 onRemove = { viewModel.removeEntry(entryItem.listEntry.id) },
+                onOpenItemDetails = entryItem.item?.id?.takeIf { it.isNotBlank() }
+                    ?.let { id -> { onNavigateToItemDetail(id) } },
                 onDismiss = viewModel::dismissEntryEditor
             )
         }
@@ -1227,6 +1233,7 @@ private fun AddItemsSheet(
         unit: String,
         comment: String
     ) -> Unit,
+    onOpenItemDetails: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberBottomSheetState(
@@ -1251,7 +1258,8 @@ private fun AddItemsSheet(
                 isAddInProgress = uiState.isAddInProgress,
                 onBackToSearch = onBackToSearch,
                 onAdd = onAdd,
-                onAddAndEdit = onAddAndEdit
+                onAddAndEdit = onAddAndEdit,
+                onOpenItemDetails = onOpenItemDetails
             )
         }
     }
@@ -1369,7 +1377,8 @@ private fun AddItemsSelectedContent(
         quantity: String,
         unit: String,
         comment: String
-    ) -> Unit
+    ) -> Unit,
+    onOpenItemDetails: (() -> Unit)? = null
 ) {
     var quantityText by remember(selection) { mutableStateOf("") }
     var unitText by remember(selection) {
@@ -1410,11 +1419,39 @@ private fun AddItemsSelectedContent(
                 }
             }
         ) {
-            Text(
-                text = name,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+            // Name + chevron into the catalog item's detail screen (catalog
+            // hits only — a NEW selection has nothing to open yet). The whole
+            // title navigates; the rest of the row stays "back to search".
+            Row(
+                modifier = if (onOpenItemDetails != null) {
+                    Modifier.clickable(onClick = onOpenItemDetails)
+                } else {
+                    Modifier
+                },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.titleLarge,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = if (onOpenItemDetails != null) {
+                        Modifier.weight(1f, fill = false)
+                    } else {
+                        Modifier
+                    }
+                )
+                if (onOpenItemDetails != null) {
+                    Box(modifier = Modifier.padding(8.dp)) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "Edit item details",
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
 
         // Quantity + unit as the shared unit dropdown: the item's default

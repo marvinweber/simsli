@@ -4,9 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -31,10 +33,12 @@ import net.marvinweber.simsli.domain.model.ItemLink
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextOverflow
 
 /** Formats a quantity for display: whole numbers without decimals ("2", not "2.0"). */
 internal fun formatQuantity(quantity: Double?): String = when {
@@ -64,7 +68,8 @@ fun EntryDetailsSheet(
     onRemove: (() -> Unit)? = null,
     saveButtonText: String = "Save",
     note: String? = null,
-    links: List<ItemLink> = emptyList()
+    links: List<ItemLink> = emptyList(),
+    onOpenItemDetails: (() -> Unit)? = null
 ) {
     var quantityText by remember(stateKey) { mutableStateOf(formatQuantity(quantity)) }
     var unitText by remember(stateKey) { mutableStateOf(unit.orEmpty()) }
@@ -88,10 +93,38 @@ fun EntryDetailsSheet(
                 .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium
-            )
+            // Title + chevron into the item's catalog detail screen (null for
+            // entries without a catalog item); the whole title is the target
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (onOpenItemDetails != null) {
+                            Modifier.clickable(onClick = onOpenItemDetails)
+                        } else {
+                            Modifier
+                        }
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f, fill = false),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (onOpenItemDetails != null) {
+                    Box(modifier = Modifier.padding(8.dp)) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "Edit item details",
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
 
             // Read-only catalog note if present
             if (!note.isNullOrBlank()) {

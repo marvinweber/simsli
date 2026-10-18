@@ -248,6 +248,8 @@ private fun ItemsTabContent(
                 onSave = { quantity, unit, comment ->
                     viewModel.confirmAddToList(row.item.id, quantity, unit, comment)
                 },
+                onOpenItemDetails = row.item.id.takeIf { it.isNotBlank() }
+                    ?.let { id -> { onNavigateToItemDetail(id) } },
                 onDismiss = viewModel::dismissAddSheet
             )
         }
