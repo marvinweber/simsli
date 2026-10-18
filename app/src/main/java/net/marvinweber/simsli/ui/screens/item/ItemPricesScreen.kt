@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
@@ -40,6 +41,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import net.marvinweber.simsli.R
 import net.marvinweber.simsli.domain.util.PriceFormat
 
 /**
@@ -62,12 +64,12 @@ fun ItemPricesScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(uiState.existingItem?.name ?: "Store prices") },
+                title = { Text(uiState.existingItem?.name ?: stringResource(R.string.prices_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.common_back)
                         )
                     }
                 }
@@ -94,7 +96,7 @@ fun ItemPricesScreen(
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
                     Text(
-                        text = "Reference size",
+                        text = stringResource(R.string.prices_reference_size),
                         style = MaterialTheme.typography.titleSmall
                     )
                     Spacer(modifier = Modifier.padding(4.dp))
@@ -110,14 +112,14 @@ fun ItemPricesScreen(
                     Spacer(modifier = Modifier.padding(12.dp))
 
                     Text(
-                        text = "Store prices",
+                        text = stringResource(R.string.prices_title),
                         style = MaterialTheme.typography.titleSmall
                     )
                     Spacer(modifier = Modifier.padding(4.dp))
 
                     if (uiState.priceRows.isEmpty()) {
                         Text(
-                            text = "No stores assigned. Assign stores to this item to track prices.",
+                            text = stringResource(R.string.prices_no_stores),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 12.dp)
@@ -160,8 +162,8 @@ private fun ReferenceSizeField(
                     onSave(text)
                 }
             },
-        placeholder = { Text("e.g. 1 l, 500 g") },
-        supportingText = { Text("Shown next to prices — purely informational.") },
+        placeholder = { Text(stringResource(R.string.prices_reference_placeholder)) },
+        supportingText = { Text(stringResource(R.string.prices_reference_hint)) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
         keyboardActions = KeyboardActions(
@@ -206,7 +208,7 @@ private fun PriceFieldRow(
         if (isFavorite) {
             Icon(
                 imageVector = Icons.Filled.Star,
-                contentDescription = "Favorite store",
+                contentDescription = stringResource(R.string.common_favorite_store),
                 tint = Color(0xFFFFB300),
                 modifier = Modifier.width(20.dp)
             )

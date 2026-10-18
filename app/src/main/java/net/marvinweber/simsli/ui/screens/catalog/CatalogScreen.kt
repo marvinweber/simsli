@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material.icons.outlined.Storefront
+import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.vector.ImageVector
 import net.marvinweber.simsli.R
 import net.marvinweber.simsli.domain.model.ItemType
@@ -71,13 +72,13 @@ import net.marvinweber.simsli.ui.screens.categories.CategoriesTabContent
 import net.marvinweber.simsli.ui.screens.stores.StoresTabContent
 
 enum class CatalogTab(
-    val label: String,
+    @StringRes val labelRes: Int,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector
 ) {
-    ITEMS("Items", Icons.Filled.ShoppingBag, Icons.Outlined.ShoppingBag),
-    CATEGORIES("Categories", Icons.Filled.Category, Icons.Outlined.Category),
-    STORES("Stores", Icons.Filled.Storefront, Icons.Outlined.Storefront)
+    ITEMS(R.string.catalog_tab_items, Icons.Filled.ShoppingBag, Icons.Outlined.ShoppingBag),
+    CATEGORIES(R.string.catalog_tab_categories, Icons.Filled.Category, Icons.Outlined.Category),
+    STORES(R.string.catalog_tab_stores, Icons.Filled.Storefront, Icons.Outlined.Storefront)
 }
 
 /**
@@ -125,7 +126,7 @@ fun CatalogScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             SimsliSearchTopAppBar(
-                title = "Catalog",
+                title = stringResource(R.string.nav_tab_catalog),
                 isSyncing = isSyncing,
                 isOffline = isOffline,
                 hasPendingWrites = hasPendingWrites,
@@ -140,7 +141,7 @@ fun CatalogScreen(
                 },
                 onSearchClick = { isSearchActive = true },
                 onCloseSearch = { closeSearch() },
-                searchPlaceholder = "Search catalog",
+                searchPlaceholder = stringResource(R.string.catalog_search_placeholder),
                 householdIcon = householdIcon,
                 householdName = householdName,
                 onHouseholdClick = onNavigateToSettings
@@ -160,7 +161,7 @@ fun CatalogScreen(
                         onClick = { selectedTabName = tab.name },
                         text = {
                             Text(
-                                text = tab.label,
+                                text = stringResource(tab.labelRes),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                             )
@@ -233,7 +234,7 @@ private fun ItemsTabContent(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
             FloatingActionButton(onClick = { onNavigateToItemDetail(null) }) {
-                Icon(Icons.Default.Add, contentDescription = "New item")
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.catalog_new_item))
             }
         }
     ) { paddingValues ->
@@ -246,7 +247,7 @@ private fun ItemsTabContent(
                 comment = null,
                 note = row.item.notes,
                 links = row.item.links,
-                saveButtonText = "Add to list",
+                saveButtonText = stringResource(R.string.common_add_to_list),
                 onSave = { quantity, unit, comment ->
                     viewModel.confirmAddToList(row.item.id, quantity, unit, comment)
                 },
@@ -280,12 +281,12 @@ private fun ItemsTabContent(
                         verticalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = "No items yet",
+                            text = stringResource(R.string.catalog_empty_title),
                             style = MaterialTheme.typography.titleLarge
                         )
                         Spacer(modifier = Modifier.size(8.dp))
                         Text(
-                            text = "Tap + to create your first item",
+                            text = stringResource(R.string.catalog_empty_hint),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -305,12 +306,12 @@ private fun ItemsTabContent(
                         verticalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = "No results",
+                            text = stringResource(R.string.list_no_results),
                             style = MaterialTheme.typography.titleLarge
                         )
                         Spacer(modifier = Modifier.size(8.dp))
                         Text(
-                            text = "Nothing matches “${uiState.searchQuery}”",
+                            text = stringResource(R.string.list_nothing_matches, uiState.searchQuery),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -397,7 +398,7 @@ private fun CatalogItemRow(
                             color = MaterialTheme.colorScheme.surfaceContainerHighest
                         ) {
                             Text(
-                                text = "One-time",
+                                text = stringResource(R.string.catalog_one_time),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -407,7 +408,7 @@ private fun CatalogItemRow(
                     if (!row.item.notes.isNullOrBlank()) {
                         Icon(
                             imageVector = Icons.Outlined.Description,
-                            contentDescription = "Has note",
+                            contentDescription = stringResource(R.string.catalog_has_note),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                             modifier = Modifier.size(15.dp)
                         )
@@ -416,7 +417,7 @@ private fun CatalogItemRow(
                     if (hasLinks) {
                         Icon(
                             imageVector = Icons.Default.Link,
-                            contentDescription = "Has link",
+                            contentDescription = stringResource(R.string.list_has_link),
                             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
                             modifier = Modifier.size(15.dp)
                         )
@@ -424,13 +425,13 @@ private fun CatalogItemRow(
                 }
                 if (row.isOnActiveList) {
                     Text(
-                        text = "On list",
+                        text = stringResource(R.string.list_on_list),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
                 } else if (!row.item.defaultUnit.isNullOrBlank()) {
                     Text(
-                        text = "Default: ${row.item.defaultUnit}",
+                        text = stringResource(R.string.catalog_default_unit, row.item.defaultUnit),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
@@ -444,7 +445,7 @@ private fun CatalogItemRow(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Check,
-                        contentDescription = "On list",
+                        contentDescription = stringResource(R.string.list_on_list),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
@@ -456,7 +457,7 @@ private fun CatalogItemRow(
                 ) {
                     Icon(
                         Icons.Default.Add,
-                        contentDescription = "Add to list",
+                        contentDescription = stringResource(R.string.common_add_to_list),
                         modifier = Modifier.size(20.dp)
                     )
                 }

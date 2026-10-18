@@ -77,12 +77,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import net.marvinweber.simsli.R
 import net.marvinweber.simsli.domain.model.ItemType
 import net.marvinweber.simsli.domain.model.Store
 import net.marvinweber.simsli.domain.model.StoreGroup
@@ -90,6 +92,7 @@ import net.marvinweber.simsli.domain.model.StoreSelection
 import net.marvinweber.simsli.domain.model.UnitPresets
 import net.marvinweber.simsli.ui.text
 import net.marvinweber.simsli.ui.components.ItemLinkChipsRow
+import net.marvinweber.simsli.ui.components.unitPresetLabel
 import net.marvinweber.simsli.ui.components.LinkUtils
 
 /**
@@ -299,10 +302,10 @@ fun ItemDetailScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(if (uiState.existingItem == null) "Add Item" else "Edit Item") },
+                title = { Text(stringResource(if (uiState.existingItem == null) R.string.add_item else R.string.item_edit)) },
                 navigationIcon = {
                     IconButton(onClick = requestBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 },
                 actions = {
@@ -312,7 +315,7 @@ fun ItemDetailScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Save,
-                            contentDescription = "Save"
+                            contentDescription = stringResource(R.string.common_save)
                         )
                     }
                 }
@@ -335,7 +338,7 @@ fun ItemDetailScreen(
                     modifier = Modifier.weight(1f),
                     enabled = itemName.isNotBlank() && !uiState.isSaving
                 ) {
-                    Text(if (uiState.existingItem == null) "Add item" else "Save")
+                    Text(stringResource(if (uiState.existingItem == null) R.string.add_item else R.string.common_save))
                 }
 
                 if (uiState.existingItem != null) {
@@ -354,7 +357,7 @@ fun ItemDetailScreen(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Delete item")
+                        Text(stringResource(R.string.item_delete_button))
                     }
                 }
             }
@@ -385,7 +388,7 @@ fun ItemDetailScreen(
                         OutlinedTextField(
                             value = itemName,
                             onValueChange = { itemName = it },
-                            placeholder = { Text("Item name") },
+                            placeholder = { Text(stringResource(R.string.item_name_placeholder)) },
                             singleLine = true,
                             textStyle = MaterialTheme.typography.headlineSmall,
                             colors = OutlinedTextFieldDefaults.colors(
@@ -397,7 +400,7 @@ fun ItemDetailScreen(
 
                         // Details: category + default unit — the descriptive fields
                         DetailCard(
-                            title = "Details"
+                            title = stringResource(R.string.item_section_details)
                         ) {
                             // Category: full-width row opening the dropdown
                             Box {
@@ -405,7 +408,7 @@ fun ItemDetailScreen(
                                 val categoryLabel = if (selectedCategory != null) {
                                     if (!selectedCategory.emoji.isNullOrBlank()) "${selectedCategory.emoji} ${selectedCategory.name}" else selectedCategory.name
                                 } else {
-                                    "None (Uncategorized)"
+                                    stringResource(R.string.item_category_none)
                                 }
                                 Row(
                                     modifier = Modifier
@@ -416,7 +419,7 @@ fun ItemDetailScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "Category",
+                                        text = stringResource(R.string.item_category),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.weight(1f)
@@ -435,7 +438,7 @@ fun ItemDetailScreen(
                                     onDismissRequest = { categoryMenuExpanded = false }
                                 ) {
                                     DropdownMenuItem(
-                                        text = { Text("None (Uncategorized)") },
+                                        text = { Text(stringResource(R.string.item_category_none)) },
                                         onClick = {
                                             selectedCategoryId = null
                                             categoryMenuExpanded = false
@@ -478,8 +481,8 @@ fun ItemDetailScreen(
                                 Box {
                                     val isPreset = UnitPresets.ALL.any { it.equals(itemDefaultUnit, ignoreCase = true) }
                                     val unitLabel = when {
-                                        itemDefaultUnit.isBlank() -> "None"
-                                        isPreset -> UnitPresets.ALL.first { it.equals(itemDefaultUnit, ignoreCase = true) }
+                                        itemDefaultUnit.isBlank() -> stringResource(R.string.unit_none)
+                                        isPreset -> unitPresetLabel(UnitPresets.ALL.first { it.equals(itemDefaultUnit, ignoreCase = true) })
                                         else -> itemDefaultUnit
                                     }
                                     Row(
@@ -491,7 +494,7 @@ fun ItemDetailScreen(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(
-                                            text = "Unit",
+                                            text = stringResource(R.string.item_unit),
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.weight(1f)
@@ -510,7 +513,7 @@ fun ItemDetailScreen(
                                         onDismissRequest = { unitMenuExpanded = false }
                                     ) {
                                         DropdownMenuItem(
-                                            text = { Text("None") },
+                                            text = { Text(stringResource(R.string.unit_none)) },
                                             onClick = {
                                                 itemDefaultUnit = ""
                                                 unitMenuExpanded = false
@@ -523,7 +526,7 @@ fun ItemDetailScreen(
                                         )
                                         UnitPresets.ALL.forEach { preset ->
                                             DropdownMenuItem(
-                                                text = { Text(preset) },
+                                                text = { Text(unitPresetLabel(preset)) },
                                                 onClick = {
                                                     itemDefaultUnit = preset
                                                     unitMenuExpanded = false
@@ -539,8 +542,8 @@ fun ItemDetailScreen(
                                         DropdownMenuItem(
                                             text = {
                                                 Text(
-                                                    if (isPreset || itemDefaultUnit.isBlank()) "Custom…"
-                                                    else "Edit custom unit…"
+                                                    if (isPreset || itemDefaultUnit.isBlank()) stringResource(R.string.unit_custom)
+                                                    else stringResource(R.string.unit_edit_custom)
                                                 )
                                             },
                                             onClick = {
@@ -553,7 +556,7 @@ fun ItemDetailScreen(
                                     }
                                 }
                                 Text(
-                                    text = "Preselected when adding this item to the shopping list.",
+                                    text = stringResource(R.string.item_unit_hint),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -582,14 +585,14 @@ fun ItemDetailScreen(
                                             tint = MaterialTheme.colorScheme.primary
                                         )
                                         Text(
-                                            text = "One-time item",
+                                            text = stringResource(R.string.item_one_time_banner),
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.SemiBold,
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
                                     }
                                     Text(
-                                        text = "This item will be deleted with the daily cleanup (24 h) after being checked off on the shopping list.",
+                                        text = stringResource(R.string.item_one_time_hint),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -597,7 +600,7 @@ fun ItemDetailScreen(
                                         onClick = { itemType = ItemType.PERMANENT },
                                         modifier = Modifier.align(Alignment.End)
                                     ) {
-                                        Text("Promote to permanent item")
+                                        Text(stringResource(R.string.item_promote_permanent))
                                     }
                                 }
                             }
@@ -605,7 +608,7 @@ fun ItemDetailScreen(
 
                         // Stores (STORE-7): group + explicit store chips, edited in the tree dialog
                         DetailCard(
-                            title = "Stores",
+                            title = stringResource(R.string.stores),
                             action = {
                                 TextButton(
                                     onClick = { showStoreSelectionDialog = true },
@@ -620,7 +623,7 @@ fun ItemDetailScreen(
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.size(4.dp))
-                                    Text("Edit", style = MaterialTheme.typography.labelMedium)
+                                    Text(stringResource(R.string.common_edit), style = MaterialTheme.typography.labelMedium)
                                 }
                             }
                         ) {
@@ -629,13 +632,13 @@ fun ItemDetailScreen(
 
                             if (uiState.stores.isEmpty() && uiState.storeGroups.isEmpty()) {
                                 Text(
-                                    text = "No stores created yet",
+                                    text = stringResource(R.string.item_no_stores_created),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             } else if (selectedGroups.isEmpty() && explicitStores.isEmpty()) {
                                 Text(
-                                    text = "No stores assigned",
+                                    text = stringResource(R.string.item_no_stores_assigned),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                 )
@@ -721,7 +724,7 @@ fun ItemDetailScreen(
                                                     if (store.id in favoriteStoreIds) {
                                                         Icon(
                                                             imageVector = Icons.Filled.Star,
-                                                            contentDescription = "Favorite",
+                                                            contentDescription = stringResource(R.string.common_favorite),
                                                             modifier = Modifier.size(14.dp),
                                                             tint = Color(0xFFFFB300)
                                                         )
@@ -759,7 +762,7 @@ fun ItemDetailScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "Store prices",
+                                    text = stringResource(R.string.prices_title),
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                                 Spacer(modifier = Modifier.weight(1f))
@@ -784,7 +787,7 @@ fun ItemDetailScreen(
 
                         // Notes & links: links are pasted into notes (auto-extracted) or added via dialog
                         DetailCard(
-                            title = "Notes & links",
+                            title = stringResource(R.string.item_section_notes),
                             action = {
                                 TextButton(
                                     onClick = { showAddLinkDialog = true },
@@ -794,7 +797,7 @@ fun ItemDetailScreen(
                                 ) {
                                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.size(4.dp))
-                                    Text("Add link", style = MaterialTheme.typography.labelMedium)
+                                    Text(stringResource(R.string.item_add_link), style = MaterialTheme.typography.labelMedium)
                                 }
                             }
                         ) {
@@ -809,7 +812,7 @@ fun ItemDetailScreen(
                                         }
                                     }
                                 },
-                                placeholder = { Text("Any additional details") },
+                                placeholder = { Text(stringResource(R.string.item_notes_placeholder)) },
                                 modifier = Modifier.fillMaxWidth(),
                                 minLines = 2,
                                 maxLines = 4,
@@ -826,7 +829,7 @@ fun ItemDetailScreen(
                                 )
                             } else {
                                 Text(
-                                    text = "Paste a link into notes or tap \"Add link\"",
+                                    text = stringResource(R.string.item_links_hint),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                 )
@@ -837,12 +840,12 @@ fun ItemDetailScreen(
                             var linkInput by remember { mutableStateOf("") }
                             AlertDialog(
                                 onDismissRequest = { showAddLinkDialog = false },
-                                title = { Text("Add link") },
+                                title = { Text(stringResource(R.string.item_add_link)) },
                                 text = {
                                     OutlinedTextField(
                                         value = linkInput,
                                         onValueChange = { linkInput = it },
-                                        label = { Text("URL") },
+                                        label = { Text(stringResource(R.string.common_url)) },
                                         placeholder = { Text("https://example.com") },
                                         singleLine = true,
                                         modifier = Modifier.fillMaxWidth()
@@ -859,12 +862,12 @@ fun ItemDetailScreen(
                                         },
                                         enabled = linkInput.isNotBlank()
                                     ) {
-                                        Text("Add")
+                                        Text(stringResource(R.string.common_add))
                                     }
                                 },
                                 dismissButton = {
                                     TextButton(onClick = { showAddLinkDialog = false }) {
-                                        Text("Cancel")
+                                        Text(stringResource(R.string.common_cancel))
                                     }
                                 }
                             )
@@ -879,13 +882,13 @@ fun ItemDetailScreen(
     if (showCustomUnitDialog) {
         AlertDialog(
             onDismissRequest = { showCustomUnitDialog = false },
-            title = { Text("Custom unit") },
+            title = { Text(stringResource(R.string.unit_custom_dialog_title)) },
             text = {
                 OutlinedTextField(
                     value = customUnitInput,
                     onValueChange = { customUnitInput = it },
-                    label = { Text("Unit") },
-                    placeholder = { Text("e.g. pcs, pack, kg, bottle …") },
+                    label = { Text(stringResource(R.string.item_unit)) },
+                    placeholder = { Text(stringResource(R.string.unit_custom_placeholder)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -898,12 +901,12 @@ fun ItemDetailScreen(
                     },
                     enabled = customUnitInput.isNotBlank()
                 ) {
-                    Text("Save")
+                    Text(stringResource(R.string.common_save))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showCustomUnitDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             }
         )
@@ -1035,33 +1038,26 @@ private fun DuplicateItemWarningDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(if (isSimilar) "Similar item found" else "Item already exists")
+            Text(stringResource(if (isSimilar) R.string.item_duplicate_similar_title else R.string.item_duplicate_exact_title))
         },
         text = {
             Text(
-                if (isSimilar) {
-                    if (isEditing) {
-                        "A similar item named \"$matchedName\" already exists in your catalog. Save anyway?"
-                    } else {
-                        "A similar item named \"$matchedName\" already exists in your catalog. Add anyway?"
-                    }
-                } else {
-                    if (isEditing) {
-                        "An item named \"$matchedName\" already exists in your catalog. Save anyway?"
-                    } else {
-                        "An item named \"$matchedName\" already exists in your catalog. Add anyway?"
-                    }
+                when {
+                    isSimilar && isEditing -> stringResource(R.string.item_duplicate_similar_save, matchedName)
+                    isSimilar -> stringResource(R.string.item_duplicate_similar_add, matchedName)
+                    isEditing -> stringResource(R.string.item_duplicate_exact_save, matchedName)
+                    else -> stringResource(R.string.item_duplicate_exact_add, matchedName)
                 }
             )
         },
         confirmButton = {
             Button(onClick = onConfirm) {
-                Text(if (isEditing) "Save anyway" else "Add anyway")
+                Text(stringResource(if (isEditing) R.string.item_save_anyway else R.string.item_add_anyway))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.common_cancel))
             }
         }
     )
@@ -1074,8 +1070,8 @@ private fun DiscardChangesDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Discard changes?") },
-        text = { Text("Your changes to this item will be lost.") },
+        title = { Text(stringResource(R.string.item_discard_title)) },
+        text = { Text(stringResource(R.string.item_discard_text)) },
         confirmButton = {
             Button(
                 onClick = onDiscard,
@@ -1083,12 +1079,12 @@ private fun DiscardChangesDialog(
                     containerColor = MaterialTheme.colorScheme.error
                 )
             ) {
-                Text("Discard")
+                Text(stringResource(R.string.item_discard_confirm))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Keep editing")
+                Text(stringResource(R.string.item_discard_keep))
             }
         }
     )
@@ -1102,9 +1098,9 @@ private fun DeleteItemDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Delete Item?") },
+        title = { Text(stringResource(R.string.item_delete_title)) },
         text = {
-            Text("Delete \"$itemName\"? It will be removed from your catalog and shopping list.")
+            Text(stringResource(R.string.item_delete_text, itemName))
         },
         confirmButton = {
             Button(
@@ -1113,7 +1109,7 @@ private fun DeleteItemDialog(
                     containerColor = MaterialTheme.colorScheme.error
                 )
             ) {
-                Text("Delete")
+                Text(stringResource(R.string.common_delete))
             }
         },
         dismissButton = {
@@ -1149,9 +1145,9 @@ private fun StoreSelectionDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Done") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_done)) }
         },
-        title = { Text("Select stores") },
+        title = { Text(stringResource(R.string.item_select_stores)) },
         text = {
             Column(
                 modifier = Modifier
@@ -1186,7 +1182,7 @@ private fun StoreSelectionDialog(
                         )
                         if (groupSelected) {
                             Text(
-                                text = "tap store to exclude",
+                                text = stringResource(R.string.item_tap_to_exclude),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1224,7 +1220,7 @@ private fun StoreSelectionDialog(
                                     ) {
                                         Icon(
                                             imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                                            contentDescription = if (isFavorite) "Remove ${member.name} from favorites" else "Add ${member.name} to favorites",
+                                            contentDescription = stringResource(if (isFavorite) R.string.item_remove_favorite else R.string.item_add_favorite, member.name),
                                             tint = if (isFavorite) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(20.dp)
                                         )
@@ -1236,7 +1232,7 @@ private fun StoreSelectionDialog(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Outlined.Block,
-                                        contentDescription = if (excluded) "Re-include ${member.name}" else "Exclude ${member.name}",
+                                        contentDescription = stringResource(if (excluded) R.string.item_reinclude else R.string.item_exclude, member.name),
                                         tint = if (excluded) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(20.dp)
                                     )
@@ -1269,7 +1265,7 @@ private fun StoreSelectionDialog(
                                     ) {
                                         Icon(
                                             imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                                            contentDescription = if (isFavorite) "Remove ${member.name} from favorites" else "Add ${member.name} to favorites",
+                                            contentDescription = stringResource(if (isFavorite) R.string.item_remove_favorite else R.string.item_add_favorite, member.name),
                                             tint = if (isFavorite) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(20.dp)
                                         )
@@ -1309,7 +1305,7 @@ private fun StoreSelectionDialog(
                             ) {
                                 Icon(
                                     imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                                    contentDescription = if (isFavorite) "Remove ${store.name} from favorites" else "Add ${store.name} to favorites",
+                                    contentDescription = stringResource(if (isFavorite) R.string.item_remove_favorite else R.string.item_add_favorite, store.name),
                                     tint = if (isFavorite) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(20.dp)
                                 )

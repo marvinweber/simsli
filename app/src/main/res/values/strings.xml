@@ -32,6 +32,14 @@
     <string name="common_add_item_name">Add %1$s</string>
     <string name="common_edit_item_details">Edit item details</string>
     <string name="common_add">Add</string>
+    <string name="common_back">Back</string>
+    <string name="common_delete">Delete</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_done">Done</string>
+    <string name="common_edit">Edit</string>
+    <string name="common_url">URL</string>
+    <string name="common_favorite">Favorite</string>
+    <string name="common_favorite_store">Favorite store</string>
     <string name="common_copy">Copy</string>
     <string name="common_error_copied">Error copied to clipboard</string>
     <string name="common_error_update_failed">Update failed: %1$s</string>
@@ -148,4 +156,74 @@
     <string name="list_error_save_failed">Failed to save: %1$s</string>
     <string name="list_error_remove_item_failed">Failed to remove item: %1$s</string>
     <string name="list_error_clear_items_failed">Failed to clear items: %1$s</string>
+    <!-- Catalog -->
+    <string name="catalog_tab_items">Items</string>
+    <string name="catalog_tab_categories">Categories</string>
+    <string name="catalog_tab_stores">Stores</string>
+    <string name="catalog_search_placeholder">Search catalog</string>
+    <string name="catalog_new_item">New item</string>
+    <string name="catalog_empty_title">No items yet</string>
+    <string name="catalog_empty_hint">Tap + to create your first item</string>
+    <string name="catalog_one_time">One-time</string>
+    <string name="catalog_has_note">Has note</string>
+    <string name="catalog_default_unit">Default: %1$s</string>
+
+    <!-- Item detail -->
+    <string name="item_edit">Edit Item</string>
+    <string name="item_delete_button">Delete item</string>
+    <string name="item_name_placeholder">Item name</string>
+    <string name="item_section_details">Details</string>
+    <string name="item_category">Category</string>
+    <string name="item_category_none">None (Uncategorized)</string>
+    <string name="item_unit">Unit</string>
+    <string name="item_unit_hint">Preselected when adding this item to the shopping list.</string>
+    <string name="item_one_time_banner">One-time item</string>
+    <string name="item_one_time_hint">This item will be deleted with the daily cleanup (24 h) after being checked off on the shopping list.</string>
+    <string name="item_promote_permanent">Promote to permanent item</string>
+    <string name="item_no_stores_created">No stores created yet</string>
+    <string name="item_no_stores_assigned">No stores assigned</string>
+    <string name="item_section_notes">Notes &amp; links</string>
+    <string name="item_add_link">Add link</string>
+    <string name="item_notes_placeholder">Any additional details</string>
+    <string name="item_links_hint">Paste a link into notes or tap \"Add link\"</string>
+    <string name="item_duplicate_similar_title">Similar item found</string>
+    <string name="item_duplicate_exact_title">Item already exists</string>
+    <string name="item_duplicate_similar_save">A similar item named \"%1$s\" already exists in your catalog. Save anyway?</string>
+    <string name="item_duplicate_similar_add">A similar item named \"%1$s\" already exists in your catalog. Add anyway?</string>
+    <string name="item_duplicate_exact_save">An item named \"%1$s\" already exists in your catalog. Save anyway?</string>
+    <string name="item_duplicate_exact_add">An item named \"%1$s\" already exists in your catalog. Add anyway?</string>
+    <string name="item_save_anyway">Save anyway</string>
+    <string name="item_add_anyway">Add anyway</string>
+    <string name="item_discard_title">Discard changes?</string>
+    <string name="item_discard_text">Your changes to this item will be lost.</string>
+    <string name="item_discard_confirm">Discard</string>
+    <string name="item_discard_keep">Keep editing</string>
+    <string name="item_delete_title">Delete Item?</string>
+    <string name="item_delete_text">Delete \"%1$s\"? It will be removed from your catalog and shopping list.</string>
+    <string name="item_select_stores">Select stores</string>
+    <string name="item_tap_to_exclude">tap store to exclude</string>
+    <string name="item_remove_favorite">Remove %1$s from favorites</string>
+    <string name="item_add_favorite">Add %1$s to favorites</string>
+    <string name="item_reinclude">Re-include %1$s</string>
+    <string name="item_exclude">Exclude %1$s</string>
+
+    <!-- Units -->
+    <string name="unit_none">None</string>
+    <string name="unit_custom">Custom…</string>
+    <string name="unit_edit_custom">Edit custom unit…</string>
+    <string name="unit_custom_dialog_title">Custom unit</string>
+    <string name="unit_custom_placeholder">e.g. pcs, pack, kg, bottle …</string>
+    <string name="unit_preset_pcs">pcs</string>
+    <string name="unit_preset_pack">pack</string>
+    <string name="unit_preset_g">g</string>
+    <string name="unit_preset_kg">kg</string>
+    <string name="unit_preset_ml">ml</string>
+    <string name="unit_preset_l">l</string>
+
+    <!-- Store prices -->
+    <string name="prices_title">Store prices</string>
+    <string name="prices_reference_size">Reference size</string>
+    <string name="prices_reference_placeholder">e.g. 1 l, 500 g</string>
+    <string name="prices_reference_hint">Shown next to prices — purely informational.</string>
+    <string name="prices_no_stores">No stores assigned. Assign stores to this item to track prices.</string>
 </resources>

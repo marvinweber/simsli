@@ -70,6 +70,14 @@
     <string name="common_add_item_name">%1$s hinzufügen</string>
     <string name="common_edit_item_details">Artikeldetails bearbeiten</string>
     <string name="common_add">Hinzufügen</string>
+    <string name="common_back">Zurück</string>
+    <string name="common_delete">Löschen</string>
+    <string name="common_cancel">Abbrechen</string>
+    <string name="common_done">Fertig</string>
+    <string name="common_edit">Bearbeiten</string>
+    <string name="common_url">URL</string>
+    <string name="common_favorite">Favorit</string>
+    <string name="common_favorite_store">Favoriten-Geschäft</string>
     <string name="common_copy">Kopieren</string>
     <string name="common_error_copied">Fehler in die Zwischenablage kopiert</string>
     <string name="common_error_update_failed">Aktualisierung fehlgeschlagen: %1$s</string>
@@ -149,4 +157,74 @@
     <string name="list_help_one_time">Der Artikel ist nur für diesen Einkauf auf der Liste: Nach dem Abhaken wird er bei der täglichen Aufräumaktion (24 h) entfernt — richtig für Einmal-Artikel.</string>
     <string name="list_add_and_edit">Hinzufügen &amp; Details im Katalog bearbeiten</string>
     <string name="list_add_and_close">Hinzufügen &amp; Schließen</string>
+    <!-- Katalog -->
+    <string name="catalog_tab_items">Artikel</string>
+    <string name="catalog_tab_categories">Kategorien</string>
+    <string name="catalog_tab_stores">Geschäfte</string>
+    <string name="catalog_search_placeholder">Katalog durchsuchen</string>
+    <string name="catalog_new_item">Neuer Artikel</string>
+    <string name="catalog_empty_title">Noch keine Artikel</string>
+    <string name="catalog_empty_hint">Tippe auf +, um deinen ersten Artikel anzulegen</string>
+    <string name="catalog_one_time">Einmal</string>
+    <string name="catalog_has_note">Hat Notiz</string>
+    <string name="catalog_default_unit">Standard: %1$s</string>
+
+    <!-- Artikeldetail -->
+    <string name="item_edit">Artikel bearbeiten</string>
+    <string name="item_delete_button">Artikel löschen</string>
+    <string name="item_name_placeholder">Artikelname</string>
+    <string name="item_section_details">Details</string>
+    <string name="item_category">Kategorie</string>
+    <string name="item_category_none">Keine (ohne Kategorie)</string>
+    <string name="item_unit">Einheit</string>
+    <string name="item_unit_hint">Wird beim Hinzufügen dieses Artikels zur Einkaufsliste vorausgewählt.</string>
+    <string name="item_one_time_banner">Einmal-Artikel</string>
+    <string name="item_one_time_hint">Dieser Artikel wird mit der täglichen Aufräumaktion (24 h) gelöscht, nachdem er auf der Einkaufsliste abgehakt wurde.</string>
+    <string name="item_promote_permanent">In dauerhaften Artikel umwandeln</string>
+    <string name="item_no_stores_created">Noch keine Geschäfte angelegt</string>
+    <string name="item_no_stores_assigned">Keine Geschäfte zugewiesen</string>
+    <string name="item_section_notes">Notizen &amp; Links</string>
+    <string name="item_add_link">Link hinzufügen</string>
+    <string name="item_notes_placeholder">Beliebige weitere Details</string>
+    <string name="item_links_hint">Füge einen Link in die Notizen ein oder tippe auf „Link hinzufügen“</string>
+    <string name="item_duplicate_similar_title">Ähnlicher Artikel gefunden</string>
+    <string name="item_duplicate_exact_title">Artikel existiert bereits</string>
+    <string name="item_duplicate_similar_save">Ein ähnlicher Artikel namens „%1$s“ existiert bereits in deinem Katalog. Trotzdem speichern?</string>
+    <string name="item_duplicate_similar_add">Ein ähnlicher Artikel namens „%1$s“ existiert bereits in deinem Katalog. Trotzdem hinzufügen?</string>
+    <string name="item_duplicate_exact_save">Ein Artikel namens „%1$s“ existiert bereits in deinem Katalog. Trotzdem speichern?</string>
+    <string name="item_duplicate_exact_add">Ein Artikel namens „%1$s“ existiert bereits in deinem Katalog. Trotzdem hinzufügen?</string>
+    <string name="item_save_anyway">Trotzdem speichern</string>
+    <string name="item_add_anyway">Trotzdem hinzufügen</string>
+    <string name="item_discard_title">Änderungen verwerfen?</string>
+    <string name="item_discard_text">Deine Änderungen an diesem Artikel gehen verloren.</string>
+    <string name="item_discard_confirm">Verwerfen</string>
+    <string name="item_discard_keep">Weiter bearbeiten</string>
+    <string name="item_delete_title">Artikel löschen?</string>
+    <string name="item_delete_text">„%1$s“ löschen? Er wird aus deinem Katalog und deiner Einkaufsliste entfernt.</string>
+    <string name="item_select_stores">Geschäfte auswählen</string>
+    <string name="item_tap_to_exclude">Geschäft antippen, um es auszuschließen</string>
+    <string name="item_remove_favorite">%1$s aus Favoriten entfernen</string>
+    <string name="item_add_favorite">%1$s zu Favoriten hinzufügen</string>
+    <string name="item_reinclude">%1$s wieder aufnehmen</string>
+    <string name="item_exclude">%1$s ausschließen</string>
+
+    <!-- Einheiten -->
+    <string name="unit_none">Keine</string>
+    <string name="unit_custom">Eigene …</string>
+    <string name="unit_edit_custom">Eigene Einheit bearbeiten …</string>
+    <string name="unit_custom_dialog_title">Eigene Einheit</string>
+    <string name="unit_custom_placeholder">z. B. Stk., Packung, kg, Flasche …</string>
+    <string name="unit_preset_pcs">Stk.</string>
+    <string name="unit_preset_pack">Packung</string>
+    <string name="unit_preset_g">g</string>
+    <string name="unit_preset_kg">kg</string>
+    <string name="unit_preset_ml">ml</string>
+    <string name="unit_preset_l">l</string>
+
+    <!-- Geschäftspreise -->
+    <string name="prices_title">Geschäftspreise</string>
+    <string name="prices_reference_size">Referenzmenge</string>
+    <string name="prices_reference_placeholder">z. B. 1 l, 500 g</string>
+    <string name="prices_reference_hint">Wird neben den Preisen angezeigt — rein informativ.</string>
+    <string name="prices_no_stores">Keine Geschäfte zugewiesen. Weise diesem Artikel Geschäfte zu, um Preise zu erfassen.</string>
 </resources>
