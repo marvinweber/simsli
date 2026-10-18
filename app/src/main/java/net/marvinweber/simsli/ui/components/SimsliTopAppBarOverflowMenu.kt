@@ -1,5 +1,8 @@
 package net.marvinweber.simsli.ui.components
 
+import androidx.compose.ui.res.stringResource
+import net.marvinweber.simsli.R
+
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
@@ -15,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 
 /**
  * Trailing overflow menu (⋮) for the top app bar (SCREENS-9).
@@ -33,7 +37,7 @@ fun SimsliTopAppBarOverflowMenu(
         IconButton(onClick = { expanded = true }) {
             Icon(
                 imageVector = Icons.Default.MoreVert,
-                contentDescription = "More options"
+                contentDescription = stringResource(R.string.common_more_options)
             )
         }
         DropdownMenu(

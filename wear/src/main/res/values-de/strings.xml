@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Simsli</string>
+    <string name="tile_name">Simsli - Geschäfte</string>
+    <string name="tile_description">Schneller Zugriff auf Geschäfte und Einkaufslisten</string>
+</resources>

@@ -31,12 +31,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.marvinweber.simsli.R
 import net.marvinweber.simsli.ui.components.SimsliTopAppBarAccountButton
 import net.marvinweber.simsli.ui.components.SimsliTopAppBarTitle
 
@@ -62,7 +64,7 @@ fun DashboardScreen(
             TopAppBar(
                 title = {
                     SimsliTopAppBarTitle(
-                        title = "Dashboard",
+                        title = stringResource(R.string.nav_tab_dashboard),
                         isSyncing = isSyncing,
                         isOffline = isOffline,
                         hasPendingWrites = hasPendingWrites
@@ -124,7 +126,7 @@ fun DashboardScreen(
                                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
                             ) {
                                 Text(
-                                    text = "COMING SOON",
+                                    text = stringResource(R.string.dashboard_coming_soon).uppercase(),
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -134,7 +136,7 @@ fun DashboardScreen(
                             }
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Household Dashboard",
+                                text = stringResource(R.string.dashboard_title),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -145,7 +147,7 @@ fun DashboardScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "The Dashboard will analyze your active shopping list to help you plan where to shop and get the best prices for your household.",
+                        text = stringResource(R.string.dashboard_teaser),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
                     )
@@ -153,7 +155,7 @@ fun DashboardScreen(
             }
 
             Text(
-                text = "UPCOMING FEATURES",
+                text = stringResource(R.string.dashboard_upcoming_features).uppercase(),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp,
@@ -164,16 +166,16 @@ fun DashboardScreen(
             // Feature 1: Stores to visit
             TeaserFeatureCard(
                 icon = Icons.Outlined.Storefront,
-                title = "Stores to visit",
-                subtitle = "Fewest shops needed",
+                title = stringResource(R.string.dashboard_stores_to_visit),
+                subtitle = stringResource(R.string.dashboard_fewest_shops),
                 description = "Calculates the minimum number of stores you need to visit to get everything currently on your list."
             )
 
             // Feature 2: Cheapest split
             TeaserFeatureCard(
                 icon = Icons.Outlined.Sell,
-                title = "Cheapest split",
-                subtitle = "Best price per store",
+                title = stringResource(R.string.dashboard_cheapest_split),
+                subtitle = stringResource(R.string.dashboard_best_price),
                 description = "Compares prices for items on your list across stores and shows you where each item is cheapest."
             )
 

@@ -8,11 +8,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navigation
+import net.marvinweber.simsli.R
 import net.marvinweber.simsli.ui.screens.home.HomeScreen
 import net.marvinweber.simsli.ui.screens.household.HouseholdMembersScreen
 import net.marvinweber.simsli.ui.screens.household.HouseholdScreen
@@ -136,7 +138,7 @@ fun SimsliNavHost(
             )
         }
         composable(Screen.Onboarding.route) {
-            Text("Onboarding")
+            Text(stringResource(R.string.onboarding_placeholder))
         }
         // Item detail + Store prices live in one nested graph so both share a
         // graph-scoped ItemDetailViewModel: the prices screen edits pending

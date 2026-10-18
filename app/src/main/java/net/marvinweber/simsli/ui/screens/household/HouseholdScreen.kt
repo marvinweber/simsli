@@ -381,7 +381,7 @@ fun HouseholdScreen(
                                         clipboard.setClipEntry(
                                             ClipData.newPlainText("Simsli invite code", inviteCode).toClipEntry()
                                         )
-                                        snackbarHostState.showSnackbar("Invite code copied to clipboard")
+                                        snackbarHostState.showSnackbar(context.getString(R.string.hh_invite_code_copied))
                                     }
                                 },
                                 modifier = Modifier.weight(1f),
@@ -619,7 +619,7 @@ fun HouseholdScreen(
                                                 clipboard.setClipEntry(
                                                     ClipData.newPlainText("Simsli Household ID", uiState.householdId).toClipEntry()
                                                 )
-                                                snackbarHostState.showSnackbar("Household ID copied to clipboard")
+                                                snackbarHostState.showSnackbar(context.getString(R.string.hh_household_id_copied))
                                             }
                                         }
                                         .padding(vertical = 2.dp)

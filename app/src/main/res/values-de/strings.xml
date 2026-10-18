@@ -375,4 +375,28 @@
     <string name="stats_legend_added">Hinzugefügt</string>
     <string name="stats_legend_checked">Abgehakt</string>
     <string name="stats_empty">Noch keine Aktivität erfasst. Hake Artikel ab oder füge welche hinzu, während du verbunden bist, um die Statistiken deines Haushalts zu starten.</string>
+    <!-- Dashboard -->
+    <string name="dashboard_coming_soon">Kommt bald</string>
+    <string name="dashboard_title">Haushalts-Dashboard</string>
+    <string name="dashboard_teaser">Das Dashboard wird deine aktive Einkaufsliste auswerten, um dir bei der Planung zu helfen, wo du einkaufst — zu den besten Preisen für deinen Haushalt.</string>
+    <string name="dashboard_upcoming_features">Geplante Funktionen</string>
+    <string name="dashboard_stores_to_visit">Anzufahrende Geschäfte</string>
+    <string name="dashboard_fewest_shops">Wenigste Geschäfte nötig</string>
+    <string name="dashboard_cheapest_split">Günstigste Aufteilung</string>
+    <string name="dashboard_best_price">Bester Preis pro Geschäft</string>
+
+    <!-- Sonstiges -->
+    <string name="onboarding_placeholder">Onboarding</string>
+    <string name="hh_choose_currency">Währung wählen</string>
+    <string name="common_selected">Ausgewählt</string>
+    <string name="common_choose_icon">Symbol wählen</string>
+    <string name="common_remove_link">Link entfernen</string>
+    <string name="common_open_link">Link öffnen</string>
+    <string name="common_more_options">Weitere Optionen</string>
+    <string name="common_account_settings">Konto &amp; Einstellungen</string>
+    <string name="common_close_search">Suche schließen</string>
+    <string name="common_search">Suchen</string>
+    <string name="common_clear_search">Suche löschen</string>
+    <string name="hh_invite_code_copied">Einladungscode in die Zwischenablage kopiert</string>
+    <string name="hh_household_id_copied">Haushalt-ID in die Zwischenablage kopiert</string>
 </resources>

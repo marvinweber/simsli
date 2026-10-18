@@ -1,5 +1,8 @@
 package net.marvinweber.simsli.ui.components
 
+import androidx.compose.ui.res.stringResource
+import net.marvinweber.simsli.R
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -53,7 +57,7 @@ fun EmojiPickerDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Choose Icon",
+                        text = stringResource(R.string.common_choose_icon),
                         style = MaterialTheme.typography.titleMedium
                     )
                     Row {

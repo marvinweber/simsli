@@ -374,4 +374,28 @@
     <string name="stats_legend_added">Added</string>
     <string name="stats_legend_checked">Checked</string>
     <string name="stats_empty">No activity recorded yet. Check off or add items while connected to start your household\'s statistics.</string>
+    <!-- Dashboard -->
+    <string name="dashboard_coming_soon">Coming soon</string>
+    <string name="dashboard_title">Household Dashboard</string>
+    <string name="dashboard_teaser">The Dashboard will analyze your active shopping list to help you plan where to shop and get the best prices for your household.</string>
+    <string name="dashboard_upcoming_features">Upcoming features</string>
+    <string name="dashboard_stores_to_visit">Stores to visit</string>
+    <string name="dashboard_fewest_shops">Fewest shops needed</string>
+    <string name="dashboard_cheapest_split">Cheapest split</string>
+    <string name="dashboard_best_price">Best price per store</string>
+
+    <!-- Misc -->
+    <string name="onboarding_placeholder">Onboarding</string>
+    <string name="hh_choose_currency">Choose currency</string>
+    <string name="common_selected">Selected</string>
+    <string name="common_choose_icon">Choose Icon</string>
+    <string name="common_remove_link">Remove link</string>
+    <string name="common_open_link">Open link</string>
+    <string name="common_more_options">More options</string>
+    <string name="common_account_settings">Account &amp; Settings</string>
+    <string name="common_close_search">Close search</string>
+    <string name="common_search">Search</string>
+    <string name="common_clear_search">Clear search</string>
+    <string name="hh_invite_code_copied">Invite code copied to clipboard</string>
+    <string name="hh_household_id_copied">Household ID copied to clipboard</string>
 </resources>

@@ -17,8 +17,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import net.marvinweber.simsli.R
 import net.marvinweber.simsli.domain.model.CurrencyPresets
 
 /**
@@ -33,7 +35,7 @@ fun CurrencyPickerDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Choose currency") },
+        title = { Text(stringResource(R.string.hh_choose_currency)) },
         text = {
             LazyColumn(modifier = Modifier.height(360.dp)) {
                 items(CurrencyPresets.ALL) { preset ->
@@ -54,7 +56,7 @@ fun CurrencyPickerDialog(
                         if (preset.code == currentCode) {
                             Icon(
                                 imageVector = Icons.Filled.Check,
-                                contentDescription = "Selected",
+                                contentDescription = stringResource(R.string.common_selected),
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }

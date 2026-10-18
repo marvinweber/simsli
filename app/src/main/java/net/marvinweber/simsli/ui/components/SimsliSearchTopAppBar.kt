@@ -1,5 +1,8 @@
 package net.marvinweber.simsli.ui.components
 
+import androidx.compose.ui.res.stringResource
+import net.marvinweber.simsli.R
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.expandHorizontally
@@ -35,6 +38,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
@@ -179,7 +183,7 @@ fun SimsliSearchTopAppBar(
                     IconButton(onClick = onCloseSearch) {
                         Icon(
                             imageVector = Icons.Filled.SearchOff,
-                            contentDescription = "Close search"
+                            contentDescription = stringResource(R.string.common_close_search)
                         )
                     }
                 } else {
@@ -192,7 +196,7 @@ fun SimsliSearchTopAppBar(
                         }) {
                             Icon(
                                 imageVector = Icons.Default.Search,
-                                contentDescription = "Search"
+                                contentDescription = stringResource(R.string.common_search)
                             )
                         }
                         SimsliTopAppBarAccountButton(
@@ -256,7 +260,7 @@ private fun SearchField(
                     .alpha(if (visible) 1f else 0f)
                     .then(if (visible) Modifier else Modifier.clearAndSetSemantics { })
             ) {
-                Icon(imageVector = Icons.Default.Close, contentDescription = "Clear search")
+                Icon(imageVector = Icons.Default.Close, contentDescription = stringResource(R.string.common_clear_search))
             }
         },
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
