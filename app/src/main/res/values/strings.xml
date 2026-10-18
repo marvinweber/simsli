@@ -23,6 +23,15 @@
     <string name="common_error_no_household">No household found</string>
     <string name="common_error_update_order_failed">Failed to update order: %1$s</string>
     <string name="common_error_sync_failed">Sync failed: %1$s</string>
+    <string name="common_revert">Revert</string>
+    <string name="common_clear">Clear</string>
+    <string name="common_unknown_item">Unknown item</string>
+    <string name="common_add_to_list">Add to list</string>
+    <string name="common_save">Save</string>
+    <string name="common_add_items">Add items</string>
+    <string name="common_add_item_name">Add %1$s</string>
+    <string name="common_edit_item_details">Edit item details</string>
+    <string name="common_add">Add</string>
     <string name="common_copy">Copy</string>
     <string name="common_error_copied">Error copied to clipboard</string>
     <string name="common_error_update_failed">Update failed: %1$s</string>
@@ -100,6 +109,37 @@
     <string name="stores_error_delete_group_failed">Failed to delete group: %1$s</string>
 
     <!-- Shopping list -->
+    <!-- Shopping list -->
+    <string name="list_entry_completed">%1$s completed</string>
+    <string name="list_search_placeholder">Search items</string>
+    <string name="list_no_matches_hint">No matching items on your list — add from the catalog above</string>
+    <string name="list_recently_checked">Recently checked</string>
+    <string name="list_clear_filters">Clear filters</string>
+    <string name="list_filter_store">Store</string>
+    <string name="list_filter_no_store">No Store</string>
+    <string name="list_show_all_stores">Show all stores</string>
+    <string name="list_filter_by_favorites">Filter by favorite stores</string>
+    <string name="list_remove_favorites_filter">Remove favorites filter</string>
+    <string name="list_filter_favorites_only">Filter by favorites only</string>
+    <string name="list_filter_no_filter">No Filter</string>
+    <string name="list_filter_category">Category</string>
+    <string name="list_no_results">No results</string>
+    <string name="list_nothing_matches">Nothing matches \"%1$s\"</string>
+    <string name="list_empty_hint">Tap + to add items from your catalog</string>
+    <string name="list_check_off">Check off</string>
+    <string name="list_new_from_others">New, added by someone else</string>
+    <string name="list_has_note">Has catalog note</string>
+    <string name="list_has_link">Has link</string>
+    <string name="list_search_or_add">Search or add item</string>
+    <string name="list_new_not_in_catalog">New — not in catalog</string>
+    <string name="list_on_list">On list</string>
+    <string name="list_back_to_search">Back to search</string>
+    <string name="list_save_to_catalog">Save \"%1$s\" to Catalog</string>
+    <string name="list_explain_option">Explain this option</string>
+    <string name="list_help_permanent">The item stays in your catalog — it shows up in search next time.</string>
+    <string name="list_help_one_time">The item is only on the list for this trip: after you check it off, it is removed with the daily cleanup (24 h) — right for one-time things.</string>
+    <string name="list_add_and_edit">Add &amp; edit details in Catalog</string>
+    <string name="list_add_and_close">Add &amp; Close</string>
     <string name="list_error_create_household_failed">Failed to create household: %1$s</string>
     <string name="list_error_update_item_failed">Failed to update item: %1$s</string>
     <string name="list_error_revert_item_failed">Failed to revert item: %1$s</string>

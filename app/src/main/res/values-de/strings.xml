@@ -61,6 +61,15 @@
     <string name="list_error_remove_item_failed">Eintrag konnte nicht entfernt werden: %1$s</string>
     <string name="list_error_clear_items_failed">Einträge konnten nicht entfernt werden: %1$s</string>
     <!-- Shared -->
+    <string name="common_revert">Rückgängig</string>
+    <string name="common_clear">Löschen</string>
+    <string name="common_unknown_item">Unbekannter Artikel</string>
+    <string name="common_add_to_list">Auf die Liste</string>
+    <string name="common_save">Speichern</string>
+    <string name="common_add_items">Artikel hinzufügen</string>
+    <string name="common_add_item_name">%1$s hinzufügen</string>
+    <string name="common_edit_item_details">Artikeldetails bearbeiten</string>
+    <string name="common_add">Hinzufügen</string>
     <string name="common_copy">Kopieren</string>
     <string name="common_error_copied">Fehler in die Zwischenablage kopiert</string>
     <string name="common_error_update_failed">Aktualisierung fehlgeschlagen: %1$s</string>
@@ -109,4 +118,35 @@
     <string name="settings_endpoint_app_update_recommended">App-Update empfohlen (%1$s → %2$s)</string>
     <string name="settings_endpoint_not_configured">(nicht konfiguriert)</string>
     <string name="settings_endpoint_checking">Wird geprüft …</string>
+    <!-- Einkaufsliste -->
+    <string name="list_entry_completed">%1$s abgehakt</string>
+    <string name="list_search_placeholder">Artikel suchen</string>
+    <string name="list_no_matches_hint">Keine passenden Artikel auf deiner Liste — nimm welche aus dem Katalog oben</string>
+    <string name="list_recently_checked">Kürzlich abgehakt</string>
+    <string name="list_clear_filters">Filter zurücksetzen</string>
+    <string name="list_filter_store">Geschäft</string>
+    <string name="list_filter_no_store">Kein Geschäft</string>
+    <string name="list_show_all_stores">Alle Geschäfte anzeigen</string>
+    <string name="list_filter_by_favorites">Nach favorisierten Geschäften filtern</string>
+    <string name="list_remove_favorites_filter">Favoriten-Filter entfernen</string>
+    <string name="list_filter_favorites_only">Nur Favoriten anzeigen</string>
+    <string name="list_filter_no_filter">Kein Filter</string>
+    <string name="list_filter_category">Kategorie</string>
+    <string name="list_no_results">Keine Ergebnisse</string>
+    <string name="list_nothing_matches">Nichts passt zu „%1$s“</string>
+    <string name="list_empty_hint">Tippe auf +, um Artikel aus deinem Katalog hinzuzufügen</string>
+    <string name="list_check_off">Abhaken</string>
+    <string name="list_new_from_others">Neu, von jemand anderem hinzugefügt</string>
+    <string name="list_has_note">Hat Katalog-Notiz</string>
+    <string name="list_has_link">Hat Link</string>
+    <string name="list_search_or_add">Artikel suchen oder hinzufügen</string>
+    <string name="list_new_not_in_catalog">Neu — nicht im Katalog</string>
+    <string name="list_on_list">Auf der Liste</string>
+    <string name="list_back_to_search">Zurück zur Suche</string>
+    <string name="list_save_to_catalog">„%1$s“ im Katalog speichern</string>
+    <string name="list_explain_option">Diese Option erklären</string>
+    <string name="list_help_permanent">Der Artikel bleibt im Katalog — er erscheint beim nächsten Mal wieder in der Suche.</string>
+    <string name="list_help_one_time">Der Artikel ist nur für diesen Einkauf auf der Liste: Nach dem Abhaken wird er bei der täglichen Aufräumaktion (24 h) entfernt — richtig für Einmal-Artikel.</string>
+    <string name="list_add_and_edit">Hinzufügen &amp; Details im Katalog bearbeiten</string>
+    <string name="list_add_and_close">Hinzufügen &amp; Schließen</string>
 </resources>

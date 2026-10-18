@@ -209,8 +209,8 @@ fun ListTabContent(
                     snackbarJob = launch {
                         snackbarHostState.currentSnackbarData?.dismiss()
                         val result = snackbarHostState.showSnackbar(
-                            message = "${event.itemName} completed",
-                            actionLabel = "Revert",
+                            message = context.getString(R.string.list_entry_completed, event.itemName),
+                            actionLabel = context.getString(R.string.common_revert),
                             withDismissAction = true,
                             duration = SnackbarDuration.Short
                         )
@@ -227,7 +227,7 @@ fun ListTabContent(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             SimsliSearchTopAppBar(
-                title = "Simsli",
+                title = stringResource(R.string.app_name),
                 isSyncing = isSyncing,
                 isOffline = isOffline,
                 hasPendingWrites = hasPendingWrites,
@@ -236,7 +236,7 @@ fun ListTabContent(
                 onQueryChange = { searchQuery = it },
                 onSearchClick = { isSearchActive = true },
                 onCloseSearch = { closeSearch() },
-                searchPlaceholder = "Search items",
+                searchPlaceholder = stringResource(R.string.list_search_placeholder),
                 householdIcon = householdIcon,
                 householdName = householdName,
                 onHouseholdClick = onNavigateToSettings
@@ -333,7 +333,7 @@ fun ListTabContent(
                         }
                         item(key = "no_matches_hint") {
                             Text(
-                                text = "No matching items on your list — add from the catalog above",
+                                text = stringResource(R.string.list_no_matches_hint),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
@@ -398,7 +398,7 @@ fun ListTabContent(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Recently checked",
+                                    text = stringResource(R.string.list_recently_checked),
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -408,7 +408,7 @@ fun ListTabContent(
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                                 ) {
                                     Text(
-                                        text = "Clear",
+                                        text = stringResource(R.string.common_clear),
                                         style = MaterialTheme.typography.labelMedium
                                     )
                                 }
@@ -458,14 +458,14 @@ fun ListTabContent(
 
         uiState.editingEntry?.let { entryItem ->
             EntryDetailsSheet(
-                title = entryItem.item?.name ?: "Unknown item",
+                title = entryItem.item?.name ?: stringResource(R.string.common_unknown_item),
                 stateKey = entryItem.listEntry.id,
                 quantity = entryItem.listEntry.quantity,
                 unit = entryItem.listEntry.unit,
                 comment = entryItem.listEntry.comment,
                 note = entryItem.item?.notes,
                 links = entryItem.item?.links ?: emptyList(),
-                saveButtonText = if (entryItem.listEntry.done) "Add to list" else "Save",
+                saveButtonText = if (entryItem.listEntry.done) stringResource(R.string.common_add_to_list) else stringResource(R.string.common_save),
                 onSave = { quantity, unit, comment ->
                     viewModel.saveEntryDetails(entryItem.listEntry.id, quantity, unit, comment)
                 },
@@ -523,7 +523,7 @@ private fun ListFilterBar(
                 onClick = onAddClick,
                 modifier = Modifier.size(48.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add items")
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.common_add_items))
             }
 
             Spacer(modifier = Modifier.width(8.dp))
@@ -578,7 +578,7 @@ private fun ListFilterBar(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Clear filters",
+                            contentDescription = stringResource(R.string.list_clear_filters),
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -607,10 +607,10 @@ private fun StoreFilterChip(
     val canFavorite = selectedFilter is StoreFilter.ByStore || selectedFilter is StoreFilter.ByGroup
     FilterMenuChip(
         label = when (selectedFilter) {
-            is StoreFilter.All -> "Store"
-            is StoreFilter.ByStore -> stores.firstOrNull { it.id == selectedFilter.storeId }?.name ?: "Store"
-            is StoreFilter.ByGroup -> storeGroups.firstOrNull { it.id == selectedFilter.groupId }?.name ?: "Store"
-            is StoreFilter.NoStore -> "No Store"
+            is StoreFilter.All -> stringResource(R.string.list_filter_store)
+            is StoreFilter.ByStore -> stores.firstOrNull { it.id == selectedFilter.storeId }?.name ?: stringResource(R.string.list_filter_store)
+            is StoreFilter.ByGroup -> storeGroups.firstOrNull { it.id == selectedFilter.groupId }?.name ?: stringResource(R.string.list_filter_store)
+            is StoreFilter.NoStore -> stringResource(R.string.list_filter_no_store)
         },
         selected = selectedFilter !is StoreFilter.All,
         trailingIcon = {
@@ -635,14 +635,14 @@ private fun StoreFilterChip(
                             .clip(CircleShape)
                             .clickable(
                                 role = Role.Checkbox,
-                                onClickLabel = if (favoriteFilter) "Show all stores" else "Filter by favorite stores",
+                                onClickLabel = if (favoriteFilter) stringResource(R.string.list_show_all_stores) else stringResource(R.string.list_filter_by_favorites),
                                 onClick = onToggleFavoriteFilter
                             ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = if (favoriteFilter) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                            contentDescription = if (favoriteFilter) "Remove favorites filter" else "Filter by favorites only",
+                            contentDescription = if (favoriteFilter) stringResource(R.string.list_remove_favorites_filter) else stringResource(R.string.list_filter_favorites_only),
                             modifier = Modifier.size(18.dp),
                             tint = if (favoriteFilter) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -702,7 +702,7 @@ private fun StoreFilterChip(
             )
         }
         DropdownMenuItem(
-            text = { Text("No Store") },
+            text = { Text(stringResource(R.string.list_filter_no_store)) },
             leadingIcon = {
                 MenuLeadingIcon(
                     icon = Icons.Outlined.Block,
@@ -715,7 +715,7 @@ private fun StoreFilterChip(
             }
         )
         DropdownMenuItem(
-            text = { Text("No Filter") },
+            text = { Text(stringResource(R.string.list_filter_no_filter)) },
             leadingIcon = { MenuLeadingIcon(icon = Icons.Outlined.FilterAltOff, isSelected = false) },
             onClick = {
                 onFilterSelected(StoreFilter.All)
@@ -734,7 +734,7 @@ private fun CategoryFilterChip(
 ) {
     FilterMenuChip(
         label = when (selectedFilter) {
-            is CategoryFilter.All -> "Category"
+            is CategoryFilter.All -> stringResource(R.string.list_filter_category)
             is CategoryFilter.ByCategory -> {
                 val category = categories.firstOrNull { it.id == selectedFilter.categoryId }
                 if (category == null) "Category" else buildString {
@@ -742,7 +742,7 @@ private fun CategoryFilterChip(
                     append(category.name)
                 }
             }
-            is CategoryFilter.NoCategory -> "Uncategorized"
+            is CategoryFilter.NoCategory -> stringResource(R.string.category_uncategorized)
         },
         selected = selectedFilter !is CategoryFilter.All
     ) { dismiss ->
@@ -770,7 +770,7 @@ private fun CategoryFilterChip(
             )
         }
         DropdownMenuItem(
-            text = { Text("Uncategorized") },
+            text = { Text(stringResource(R.string.category_uncategorized)) },
             leadingIcon = {
                 MenuLeadingIcon(
                     icon = Icons.Outlined.Block,
@@ -783,7 +783,7 @@ private fun CategoryFilterChip(
             }
         )
         DropdownMenuItem(
-            text = { Text("No Filter") },
+            text = { Text(stringResource(R.string.list_filter_no_filter)) },
             leadingIcon = { MenuLeadingIcon(icon = Icons.Outlined.FilterAltOff, isSelected = false) },
             onClick = {
                 onFilterSelected(CategoryFilter.All)
@@ -887,23 +887,23 @@ private fun EmptyListView(searchQuery: String? = null) {
         ) {
             if (searchQuery != null) {
                 Text(
-                    text = "No results",
+                    text = stringResource(R.string.list_no_results),
                     style = MaterialTheme.typography.titleLarge
                 )
                 Spacer(modifier = Modifier.size(8.dp))
                 Text(
-                    text = "Nothing matches “$searchQuery”",
+                    text = stringResource(R.string.list_nothing_matches, searchQuery),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
                 Text(
-                    text = "Your list is empty",
+                    text = stringResource(R.string.empty_list),
                     style = MaterialTheme.typography.titleLarge
                 )
                 Spacer(modifier = Modifier.size(8.dp))
                 Text(
-                    text = "Tap + to add items from your catalog",
+                    text = stringResource(R.string.list_empty_hint),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -949,7 +949,7 @@ private fun SearchQuickAddChip(item: Item, onClick: () -> Unit) {
         trailingIcon = {
             Icon(
                 imageVector = Icons.Default.Add,
-                contentDescription = "Add ${item.name}"
+                contentDescription = stringResource(R.string.common_add_item_name, item.name)
             )
         }
     )
@@ -966,7 +966,9 @@ private fun ActiveListEntryRow(
 ) {
     val listEntry = listEntryItem.listEntry
     val item = listEntryItem.item
-    val displayName = item?.name ?: "Unknown item"
+    val displayName = item?.name ?: ""
+    val unknownItemLabel = stringResource(R.string.common_unknown_item)
+    val newFromOthersLabel = stringResource(R.string.list_new_from_others)
     val hasNote = !item?.notes.isNullOrBlank()
     val hasLink = !item?.links.isNullOrEmpty() || LinkUtils.containsLink(listEntry.comment) || LinkUtils.containsLink(item?.notes)
 
@@ -1013,7 +1015,7 @@ private fun ActiveListEntryRow(
             ) {
                 Icon(
                     imageVector = Icons.Default.Check,
-                    contentDescription = "Check off",
+                    contentDescription = stringResource(R.string.list_check_off),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(24.dp)
                 )
@@ -1051,7 +1053,7 @@ private fun ActiveListEntryRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = displayName,
+                            text = displayName.ifEmpty { unknownItemLabel },
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Medium,
                             textDecoration = if (isCompleting) TextDecoration.LineThrough else null,
@@ -1065,13 +1067,13 @@ private fun ActiveListEntryRow(
                                     .size(8.dp)
                                     .clip(CircleShape)
                                     .background(MaterialTheme.colorScheme.primary)
-                                    .semantics { contentDescription = "New, added by someone else" }
+                                    .semantics { contentDescription = newFromOthersLabel }
                             )
                         }
                         if (hasNote) {
                             Icon(
                                 imageVector = Icons.Outlined.Description,
-                                contentDescription = "Has catalog note",
+                                contentDescription = stringResource(R.string.list_has_note),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                 modifier = Modifier.size(15.dp)
                             )
@@ -1079,7 +1081,7 @@ private fun ActiveListEntryRow(
                         if (hasLink) {
                             Icon(
                                 imageVector = Icons.Default.Link,
-                                contentDescription = "Has link",
+                                contentDescription = stringResource(R.string.list_has_link),
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(15.dp)
                             )
@@ -1123,7 +1125,8 @@ private fun RecentlyCheckedRow(
 ) {
     val listEntry = listEntryItem.listEntry
     val item = listEntryItem.item
-    val displayName = item?.name ?: "Unknown item"
+    val displayName = item?.name ?: ""
+    val unknownItemLabel = stringResource(R.string.common_unknown_item)
     val hasNote = !item?.notes.isNullOrBlank()
     val hasLink = !item?.links.isNullOrEmpty() || LinkUtils.containsLink(listEntry.comment) || LinkUtils.containsLink(item?.notes)
 
@@ -1157,7 +1160,7 @@ private fun RecentlyCheckedRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = displayName,
+                        text = displayName.ifEmpty { unknownItemLabel },
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
                         textDecoration = TextDecoration.LineThrough,
@@ -1168,7 +1171,7 @@ private fun RecentlyCheckedRow(
                     if (hasNote) {
                         Icon(
                             imageVector = Icons.Outlined.Description,
-                            contentDescription = "Has catalog note",
+                            contentDescription = stringResource(R.string.list_has_note),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                             modifier = Modifier.size(15.dp)
                         )
@@ -1176,7 +1179,7 @@ private fun RecentlyCheckedRow(
                     if (hasLink) {
                         Icon(
                             imageVector = Icons.Default.Link,
-                            contentDescription = "Has link",
+                            contentDescription = stringResource(R.string.list_has_link),
                             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
                             modifier = Modifier.size(15.dp)
                         )
@@ -1302,7 +1305,7 @@ private fun AddItemsSearchContent(
             OutlinedTextField(
                 value = queryText,
                 onValueChange = { queryText = it; onQueryChange(it) },
-                label = { Text("Search or add item") },
+                label = { Text(stringResource(R.string.list_search_or_add)) },
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 modifier = Modifier
@@ -1319,7 +1322,7 @@ private fun AddItemsSearchContent(
                         onSelectNew()
                     },
                     leadingContent = { NewItemBadge() },
-                    supportingContent = { Text("New — not in catalog") }
+                    supportingContent = { Text(stringResource(R.string.list_new_not_in_catalog)) }
                 ) {
                     Text("\"$query\"")
                 }
@@ -1346,7 +1349,7 @@ private fun AddItemsSearchContent(
                         if (catalogItem.isOnActiveList) {
                             Icon(
                                 imageVector = Icons.Default.Check,
-                                contentDescription = "On list",
+                                contentDescription = stringResource(R.string.list_on_list),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -1412,13 +1415,13 @@ private fun AddItemsSelectedContent(
                 null
             },
             supportingContent = if (selection is AddSelection.New) {
-                { Text("New — not in catalog") }
+                { Text(stringResource(R.string.list_new_not_in_catalog)) }
             } else {
                 null
             },
             trailingContent = {
                 IconButton(onClick = onBackToSearch) {
-                    Icon(Icons.Default.Close, contentDescription = "Back to search")
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.list_back_to_search))
                 }
             }
         ) {
@@ -1448,7 +1451,7 @@ private fun AddItemsSelectedContent(
                     Box(modifier = Modifier.padding(8.dp)) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "Edit item details",
+                            contentDescription = stringResource(R.string.common_edit_item_details),
                             modifier = Modifier.size(24.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1480,23 +1483,22 @@ private fun AddItemsSelectedContent(
                     onCheckedChange = { saveToCatalog = it }
                 )
                 Text(
-                    text = "Save \"$name\" to Catalog",
+                    text = stringResource(R.string.list_save_to_catalog, name),
                     modifier = Modifier.weight(1f)
                 )
                 IconButton(onClick = { showTypeHelp = !showTypeHelp }) {
                     Icon(
                         imageVector = Icons.Outlined.Info,
-                        contentDescription = "Explain this option"
+                        contentDescription = stringResource(R.string.list_explain_option)
                     )
                 }
             }
             AnimatedVisibility(visible = showTypeHelp) {
                 Text(
                     text = if (saveToCatalog) {
-                        "The item stays in your catalog — it shows up in search next time."
+                        stringResource(R.string.list_help_permanent)
                     } else {
-                        "The item is only on the list for this trip: after you check it off, " +
-                            "it is removed with the daily cleanup (24 h) — right for one-time things."
+                        stringResource(R.string.list_help_one_time)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1514,7 +1516,7 @@ private fun AddItemsSelectedContent(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Add & edit details in Catalog")
+                    Text(stringResource(R.string.list_add_and_edit))
                 }
             }
         }
@@ -1528,14 +1530,14 @@ private fun AddItemsSelectedContent(
                 enabled = !isAddInProgress,
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Add")
+                Text(stringResource(R.string.common_add))
             }
             Button(
                 onClick = { onAdd(saveToCatalog, quantityText, unitText, commentText, true) },
                 enabled = !isAddInProgress,
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Add & Close")
+                Text(stringResource(R.string.list_add_and_close))
             }
         }
     }
