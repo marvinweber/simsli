@@ -1,6 +1,8 @@
 package net.marvinweber.simsli.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.res.stringResource
+import net.marvinweber.simsli.R
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -61,19 +63,19 @@ fun AppUpdateDialog(viewModel: AppUpdateViewModel = hiltViewModel()) {
                 )
             }
         },
-        title = { Text("Please update Simsli") },
+        title = { Text(stringResource(R.string.update_title)) },
         text = {
             Text(
-                "The server expects app version ${current.minAppVersion} or newer, " +
-                    "but this device is running ${current.appVersion}. " +
-                    "Continuing without updating may lead to unexpected behavior — " +
-                    "syncing may not work reliably. " +
-                    "Please update the app to keep everything running smoothly."
+                stringResource(
+                    R.string.update_text,
+                    current.minAppVersion,
+                    current.appVersion
+                )
             )
         },
         confirmButton = {
             TextButton(onClick = viewModel::dismiss) {
-                Text("Okay")
+                Text(stringResource(R.string.common_okay))
             }
         }
     )

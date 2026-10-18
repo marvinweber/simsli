@@ -399,4 +399,8 @@
     <string name="common_clear_search">Suche löschen</string>
     <string name="hh_invite_code_copied">Einladungscode in die Zwischenablage kopiert</string>
     <string name="hh_household_id_copied">Haushalt-ID in die Zwischenablage kopiert</string>
+    <!-- App-Update -->
+    <string name="update_title">Bitte Simsli aktualisieren</string>
+    <string name="update_text">Der Server erwartet App-Version %1$s oder neuer, dieses Gerät hat aber %2$s. Der Betrieb ohne Update kann zu unerwartetem Verhalten führen — die Synchronisierung funktioniert möglicherweise nicht zuverlässig. Bitte aktualisiere die App, damit alles weiterläuft.</string>
+    <string name="common_okay">Okay</string>
 </resources>

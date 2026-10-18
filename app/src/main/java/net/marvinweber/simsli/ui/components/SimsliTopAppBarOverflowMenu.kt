@@ -45,7 +45,7 @@ fun SimsliTopAppBarOverflowMenu(
             onDismissRequest = { expanded = false }
         ) {
             DropdownMenuItem(
-                text = { Text("Refresh") },
+                text = { Text(stringResource(R.string.common_refresh)) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Outlined.Refresh,

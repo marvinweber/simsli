@@ -398,4 +398,8 @@
     <string name="common_clear_search">Clear search</string>
     <string name="hh_invite_code_copied">Invite code copied to clipboard</string>
     <string name="hh_household_id_copied">Household ID copied to clipboard</string>
+    <!-- App update -->
+    <string name="update_title">Please update Simsli</string>
+    <string name="update_text">The server expects app version %1$s or newer, but this device is running %2$s. Continuing without updating may lead to unexpected behavior — syncing may not work reliably. Please update the app to keep everything running smoothly.</string>
+    <string name="common_okay">Okay</string>
 </resources>
