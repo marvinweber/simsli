@@ -138,7 +138,7 @@ fun SimsliTopAppBarTitle(
                     )
                     TitleSlot.Logo -> Image(
                         painter = painterResource(R.drawable.ic_simsli_logo),
-                        contentDescription = "Simsli logo",
+                        contentDescription = stringResource(R.string.common_simsli_logo),
                         modifier = Modifier.size(32.dp)
                     )
                 }

@@ -209,11 +209,17 @@
     <string name="item_exclude">%1$s ausschließen</string>
 
     <!-- Einheiten -->
+    <string name="unit_field_placeholder">kg, Packung …</string>
     <string name="unit_none">Keine</string>
     <string name="unit_custom">Eigene …</string>
     <string name="unit_edit_custom">Eigene Einheit bearbeiten …</string>
     <string name="unit_custom_dialog_title">Eigene Einheit</string>
     <string name="unit_custom_placeholder">z. B. Stk., Packung, kg, Flasche …</string>
+    <!-- Eingabeneditor -->
+    <string name="entry_note_label">Katalog-Notiz</string>
+    <string name="entry_quantity">Menge</string>
+    <string name="entry_comment">Kommentar (optional)</string>
+    <string name="entry_comment_placeholder">z. B. das Bio-Produkt nehmen</string>
     <string name="unit_preset_pcs">Stk.</string>
     <string name="unit_preset_pack">Packung</string>
     <string name="unit_preset_g">g</string>
@@ -227,4 +233,8 @@
     <string name="prices_reference_placeholder">z. B. 1 l, 500 g</string>
     <string name="prices_reference_hint">Wird neben den Preisen angezeigt — rein informativ.</string>
     <string name="prices_no_stores">Keine Geschäfte zugewiesen. Weise diesem Artikel Geschäfte zu, um Preise zu erfassen.</string>
+    <string name="common_remove_from_list">Von der Liste entfernen</string>
+    <string name="common_link">Link</string>
+    <string name="common_could_not_open_link">Link konnte nicht geöffnet werden</string>
+    <string name="common_simsli_logo">Simsli-Logo</string>
 </resources>

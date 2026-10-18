@@ -1,6 +1,9 @@
 package net.marvinweber.simsli.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
+
+import androidx.compose.ui.res.stringResource
+import net.marvinweber.simsli.R
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -66,7 +69,7 @@ fun EntryFormFields(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "Catalog note",
+                            text = stringResource(R.string.entry_note_label),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -87,7 +90,7 @@ fun EntryFormFields(
             OutlinedTextField(
                 value = quantityText,
                 onValueChange = onQuantityChange,
-                label = { Text("Quantity") },
+                label = { Text(stringResource(R.string.entry_quantity)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.weight(1f)
@@ -102,8 +105,8 @@ fun EntryFormFields(
         OutlinedTextField(
             value = commentText,
             onValueChange = onCommentChange,
-            label = { Text("Comment (optional)") },
-            placeholder = { Text("e.g., get the organic one") },
+            label = { Text(stringResource(R.string.entry_comment)) },
+            placeholder = { Text(stringResource(R.string.entry_comment_placeholder)) },
             modifier = Modifier.fillMaxWidth(),
             minLines = 2,
             maxLines = 4

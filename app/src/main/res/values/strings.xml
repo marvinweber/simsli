@@ -208,11 +208,17 @@
     <string name="item_exclude">Exclude %1$s</string>
 
     <!-- Units -->
+    <string name="unit_field_placeholder">kg, pack …</string>
     <string name="unit_none">None</string>
     <string name="unit_custom">Custom…</string>
     <string name="unit_edit_custom">Edit custom unit…</string>
     <string name="unit_custom_dialog_title">Custom unit</string>
     <string name="unit_custom_placeholder">e.g. pcs, pack, kg, bottle …</string>
+    <!-- Entry editor -->
+    <string name="entry_note_label">Catalog note</string>
+    <string name="entry_quantity">Quantity</string>
+    <string name="entry_comment">Comment (optional)</string>
+    <string name="entry_comment_placeholder">e.g., get the organic one</string>
     <string name="unit_preset_pcs">pcs</string>
     <string name="unit_preset_pack">pack</string>
     <string name="unit_preset_g">g</string>
@@ -226,4 +232,8 @@
     <string name="prices_reference_placeholder">e.g. 1 l, 500 g</string>
     <string name="prices_reference_hint">Shown next to prices — purely informational.</string>
     <string name="prices_no_stores">No stores assigned. Assign stores to this item to track prices.</string>
+    <string name="common_remove_from_list">Remove from list</string>
+    <string name="common_link">Link</string>
+    <string name="common_could_not_open_link">Could not open link</string>
+    <string name="common_simsli_logo">Simsli logo</string>
 </resources>

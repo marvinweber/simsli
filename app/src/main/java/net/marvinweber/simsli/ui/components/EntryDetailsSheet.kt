@@ -29,15 +29,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import net.marvinweber.simsli.R
 import net.marvinweber.simsli.domain.model.ItemLink
+import java.text.NumberFormat
+import java.util.Locale
 
-/** Formats a quantity for display: whole numbers without decimals ("2", not "2.0"). */
+/** Formats a quantity for display: whole numbers without decimals ("2", not "2.0"), locale-aware decimal separator. */
 internal fun formatQuantity(quantity: Double?): String = when {
     quantity == null -> ""
     quantity % 1.0 == 0.0 -> quantity.toInt().toString()
-    else -> quantity.toString()
+    else -> NumberFormat.getNumberInstance(Locale.getDefault()).apply {
+        isGroupingUsed = false
+        maximumFractionDigits = 340
+    }.format(quantity)
 }
 
 /**
@@ -60,7 +67,7 @@ fun EntryDetailsSheet(
     onDismiss: () -> Unit,
     onSave: (quantityText: String, unit: String, comment: String) -> Unit,
     onRemove: (() -> Unit)? = null,
-    saveButtonText: String = "Save",
+    saveButtonText: String = stringResource(R.string.common_save),
     note: String? = null,
     links: List<ItemLink> = emptyList(),
     onOpenItemDetails: (() -> Unit)? = null
@@ -112,7 +119,7 @@ fun EntryDetailsSheet(
                     Box(modifier = Modifier.padding(8.dp)) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "Edit item details",
+                            contentDescription = stringResource(R.string.common_edit_item_details),
                             modifier = Modifier.size(24.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -138,7 +145,7 @@ fun EntryDetailsSheet(
                 TextButton(
                     onClick = onRemove ?: onDismiss
                 ) {
-                    Text(if (onRemove != null) "Remove from list" else "Cancel")
+                    Text(if (onRemove != null) stringResource(R.string.common_remove_from_list) else stringResource(R.string.common_cancel))
                 }
                 Button(
                     onClick = { onSave(quantityText, unitText, commentText) }

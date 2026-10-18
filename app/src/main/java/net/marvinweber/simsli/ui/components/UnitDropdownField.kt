@@ -26,8 +26,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import net.marvinweber.simsli.R
 import net.marvinweber.simsli.domain.model.UnitPresets
 
 /**
@@ -57,8 +59,8 @@ fun UnitDropdownField(
             value = value,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Unit") },
-            placeholder = { Text("kg, pack …") },
+            label = { Text(stringResource(R.string.item_unit)) },
+            placeholder = { Text(stringResource(R.string.unit_field_placeholder)) },
             singleLine = true,
             trailingIcon = {
                 ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuExpanded)
@@ -72,7 +74,7 @@ fun UnitDropdownField(
             onDismissRequest = { menuExpanded = false }
         ) {
             DropdownMenuItem(
-                text = { Text("None") },
+                text = { Text(stringResource(R.string.unit_none)) },
                 onClick = {
                     onValueChange("")
                     menuExpanded = false
@@ -85,7 +87,7 @@ fun UnitDropdownField(
             )
             UnitPresets.ALL.forEach { preset ->
                 DropdownMenuItem(
-                    text = { Text(preset) },
+                    text = { Text(unitPresetLabel(preset)) },
                     onClick = {
                         onValueChange(preset)
                         menuExpanded = false
@@ -102,8 +104,8 @@ fun UnitDropdownField(
             DropdownMenuItem(
                 text = {
                     Text(
-                        if (isPreset || value.isBlank()) "Custom…"
-                        else "Edit custom unit…"
+                        if (isPreset || value.isBlank()) stringResource(R.string.unit_custom)
+                        else stringResource(R.string.unit_edit_custom)
                     )
                 },
                 onClick = {
@@ -119,13 +121,13 @@ fun UnitDropdownField(
     if (showCustomDialog) {
         AlertDialog(
             onDismissRequest = { showCustomDialog = false },
-            title = { Text("Custom unit") },
+            title = { Text(stringResource(R.string.unit_custom_dialog_title)) },
             text = {
                 OutlinedTextField(
                     value = customInput,
                     onValueChange = { customInput = it },
-                    label = { Text("Unit") },
-                    placeholder = { Text("e.g. pcs, pack, kg, bottle …") },
+                    label = { Text(stringResource(R.string.item_unit)) },
+                    placeholder = { Text(stringResource(R.string.unit_custom_placeholder)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                     modifier = Modifier.fillMaxWidth()
@@ -139,12 +141,12 @@ fun UnitDropdownField(
                     },
                     enabled = customInput.isNotBlank()
                 ) {
-                    Text("Save")
+                    Text(stringResource(R.string.common_save))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showCustomDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             }
         )

@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import net.marvinweber.simsli.R
 import net.marvinweber.simsli.domain.model.ItemLink
 
 object LinkUtils {
@@ -108,10 +109,10 @@ object LinkUtils {
         }
     }
 
-    fun formatLinkTitle(url: String, title: String?): String {
+    fun formatLinkTitle(context: Context, url: String, title: String?): String {
         val host = getHost(url)
         if (title.isNullOrBlank()) {
-            return host.ifBlank { "Link" }
+            return host.ifBlank { context.getString(R.string.common_link) }
         }
         val truncatedTitle = if (title.trim().length > 30) {
             title.trim().take(27).trimEnd() + "..."
@@ -138,7 +139,7 @@ fun resolveLinkInfo(context: Context, url: String): LinkInfo {
     val uri = try {
         Uri.parse(url)
     } catch (_: Exception) {
-        return LinkInfo(url = url, host = "", label = "Link")
+        return LinkInfo(url = url, host = "", label = context.getString(R.string.common_link))
     }
     val host = LinkUtils.getHost(url)
     val pm = context.packageManager
@@ -226,11 +227,11 @@ fun LinkChip(
 
     val chipLabel = remember(url, title, linkInfo.appIcon, linkInfo.label) {
         if (!title.isNullOrBlank()) {
-            LinkUtils.formatLinkTitle(url, title)
+            LinkUtils.formatLinkTitle(context, url, title)
         } else if (linkInfo.appIcon != null) {
             linkInfo.label
         } else {
-            LinkUtils.formatLinkTitle(url, null)
+            LinkUtils.formatLinkTitle(context, url, null)
         }
     }
 
@@ -242,7 +243,7 @@ fun LinkChip(
                 }
                 context.startActivity(intent)
             } catch (_: Exception) {
-                Toast.makeText(context, "Could not open link", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.common_could_not_open_link), Toast.LENGTH_SHORT).show()
             }
         },
         leadingIcon = {
