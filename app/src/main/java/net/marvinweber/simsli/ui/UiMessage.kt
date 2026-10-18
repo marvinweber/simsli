@@ -15,7 +15,9 @@ import androidx.compose.ui.res.stringResource
  */
 data class UiMessage(
     @StringRes val resId: Int,
-    val args: List<String> = emptyList()
+    val args: List<String> = emptyList(),
+    /** True for failures — drives error styling and the copy action on snackbars. */
+    val isError: Boolean = false
 )
 
 /** Resolves the message against the current string resources. */

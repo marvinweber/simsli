@@ -14,7 +14,9 @@ import net.marvinweber.simsli.data.repository.AuthRepository
 import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.data.sync.SyncScheduler
 import net.marvinweber.simsli.domain.model.HouseholdMember
+import net.marvinweber.simsli.R
 import net.marvinweber.simsli.domain.model.MemberRole
+import net.marvinweber.simsli.ui.UiMessage
 import javax.inject.Inject
 
 data class HouseholdMembersUiState(
@@ -26,7 +28,7 @@ data class HouseholdMembersUiState(
     val currentUserId: String? = null,
     val memberToRemove: HouseholdMember? = null,
     val isRemoving: Boolean = false,
-    val statusMessage: String? = null
+    val statusMessage: UiMessage? = null
 )
 
 @HiltViewModel
@@ -40,7 +42,7 @@ class HouseholdMembersViewModel @Inject constructor(
     private val members = MutableStateFlow<List<HouseholdMember>>(emptyList())
     private val memberToRemove = MutableStateFlow<HouseholdMember?>(null)
     private val isRemoving = MutableStateFlow(false)
-    private val statusMessage = MutableStateFlow<String?>(null)
+    private val statusMessage = MutableStateFlow<UiMessage?>(null)
 
     val uiState: StateFlow<HouseholdMembersUiState> = combine(
         householdRepository.getHousehold(),
@@ -83,7 +85,7 @@ class HouseholdMembersViewModel @Inject constructor(
                         members.value = memberList
                     }
                     .onFailure { error ->
-                        statusMessage.value = "Failed to load members: ${error.message}"
+                        statusMessage.value = UiMessage(R.string.hh_members_error_load_failed, listOf(error.message.orEmpty()), isError = true)
                     }
             }
             isLoading.value = false
@@ -104,7 +106,7 @@ class HouseholdMembersViewModel @Inject constructor(
             isRemoving.value = true
             val household = householdRepository.getHousehold().first()
             if (household == null) {
-                statusMessage.value = "No household found"
+                statusMessage.value = UiMessage(R.string.common_error_no_household, isError = true)
                 memberToRemove.value = null
                 isRemoving.value = false
                 return@launch
@@ -112,7 +114,11 @@ class HouseholdMembersViewModel @Inject constructor(
 
             householdRepository.removeMember(household.id, target.userId)
                 .onSuccess {
-                    statusMessage.value = "${target.email ?: "Member"} removed"
+                    statusMessage.value = if (target.email != null) {
+                        UiMessage(R.string.hh_member_removed, listOf(target.email))
+                    } else {
+                        UiMessage(R.string.hh_member_removed_no_email)
+                    }
                     memberToRemove.value = null
                     // Reload members list
                     householdRepository.getMembers(household.id)
@@ -120,7 +126,7 @@ class HouseholdMembersViewModel @Inject constructor(
                     syncScheduler.requestSync("member_removed")
                 }
                 .onFailure { error ->
-                    statusMessage.value = "Failed to remove member: ${error.message}"
+                    statusMessage.value = UiMessage(R.string.hh_members_error_remove_failed, listOf(error.message.orEmpty()), isError = true)
                     memberToRemove.value = null
                 }
             isRemoving.value = false

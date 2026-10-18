@@ -19,7 +19,9 @@ import net.marvinweber.simsli.data.repository.HouseholdRepository
 import net.marvinweber.simsli.data.sync.SyncManager
 import net.marvinweber.simsli.di.IoDispatcher
 import net.marvinweber.simsli.domain.model.HouseholdMember
+import net.marvinweber.simsli.R
 import net.marvinweber.simsli.domain.model.MemberRole
+import net.marvinweber.simsli.ui.UiMessage
 import javax.inject.Inject
 
 data class HouseholdUiState(
@@ -32,11 +34,11 @@ data class HouseholdUiState(
     val isOwner: Boolean = true,
     val isSignedIn: Boolean = false,
     val canInvite: Boolean = true,
-    val inviteDisabledReason: String? = null,
+    val inviteDisabledReason: UiMessage? = null,
     val canJoin: Boolean = true,
-    val joinDisabledReason: String? = null,
+    val joinDisabledReason: UiMessage? = null,
     val isBusy: Boolean = false,
-    val statusMessage: String? = null,
+    val statusMessage: UiMessage? = null,
     val renameInput: String? = null,
     val inviteCode: String? = null,
     val showJoinWarning: Boolean = false,
@@ -55,7 +57,7 @@ class HouseholdViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val isBusy = MutableStateFlow(false)
-    private val statusMessage = MutableStateFlow<String?>(null)
+    private val statusMessage = MutableStateFlow<UiMessage?>(null)
     private val renameInput = MutableStateFlow<String?>(null)
     private val inviteCode = MutableStateFlow<String?>(null)
     private val showJoinWarning = MutableStateFlow(false)
@@ -82,7 +84,7 @@ class HouseholdViewModel @Inject constructor(
 
     private data class LocalState(
         val isBusy: Boolean,
-        val statusMessage: String?,
+        val statusMessage: UiMessage?,
         val renameInput: String?,
         val dialogs: DialogState
     )
@@ -110,14 +112,14 @@ class HouseholdViewModel @Inject constructor(
 
         val canInvite = if (isSignedIn) role == MemberRole.OWNER else true
         val inviteDisabledReason = if (isSignedIn && role != MemberRole.OWNER) {
-            "Only owners and admins can invite members"
+            UiMessage(R.string.hh_invite_disabled_reason)
         } else {
             null
         }
 
         val canJoin = !isOwner || memberCount <= 1
         val joinDisabledReason = if (!canJoin) {
-            "You are the owner of a shared household with $memberCount members. Transfer or delete it before joining another."
+            UiMessage(R.string.hh_join_disabled_reason, listOf(memberCount.toString()))
         } else {
             null
         }
@@ -190,7 +192,7 @@ class HouseholdViewModel @Inject constructor(
 
     fun confirmRename(newEmoji: String?, newCurrency: String) {
         if (!uiState.value.isOwner) {
-            statusMessage.value = "Only the household owner can edit the household"
+            statusMessage.value = UiMessage(R.string.hh_error_only_owner_edit, isError = true)
             return
         }
         val newName = renameInput.value?.trim().orEmpty()
@@ -204,7 +206,7 @@ class HouseholdViewModel @Inject constructor(
 
             val household = householdRepository.getHousehold().first()
             if (household == null) {
-                statusMessage.value = "No household set up yet"
+                statusMessage.value = UiMessage(R.string.hh_error_not_set_up, isError = true)
             } else if (household.name == newName && household.icon == normalizedIcon &&
                 household.currency == normalizedCurrency
             ) {
@@ -216,12 +218,12 @@ class HouseholdViewModel @Inject constructor(
                     .onSuccess {
                         if (uiState.value.isSignedIn) {
                             syncManager.syncNow()
-                            statusMessage.value = "Household updated"
+                            statusMessage.value = UiMessage(R.string.hh_updated)
                         } else {
-                            statusMessage.value = "Household updated — sign in to sync it"
+                            statusMessage.value = UiMessage(R.string.hh_updated_sign_in_to_sync)
                         }
                     }
-                    .onFailure { statusMessage.value = "Update failed: ${it.message}" }
+                    .onFailure { statusMessage.value = UiMessage(R.string.common_error_update_failed, listOf(it.message.orEmpty()), isError = true) }
             }
             isBusy.value = false
         }
@@ -230,11 +232,11 @@ class HouseholdViewModel @Inject constructor(
     fun startInvite() {
         viewModelScope.launch {
             if (!uiState.value.isSignedIn) {
-                statusMessage.value = "Sign in first to invite someone."
+                statusMessage.value = UiMessage(R.string.hh_error_sign_in_first_invite)
                 return@launch
             }
             if (!uiState.value.canInvite) {
-                statusMessage.value = uiState.value.inviteDisabledReason ?: "Only owners and admins can invite members."
+                statusMessage.value = uiState.value.inviteDisabledReason ?: UiMessage(R.string.hh_invite_disabled_reason)
                 return@launch
             }
             isBusy.value = true
@@ -245,7 +247,7 @@ class HouseholdViewModel @Inject constructor(
             result.fold(
                 onSuccess = { inviteCode.value = it },
                 onFailure = { error ->
-                    statusMessage.value = "Failed to generate invite code: ${error.message}"
+                    statusMessage.value = UiMessage(R.string.hh_error_invite_create_failed, listOf(error.message.orEmpty()), isError = true)
                 }
             )
         }
@@ -258,7 +260,7 @@ class HouseholdViewModel @Inject constructor(
     fun startJoinWithCode(code: String) {
         val currentCanJoin = uiState.value.canJoin
         if (!currentCanJoin) {
-            statusMessage.value = uiState.value.joinDisabledReason ?: "Cannot join another household"
+            statusMessage.value = uiState.value.joinDisabledReason ?: UiMessage(R.string.hh_cannot_join, isError = true)
             return
         }
         pendingJoinCode.value = code
@@ -310,11 +312,11 @@ class HouseholdViewModel @Inject constructor(
             isBusy.value = false
             result.fold(
                 onSuccess = {
-                    statusMessage.value = "Joined household successfully"
+                    statusMessage.value = UiMessage(R.string.hh_joined_successfully)
                     syncManager.syncNow("join")
                 },
                 onFailure = { error ->
-                    statusMessage.value = "Failed to join household: ${error.message}"
+                    statusMessage.value = UiMessage(R.string.hh_error_join_failed, listOf(error.message.orEmpty()), isError = true)
                 }
             )
         }
@@ -332,7 +334,7 @@ class HouseholdViewModel @Inject constructor(
         fullResyncConfirmOpen.value = false
         viewModelScope.launch {
             if (!uiState.value.isSignedIn) {
-                statusMessage.value = "Not signed in — sync needs an account."
+                statusMessage.value = UiMessage(R.string.common_error_not_signed_in_sync)
                 return@launch
             }
             isBusy.value = true
@@ -342,10 +344,10 @@ class HouseholdViewModel @Inject constructor(
             isBusy.value = false
             result.fold(
                 onSuccess = {
-                    statusMessage.value = "Full resync complete — data re-downloaded from server"
+                    statusMessage.value = UiMessage(R.string.common_resync_complete)
                 },
                 onFailure = { error ->
-                    statusMessage.value = "Full resync failed: ${error.message}"
+                    statusMessage.value = UiMessage(R.string.common_error_resync_failed, listOf(error.message.orEmpty()), isError = true)
                 }
             )
         }

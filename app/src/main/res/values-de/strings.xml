@@ -60,4 +60,53 @@
     <string name="list_error_save_failed">Speichern fehlgeschlagen: %1$s</string>
     <string name="list_error_remove_item_failed">Eintrag konnte nicht entfernt werden: %1$s</string>
     <string name="list_error_clear_items_failed">Einträge konnten nicht entfernt werden: %1$s</string>
+    <!-- Shared -->
+    <string name="common_copy">Kopieren</string>
+    <string name="common_error_copied">Fehler in die Zwischenablage kopiert</string>
+    <string name="common_error_update_failed">Aktualisierung fehlgeschlagen: %1$s</string>
+    <string name="common_error_not_signed_in_sync">Nicht angemeldet — für die Synchronisierung wird ein Konto benötigt.</string>
+    <string name="common_resync_complete">Vollständige Neusynchronisierung abgeschlossen — Daten wurden vom Server neu geladen</string>
+    <string name="common_error_resync_failed">Neusynchronisierung fehlgeschlagen: %1$s</string>
+
+    <!-- Household -->
+    <string name="hh_invite_disabled_reason">Nur Owner und Admins können Mitglieder einladen</string>
+    <string name="hh_join_disabled_reason">Du bist Owner eines geteilten Haushalts mit %1$s Mitgliedern. Übertrage oder lösche ihn, bevor du einem anderen beitrittst.</string>
+    <string name="hh_error_only_owner_edit">Nur der Haushalts-Owner kann den Haushalt bearbeiten</string>
+    <string name="hh_error_not_set_up">Es ist noch kein Haushalt eingerichtet</string>
+    <string name="hh_updated">Haushalt aktualisiert</string>
+    <string name="hh_updated_sign_in_to_sync">Haushalt aktualisiert — melde dich an, um ihn zu synchronisieren</string>
+    <string name="hh_error_sign_in_first_invite">Melde dich zuerst an, um jemanden einzuladen</string>
+    <string name="hh_error_invite_create_failed">Einladungscode konnte nicht erstellt werden: %1$s</string>
+    <string name="hh_cannot_join">Du kannst keinem anderen Haushalt beitreten</string>
+    <string name="hh_joined_successfully">Haushalt erfolgreich beigetreten</string>
+    <string name="hh_error_join_failed">Haushaltsbeitritt fehlgeschlagen: %1$s</string>
+    <string name="hh_members_error_load_failed">Mitglieder konnten nicht geladen werden: %1$s</string>
+    <string name="hh_member_removed">%1$s entfernt</string>
+    <string name="hh_member_removed_no_email">Mitglied entfernt</string>
+    <string name="hh_members_error_remove_failed">Mitglied konnte nicht entfernt werden: %1$s</string>
+
+    <!-- Settings -->
+    <string name="settings_invite_disabled_reason">Nur Owner und Admins (folgen später) können Mitglieder einladen</string>
+    <string name="settings_join_disabled_reason">Du kannst keinem anderen Haushalt beitreten, solange du Mitglied eines nicht leeren Haushalts bist</string>
+    <string name="settings_error_invalid_email">Bitte gib eine gültige E-Mail-Adresse ein</string>
+    <string name="settings_magic_link_sent">Magic-Link gesendet — sieh in deinem Posteingang nach.</string>
+    <string name="settings_error_magic_link_failed">Magic-Link konnte nicht gesendet werden: %1$s</string>
+    <string name="settings_signed_out_wiped">Abgemeldet — lokale Daten wurden gelöscht</string>
+    <string name="settings_signed_out_offline">Abgemeldet — der Server konnte nicht erreicht werden, um die Sitzung zu widerrufen</string>
+    <string name="settings_error_sign_out_failed">Abmeldung fehlgeschlagen: %1$s</string>
+    <string name="settings_sync_complete">Synchronisierung abgeschlossen</string>
+    <string name="settings_error_invite_create_failed">Einladung konnte nicht erstellt werden: %1$s</string>
+    <string name="settings_error_not_signed_in_join">Nicht angemeldet — für den Beitritt wird ein Konto benötigt.</string>
+    <string name="settings_joined_household">Haushalt „%1$s“ beigetreten</string>
+    <string name="settings_joined_sync_failed">Beigetreten, aber die Synchronisierung ist fehlgeschlagen: %1$s</string>
+    <string name="settings_error_join_failed">Beitritt fehlgeschlagen: %1$s</string>
+    <string name="settings_demo_seeded">Demodaten eingespielt — lokale Daten wurden zurückgesetzt</string>
+    <string name="settings_error_seed_failed">Einspielen der Demodaten fehlgeschlagen: %1$s</string>
+    <string name="settings_endpoint_url_missing">URL fehlt</string>
+    <string name="settings_endpoint_online">Online (%1$s ms)</string>
+    <string name="settings_endpoint_unreachable">Nicht erreichbar</string>
+    <string name="settings_endpoint_server_update_recommended">Server-Update empfohlen (%1$s → %2$s)</string>
+    <string name="settings_endpoint_app_update_recommended">App-Update empfohlen (%1$s → %2$s)</string>
+    <string name="settings_endpoint_not_configured">(nicht konfiguriert)</string>
+    <string name="settings_endpoint_checking">Wird geprüft …</string>
 </resources>

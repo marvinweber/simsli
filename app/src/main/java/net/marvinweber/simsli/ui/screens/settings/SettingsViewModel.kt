@@ -25,7 +25,9 @@ import net.marvinweber.simsli.data.sync.SyncDiagnostics
 import net.marvinweber.simsli.data.sync.SyncManager
 import net.marvinweber.simsli.di.IoDispatcher
 import net.marvinweber.simsli.domain.model.HouseholdMember
+import net.marvinweber.simsli.R
 import net.marvinweber.simsli.domain.model.MemberRole
+import net.marvinweber.simsli.ui.UiMessage
 import javax.inject.Inject
 
 enum class EndpointStatus {
@@ -38,13 +40,13 @@ enum class EndpointStatus {
 data class EndpointHealth(
     val url: String = BuildConfig.SERVER_URL,
     val status: EndpointStatus = EndpointStatus.CHECKING,
-    val detail: String? = null,
+    val detail: UiMessage? = null,
     val serverVersion: String? = null,
     val apiVersion: Int? = null,
     val serverMode: String? = null,
     val isOutdatedServer: Boolean = false,
     val isOutdatedApp: Boolean = false,
-    val warningMessage: String? = null
+    val warningMessage: UiMessage? = null
 )
 
 data class SettingsUiState(
@@ -57,12 +59,12 @@ data class SettingsUiState(
     val currentUserRole: MemberRole? = null,
     val isOwner: Boolean = true,
     val canInvite: Boolean = true,
-    val inviteDisabledReason: String? = null,
+    val inviteDisabledReason: UiMessage? = null,
     val canJoin: Boolean = true,
-    val joinDisabledReason: String? = null,
+    val joinDisabledReason: UiMessage? = null,
     val emailInput: String = "",
     val isBusy: Boolean = false,
-    val statusMessage: String? = null,
+    val statusMessage: UiMessage? = null,
     val renameInput: String? = null,  // non-null → edit-household dialog open, holds the name field content
     val inviteCode: String? = null,   // non-null → invite dialog open, shows the generated code
     val showJoinWarning: Boolean = false, // non-null / true → show warning before entering join code
@@ -89,7 +91,7 @@ class SettingsViewModel @Inject constructor(
 
     private val emailInput = MutableStateFlow("")
     private val isBusy = MutableStateFlow(false)
-    private val statusMessage = MutableStateFlow<String?>(null)
+    private val statusMessage = MutableStateFlow<UiMessage?>(null)
     private val renameInput = MutableStateFlow<String?>(null)
     private val inviteCode = MutableStateFlow<String?>(null)
     private val showJoinWarning = MutableStateFlow(false)
@@ -121,7 +123,7 @@ class SettingsViewModel @Inject constructor(
     private data class FormInputs(
         val emailInput: String,
         val isBusy: Boolean,
-        val statusMessage: String?,
+        val statusMessage: UiMessage?,
         val renameInput: String?
     )
 
@@ -159,14 +161,14 @@ class SettingsViewModel @Inject constructor(
             true
         }
         val inviteDisabledReason = if (authState is AuthState.SignedIn && role != MemberRole.OWNER) {
-            "Only owners and admins (in the future) can invite members"
+            UiMessage(R.string.settings_invite_disabled_reason)
         } else {
             null
         }
 
         val canJoin = !isOwner || memberCount <= 1
         val joinDisabledReason = if (isOwner && memberCount > 1) {
-            "You cannot join another household as you are a member of a non empty household"
+            UiMessage(R.string.settings_join_disabled_reason)
         } else {
             null
         }
@@ -248,9 +250,9 @@ class SettingsViewModel @Inject constructor(
     private suspend fun probeEndpoint(serverUrl: String): EndpointHealth {
         if (serverUrl.isBlank()) {
             return EndpointHealth(
-                url = "(not configured)",
+                url = "",
                 status = EndpointStatus.ERROR,
-                detail = "URL is missing"
+                detail = UiMessage(R.string.settings_endpoint_url_missing)
             )
         }
         val start = System.currentTimeMillis()
@@ -261,14 +263,20 @@ class SettingsViewModel @Inject constructor(
             val isOutdatedServer = mismatch < 0
             val isOutdatedApp = mismatch > 0
             val warning = when {
-                isOutdatedServer -> "Server update recommended (v${info.version} → v${BuildConfig.VERSION_NAME})"
-                isOutdatedApp -> "App update recommended (v${BuildConfig.VERSION_NAME} → v${info.version})"
+                isOutdatedServer -> UiMessage(
+                    R.string.settings_endpoint_server_update_recommended,
+                    listOf("v" + info.version, "v" + BuildConfig.VERSION_NAME)
+                )
+                isOutdatedApp -> UiMessage(
+                    R.string.settings_endpoint_app_update_recommended,
+                    listOf("v" + BuildConfig.VERSION_NAME, "v" + info.version)
+                )
                 else -> null
             }
             EndpointHealth(
                 url = serverUrl,
                 status = EndpointStatus.ONLINE,
-                detail = "Online (${latency}ms)",
+                detail = UiMessage(R.string.settings_endpoint_online, listOf(latency.toString())),
                 serverVersion = info.version,
                 apiVersion = info.apiVersion,
                 serverMode = info.serverMode,
@@ -280,7 +288,7 @@ class SettingsViewModel @Inject constructor(
             EndpointHealth(
                 url = serverUrl,
                 status = EndpointStatus.OFFLINE,
-                detail = "Unreachable"
+                detail = UiMessage(R.string.settings_endpoint_unreachable)
             )
         }
     }
@@ -293,16 +301,16 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val email = emailInput.value.trim()
             if (!email.contains('@')) {
-                statusMessage.value = "Please enter a valid email address"
+                statusMessage.value = UiMessage(R.string.settings_error_invalid_email, isError = true)
                 return@launch
             }
             isBusy.value = true
             authRepository.sendMagicLink(email)
                 .onSuccess {
-                    statusMessage.value = "Magic link sent — check your inbox."
+                    statusMessage.value = UiMessage(R.string.settings_magic_link_sent)
                     emailInput.value = ""
                 }
-                .onFailure { statusMessage.value = "Failed to send magic link: ${it.message}" }
+                .onFailure { statusMessage.value = UiMessage(R.string.settings_error_magic_link_failed, listOf(it.message.orEmpty()), isError = true) }
             isBusy.value = false
         }
     }
@@ -334,12 +342,12 @@ class SettingsViewModel @Inject constructor(
                     // unsynced writes are lost, accepted by spec).
                     syncManager.wipeLocalData()
                     statusMessage.value = when (result) {
-                        is SignOutResult.Complete -> "Signed out — local data wiped"
+                        is SignOutResult.Complete -> UiMessage(R.string.settings_signed_out_wiped)
                         is SignOutResult.LocalOnly ->
-                            "Signed out — the server couldn't be reached to revoke the session"
+                            UiMessage(R.string.settings_signed_out_offline)
                     }
                 }
-                .onFailure { statusMessage.value = "Sign out failed: ${it.message}" }
+                .onFailure { statusMessage.value = UiMessage(R.string.settings_error_sign_out_failed, listOf(it.message.orEmpty()), isError = true) }
             isBusy.value = false
         }
     }
@@ -347,16 +355,16 @@ class SettingsViewModel @Inject constructor(
     fun syncNow() {
         viewModelScope.launch {
             if (!uiState.value.isSignedIn) {
-                statusMessage.value = "Not signed in — sync needs an account."
+                statusMessage.value = UiMessage(R.string.common_error_not_signed_in_sync)
                 return@launch
             }
             isBusy.value = true
             syncManager.syncNow("manual")
                 .onSuccess {
-                    statusMessage.value = "Sync complete"
+                    statusMessage.value = UiMessage(R.string.settings_sync_complete)
                     refreshHouseholdData()
                 }
-                .onFailure { statusMessage.value = "Sync failed: ${it.message}" }
+                .onFailure { statusMessage.value = UiMessage(R.string.common_error_sync_failed, listOf(it.message.orEmpty()), isError = true) }
             isBusy.value = false
         }
     }
@@ -374,16 +382,16 @@ class SettingsViewModel @Inject constructor(
         fullResyncConfirmOpen.value = false
         viewModelScope.launch {
             if (!uiState.value.isSignedIn) {
-                statusMessage.value = "Not signed in — sync needs an account."
+                statusMessage.value = UiMessage(R.string.common_error_not_signed_in_sync)
                 return@launch
             }
             isBusy.value = true
             syncManager.fullResync("manual")
                 .onSuccess {
-                    statusMessage.value = "Full resync complete — data re-downloaded from the server"
+                    statusMessage.value = UiMessage(R.string.common_resync_complete)
                     refreshHouseholdData()
                 }
-                .onFailure { statusMessage.value = "Full resync failed: ${it.message}" }
+                .onFailure { statusMessage.value = UiMessage(R.string.common_error_resync_failed, listOf(it.message.orEmpty()), isError = true) }
             isBusy.value = false
         }
     }
@@ -402,7 +410,7 @@ class SettingsViewModel @Inject constructor(
 
     fun confirmRename(icon: String?) {
         if (!uiState.value.isOwner) {
-            statusMessage.value = "Only the household owner can edit the household"
+            statusMessage.value = UiMessage(R.string.hh_error_only_owner_edit, isError = true)
             return
         }
         val newName = renameInput.value?.trim().orEmpty()
@@ -414,7 +422,7 @@ class SettingsViewModel @Inject constructor(
 
             val household = householdRepository.getHousehold().first()
             if (household == null) {
-                statusMessage.value = "No household set up yet"
+                statusMessage.value = UiMessage(R.string.hh_error_not_set_up, isError = true)
             } else if (household.name == newName && household.icon == normalizedIcon) {
                 // No change — avoid a pointless write+sync round-trip
             } else {
@@ -422,12 +430,12 @@ class SettingsViewModel @Inject constructor(
                     .onSuccess {
                         if (uiState.value.isSignedIn) {
                             syncManager.syncNow()   // push the changes right away
-                            statusMessage.value = "Household updated"
+                            statusMessage.value = UiMessage(R.string.hh_updated)
                         } else {
-                            statusMessage.value = "Household updated — sign in to sync it"
+                            statusMessage.value = UiMessage(R.string.hh_updated_sign_in_to_sync)
                         }
                     }
-                    .onFailure { statusMessage.value = "Update failed: ${it.message}" }
+                    .onFailure { statusMessage.value = UiMessage(R.string.common_error_update_failed, listOf(it.message.orEmpty()), isError = true) }
             }
             isBusy.value = false
         }
@@ -436,21 +444,21 @@ class SettingsViewModel @Inject constructor(
     fun startInvite() {
         viewModelScope.launch {
             if (!uiState.value.isSignedIn) {
-                statusMessage.value = "Sign in first to invite someone."
+                statusMessage.value = UiMessage(R.string.hh_error_sign_in_first_invite)
                 return@launch
             }
             if (!uiState.value.canInvite) {
-                statusMessage.value = uiState.value.inviteDisabledReason ?: "Only owners and admins can invite members."
+                statusMessage.value = uiState.value.inviteDisabledReason ?: UiMessage(R.string.hh_invite_disabled_reason)
                 return@launch
             }
             if (householdRepository.getHousehold().first() == null) {
-                statusMessage.value = "No household set up yet"
+                statusMessage.value = UiMessage(R.string.hh_error_not_set_up, isError = true)
                 return@launch
             }
             isBusy.value = true
             householdRepository.createInviteToken()
                 .onSuccess { inviteCode.value = it }   // opens the dialog
-                .onFailure { statusMessage.value = "Couldn't create invite: ${it.message}" }
+                .onFailure { statusMessage.value = UiMessage(R.string.settings_error_invite_create_failed, listOf(it.message.orEmpty()), isError = true) }
             isBusy.value = false
         }
     }
@@ -494,8 +502,8 @@ class SettingsViewModel @Inject constructor(
             isBusy.value = true
             seedConfirmOpen.value = false   // close dialog before async work
             demoDataSeeder.seed()
-                .onSuccess { statusMessage.value = "Demo data seeded — local data was reset" }
-                .onFailure { statusMessage.value = "Seeding failed: ${it.message}" }
+                .onSuccess { statusMessage.value = UiMessage(R.string.settings_demo_seeded) }
+                .onFailure { statusMessage.value = UiMessage(R.string.settings_error_seed_failed, listOf(it.message.orEmpty()), isError = true) }
             isBusy.value = false
         }
     }
@@ -513,7 +521,7 @@ class SettingsViewModel @Inject constructor(
         if (token.isEmpty()) return
         viewModelScope.launch {
             if (!uiState.value.isSignedIn) {
-                statusMessage.value = "Not signed in — joining needs an account."
+                statusMessage.value = UiMessage(R.string.settings_error_not_signed_in_join)
                 return@launch
             }
             isBusy.value = true
@@ -526,12 +534,12 @@ class SettingsViewModel @Inject constructor(
                     syncManager.syncNow("invite")
                         .onSuccess {
                             val name = householdRepository.getHousehold().first()?.name
-                            statusMessage.value = "Joined household \"$name\""
+                            statusMessage.value = UiMessage(R.string.settings_joined_household, listOf(name ?: ""))
                             refreshHouseholdData()
                         }
-                        .onFailure { statusMessage.value = "Joined, but sync failed: ${it.message}" }
+                        .onFailure { statusMessage.value = UiMessage(R.string.settings_joined_sync_failed, listOf(it.message.orEmpty()), isError = true) }
                 }
-                .onFailure { statusMessage.value = "Join failed: ${it.message}" }
+                .onFailure { statusMessage.value = UiMessage(R.string.settings_error_join_failed, listOf(it.message.orEmpty()), isError = true) }
             isBusy.value = false
         }
     }

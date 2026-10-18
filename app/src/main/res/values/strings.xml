@@ -23,6 +23,54 @@
     <string name="common_error_no_household">No household found</string>
     <string name="common_error_update_order_failed">Failed to update order: %1$s</string>
     <string name="common_error_sync_failed">Sync failed: %1$s</string>
+    <string name="common_copy">Copy</string>
+    <string name="common_error_copied">Error copied to clipboard</string>
+    <string name="common_error_update_failed">Update failed: %1$s</string>
+    <string name="common_error_not_signed_in_sync">Not signed in — sync needs an account.</string>
+    <string name="common_resync_complete">Full resync complete — data re-downloaded from the server</string>
+    <string name="common_error_resync_failed">Full resync failed: %1$s</string>
+
+    <!-- Household -->
+    <string name="hh_invite_disabled_reason">Only owners and admins can invite members</string>
+    <string name="hh_join_disabled_reason">You are the owner of a shared household with %1$s members. Transfer or delete it before joining another.</string>
+    <string name="hh_error_only_owner_edit">Only the household owner can edit the household</string>
+    <string name="hh_error_not_set_up">No household set up yet</string>
+    <string name="hh_updated">Household updated</string>
+    <string name="hh_updated_sign_in_to_sync">Household updated — sign in to sync it</string>
+    <string name="hh_error_sign_in_first_invite">Sign in first to invite someone</string>
+    <string name="hh_error_invite_create_failed">Failed to generate invite code: %1$s</string>
+    <string name="hh_cannot_join">Cannot join another household</string>
+    <string name="hh_joined_successfully">Joined household successfully</string>
+    <string name="hh_error_join_failed">Failed to join household: %1$s</string>
+    <string name="hh_members_error_load_failed">Failed to load members: %1$s</string>
+    <string name="hh_member_removed">%1$s removed</string>
+    <string name="hh_member_removed_no_email">Member removed</string>
+    <string name="hh_members_error_remove_failed">Failed to remove member: %1$s</string>
+
+    <!-- Settings -->
+    <string name="settings_invite_disabled_reason">Only owners and admins (in the future) can invite members</string>
+    <string name="settings_join_disabled_reason">You cannot join another household as you are a member of a non empty household</string>
+    <string name="settings_error_invalid_email">Please enter a valid email address</string>
+    <string name="settings_magic_link_sent">Magic link sent — check your inbox.</string>
+    <string name="settings_error_magic_link_failed">Failed to send magic link: %1$s</string>
+    <string name="settings_signed_out_wiped">Signed out — local data wiped</string>
+    <string name="settings_signed_out_offline">Signed out — the server couldn\'t be reached to revoke the session</string>
+    <string name="settings_error_sign_out_failed">Sign out failed: %1$s</string>
+    <string name="settings_sync_complete">Sync complete</string>
+    <string name="settings_error_invite_create_failed">Couldn\'t create invite: %1$s</string>
+    <string name="settings_error_not_signed_in_join">Not signed in — joining needs an account.</string>
+    <string name="settings_joined_household">Joined household \"%1$s\"</string>
+    <string name="settings_joined_sync_failed">Joined, but sync failed: %1$s</string>
+    <string name="settings_error_join_failed">Join failed: %1$s</string>
+    <string name="settings_demo_seeded">Demo data seeded — local data was reset</string>
+    <string name="settings_error_seed_failed">Seeding failed: %1$s</string>
+    <string name="settings_endpoint_url_missing">URL is missing</string>
+    <string name="settings_endpoint_online">Online (%1$s ms)</string>
+    <string name="settings_endpoint_unreachable">Unreachable</string>
+    <string name="settings_endpoint_server_update_recommended">Server update recommended (%1$s → %2$s)</string>
+    <string name="settings_endpoint_app_update_recommended">App update recommended (%1$s → %2$s)</string>
+    <string name="settings_endpoint_not_configured">(not configured)</string>
+    <string name="settings_endpoint_checking">Checking…</string>
 
     <!-- Item detail -->
     <string name="item_error_empty_name">Item name cannot be empty</string>

@@ -60,6 +60,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -83,7 +84,10 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
 import net.marvinweber.simsli.domain.model.CurrencyPresets
+import net.marvinweber.simsli.R
 import net.marvinweber.simsli.ui.components.CurrencyPickerDialog
+import net.marvinweber.simsli.ui.resolve
+import net.marvinweber.simsli.ui.text
 import net.marvinweber.simsli.ui.components.EmojiPickerDialog
 import net.marvinweber.simsli.ui.components.SimsliTopAppBarTitle
 
@@ -113,23 +117,20 @@ fun HouseholdScreen(
     LaunchedEffect(uiState.statusMessage) {
         val message = uiState.statusMessage
         if (message != null) {
-            val isError = message.contains("failed", ignoreCase = true) ||
-                    message.contains("error", ignoreCase = true) ||
-                    message.contains("denied", ignoreCase = true) ||
-                    message.contains("couldn't", ignoreCase = true)
-            val actionLabel = if (isError) "Copy" else null
+            val text = message.resolve(context)
+            val actionLabel = if (message.isError) context.getString(R.string.common_copy) else null
             val result = snackbarHostState.showSnackbar(
-                message = message,
+                message = text,
                 actionLabel = actionLabel,
                 withDismissAction = true,
-                duration = if (isError) SnackbarDuration.Long else SnackbarDuration.Short
+                duration = if (message.isError) SnackbarDuration.Long else SnackbarDuration.Short
             )
-            if (result == SnackbarResult.ActionPerformed && isError) {
+            if (result == SnackbarResult.ActionPerformed && message.isError) {
                 clipboard.setClipEntry(
-                    ClipData.newPlainText("Simsli error", message).toClipEntry()
+                    ClipData.newPlainText("Simsli error", text).toClipEntry()
                 )
                 snackbarHostState.showSnackbar(
-                    message = "Error copied to clipboard",
+                    message = context.getString(R.string.common_error_copied),
                     withDismissAction = true,
                     duration = SnackbarDuration.Short
                 )
@@ -715,7 +716,7 @@ fun HouseholdScreen(
                                     text = if (canInvite) {
                                         "Share an invite code to add a member"
                                     } else {
-                                        uiState.inviteDisabledReason ?: "Only owners and admins can invite members"
+                                        uiState.inviteDisabledReason?.text() ?: stringResource(R.string.hh_invite_disabled_reason)
                                     },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (canInvite) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
@@ -876,7 +877,7 @@ fun HouseholdScreen(
 
                     if (uiState.joinDisabledReason != null && uiState.isSignedIn) {
                         Text(
-                            text = uiState.joinDisabledReason!!,
+                            text = uiState.joinDisabledReason!!.text(),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )

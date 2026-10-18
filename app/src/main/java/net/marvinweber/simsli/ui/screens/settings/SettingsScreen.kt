@@ -95,8 +95,11 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
 import net.marvinweber.simsli.BuildConfig
+import androidx.compose.ui.res.stringResource
 import net.marvinweber.simsli.R
 import net.marvinweber.simsli.ui.components.SimsliTopAppBarTitle
+import net.marvinweber.simsli.ui.resolve
+import net.marvinweber.simsli.ui.text
 
 /**
  * Pushed Account & Settings screen (SCREENS-4):
@@ -125,23 +128,20 @@ fun SettingsScreen(
     LaunchedEffect(uiState.statusMessage) {
         val message = uiState.statusMessage
         if (message != null) {
-            val isError = message.contains("failed", ignoreCase = true) ||
-                    message.contains("error", ignoreCase = true) ||
-                    message.contains("denied", ignoreCase = true) ||
-                    message.contains("couldn't", ignoreCase = true)
-            val actionLabel = if (isError) "Copy" else null
+            val text = message.resolve(context)
+            val actionLabel = if (message.isError) context.getString(R.string.common_copy) else null
             val result = snackbarHostState.showSnackbar(
-                message = message,
+                message = text,
                 actionLabel = actionLabel,
                 withDismissAction = true,
-                duration = if (isError) SnackbarDuration.Long else SnackbarDuration.Short
+                duration = if (message.isError) SnackbarDuration.Long else SnackbarDuration.Short
             )
-            if (result == SnackbarResult.ActionPerformed && isError) {
+            if (result == SnackbarResult.ActionPerformed && message.isError) {
                 clipboard.setClipEntry(
-                    ClipData.newPlainText("Simsli error", message).toClipEntry()
+                    ClipData.newPlainText("Simsli error", text).toClipEntry()
                 )
                 snackbarHostState.showSnackbar(
-                    message = "Error copied to clipboard",
+                    message = context.getString(R.string.common_error_copied),
                     withDismissAction = true,
                     duration = SnackbarDuration.Short
                 )
@@ -752,7 +752,7 @@ fun SettingsScreen(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = uiState.endpointHealth.url,
+                                text = uiState.endpointHealth.url.ifBlank { stringResource(R.string.settings_endpoint_not_configured) },
                                 style = MaterialTheme.typography.bodySmall,
                                 fontFamily = FontFamily.Monospace,
                                 maxLines = 1,
@@ -761,7 +761,7 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.height(2.dp))
                             val isChecking = uiState.endpointHealth.status == EndpointStatus.CHECKING
                             Text(
-                                text = if (isChecking) "Checking..." else (uiState.endpointHealth.detail ?: ""),
+                                text = if (isChecking) stringResource(R.string.settings_endpoint_checking) else (uiState.endpointHealth.detail?.text() ?: ""),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontStyle = if (isChecking) FontStyle.Italic else FontStyle.Normal,
                                 color = when (uiState.endpointHealth.status) {
@@ -782,7 +782,7 @@ fun SettingsScreen(
                             if (uiState.endpointHealth.warningMessage != null) {
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = uiState.endpointHealth.warningMessage!!,
+                                    text = uiState.endpointHealth.warningMessage!!.text(),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.error,
                                     fontWeight = FontWeight.Bold
