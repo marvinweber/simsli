@@ -158,13 +158,13 @@ fun SettingsScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.common_back)
                         )
                     }
                 },
                 title = {
                     SimsliTopAppBarTitle(
-                        title = "Settings",
+                        title = stringResource(R.string.settings),
                         isSyncing = isSyncing,
                         isOffline = isOffline,
                         hasPendingWrites = hasPendingWrites
@@ -220,10 +220,10 @@ fun SettingsScreen(
                         tint = MaterialTheme.colorScheme.error
                     )
                 },
-                title = { Text("Sign out?") },
+                title = { Text(stringResource(R.string.settings_sign_out_title)) },
                 text = {
                     Text(
-                        "Signing out will disconnect this device and clear all local data. Any unsynced changes will be lost."
+                        stringResource(R.string.settings_sign_out_text)
                     )
                 },
                 confirmButton = {
@@ -231,12 +231,12 @@ fun SettingsScreen(
                         onClick = viewModel::confirmSignOut,
                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                     ) {
-                        Text("Sign out")
+                        Text(stringResource(R.string.settings_sign_out))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = viewModel::dismissSignOut) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.common_cancel))
                     }
                 }
             )
@@ -252,10 +252,10 @@ fun SettingsScreen(
                         tint = MaterialTheme.colorScheme.error
                     )
                 },
-                title = { Text("Seed demo data") },
+                title = { Text(stringResource(R.string.settings_seed_title)) },
                 text = {
                     Text(
-                        "This resets all local data and inserts a demo household with stores, categories, items, and entries. If you are signed in, the next sync uploads the demo household to the server."
+                        stringResource(R.string.settings_seed_text)
                     )
                 },
                 confirmButton = {
@@ -263,12 +263,12 @@ fun SettingsScreen(
                         onClick = viewModel::confirmSeedDemo,
                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                     ) {
-                        Text("Reset & seed")
+                        Text(stringResource(R.string.settings_seed_confirm))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = viewModel::dismissSeedDemo) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.common_cancel))
                     }
                 }
             )
@@ -286,7 +286,7 @@ fun SettingsScreen(
         ) {
             // --- User / Login Info Section ---
             if (uiState.isSignedIn) {
-                SettingsSectionHeader(title = "ACCOUNT")
+                SettingsSectionHeader(stringResource(R.string.settings_section_account))
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     shape = RoundedCornerShape(20.dp),
@@ -317,14 +317,14 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(
-                                text = uiState.userEmail ?: "Signed in",
+                                text = uiState.userEmail ?: stringResource(R.string.settings_signed_in),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
                             val syncSubtitle = when {
-                                uiState.endpointHealth.serverMode == "cloud" -> "Signed in • Simsli Cloud"
-                                uiState.endpointHealth.serverMode != null -> "Signed in • Self-hosted"
-                                else -> "Signed in • Cloud Sync"
+                                uiState.endpointHealth.serverMode == "cloud" -> stringResource(R.string.settings_signed_in_cloud)
+                                uiState.endpointHealth.serverMode != null -> stringResource(R.string.settings_signed_in_selfhosted)
+                                else -> stringResource(R.string.settings_signed_in_cloud_sync)
                             }
                             Text(
                                 text = syncSubtitle,
@@ -343,12 +343,12 @@ fun SettingsScreen(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Sign out")
+                            Text(stringResource(R.string.settings_sign_out))
                         }
                     }
                 }
             } else {
-                SettingsSectionHeader(title = "ACCOUNT & CLOUD SYNC")
+                SettingsSectionHeader(stringResource(R.string.settings_section_account_sync))
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     shape = RoundedCornerShape(20.dp),
@@ -380,12 +380,12 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text(
-                                    text = "Sign in with Magic Link",
+                                    text = stringResource(R.string.settings_sign_in_magic),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    text = "Offline mode • Not signed in",
+                                    text = stringResource(R.string.settings_offline_mode),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -411,13 +411,13 @@ fun SettingsScreen(
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column {
                                         Text(
-                                            text = "Join household",
+                                            text = stringResource(R.string.hh_join_title),
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.SemiBold,
                                             color = MaterialTheme.colorScheme.onPrimaryContainer
                                         )
                                         Text(
-                                            text = "Sign in to join the household with invite code ${uiState.pendingInviteCode}.",
+                                            text = stringResource(R.string.settings_join_invite_hint, uiState.pendingInviteCode.orEmpty()),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onPrimaryContainer
                                         )
@@ -427,7 +427,7 @@ fun SettingsScreen(
                         }
 
                         Text(
-                            text = "Sign in to sync your shopping list across devices and invite others to your household.",
+                            text = stringResource(R.string.settings_sign_in_hint),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -435,15 +435,15 @@ fun SettingsScreen(
                         OutlinedTextField(
                             value = uiState.emailInput,
                             onValueChange = viewModel::onEmailChange,
-                            label = { Text("Email address") },
-                            placeholder = { Text("name@example.com") },
+                            label = { Text(stringResource(R.string.settings_email_label)) },
+                            placeholder = { Text(stringResource(R.string.settings_email_placeholder)) },
                             leadingIcon = {
                                 Icon(Icons.Outlined.Email, contentDescription = null)
                             },
                             trailingIcon = {
                                 if (uiState.emailInput.isNotEmpty()) {
                                     IconButton(onClick = { viewModel.onEmailChange("") }) {
-                                        Icon(Icons.Outlined.Clear, contentDescription = "Clear")
+                                        Icon(Icons.Outlined.Clear, contentDescription = stringResource(R.string.common_clear))
                                     }
                                 }
                             },
@@ -481,7 +481,7 @@ fun SettingsScreen(
                                     color = MaterialTheme.colorScheme.onPrimary
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Sending magic link…")
+                                Text(stringResource(R.string.settings_sending_magic_link))
                             } else {
                                 Icon(
                                     Icons.AutoMirrored.Outlined.Send,
@@ -489,12 +489,12 @@ fun SettingsScreen(
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Send magic link")
+                                Text(stringResource(R.string.settings_send_magic_link))
                             }
                         }
 
                         Text(
-                            text = "No password needed. We will email you a secure sign-in link.",
+                            text = stringResource(R.string.settings_no_password_hint),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -503,7 +503,7 @@ fun SettingsScreen(
             }
 
             // --- Household Info Section ---
-            SettingsSectionHeader(title = "HOUSEHOLD")
+            SettingsSectionHeader(stringResource(R.string.settings_section_household))
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                 shape = RoundedCornerShape(20.dp),
@@ -545,19 +545,19 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(
-                                text = uiState.householdName ?: "My Household",
+                                text = uiState.householdName ?: stringResource(R.string.hh_my_household),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
-                                text = if (uiState.isSignedIn) "Shared household • Manage" else "Local household • Manage",
+                                text = if (uiState.isSignedIn) stringResource(R.string.settings_shared_household) else stringResource(R.string.settings_local_household),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowForwardIos,
-                            contentDescription = "Manage household",
+                            contentDescription = stringResource(R.string.settings_manage_household),
                             modifier = Modifier.size(14.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -589,7 +589,7 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Statistics",
+                                text = stringResource(R.string.settings_statistics),
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Medium,
                                 color = if (canOpenStats) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
@@ -633,7 +633,7 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(
-                                text = "Cloud Sync",
+                                text = stringResource(R.string.settings_cloud_sync),
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Medium,
                                 color = if (uiState.isSignedIn) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
@@ -661,7 +661,7 @@ fun SettingsScreen(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Sync now")
+                                Text(stringResource(R.string.settings_sync_now))
                             }
                         }
                     }
@@ -669,7 +669,7 @@ fun SettingsScreen(
             }
 
             // --- About Simsli Section ---
-            SettingsSectionHeader(title = "ABOUT")
+            SettingsSectionHeader(stringResource(R.string.settings_section_about))
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                 shape = RoundedCornerShape(20.dp),
@@ -684,7 +684,7 @@ fun SettingsScreen(
                     ) {
                         Image(
                             painter = painterResource(R.drawable.ic_simsli_logo),
-                            contentDescription = "Simsli logo",
+                            contentDescription = stringResource(R.string.common_simsli_logo),
                             modifier = Modifier.size(40.dp)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
@@ -692,12 +692,12 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(
-                                text = "Simsli",
+                                text = stringResource(R.string.app_name),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                                text = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE.toString()),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -707,7 +707,7 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.surfaceContainerHighest
                         ) {
                             Text(
-                                text = "Internal Test",
+                                text = stringResource(R.string.settings_internal_test),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -729,7 +729,7 @@ fun SettingsScreen(
                                     clipboard.setClipEntry(
                                         ClipData.newPlainText("Backend Endpoint", uiState.endpointHealth.url).toClipEntry()
                                     )
-                                    snackbarHostState.showSnackbar("Endpoint URL copied to clipboard")
+                                    snackbarHostState.showSnackbar(context.getString(R.string.settings_endpoint_copied))
                                 }
                             }
                             .padding(16.dp),
@@ -744,7 +744,7 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "API ENDPOINT",
+                                text = stringResource(R.string.settings_api_endpoint),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Bold,
@@ -772,9 +772,9 @@ fun SettingsScreen(
                             )
                             if (uiState.endpointHealth.serverVersion != null) {
                                 Spacer(modifier = Modifier.height(2.dp))
-                                val modeText = if (uiState.endpointHealth.serverMode == "cloud") "Cloud" else "Self-hosted"
+                                val modeText = if (uiState.endpointHealth.serverMode == "cloud") stringResource(R.string.settings_cloud_mode) else stringResource(R.string.settings_selfhosted_mode)
                                 Text(
-                                    text = "Server v${uiState.endpointHealth.serverVersion} (API v${uiState.endpointHealth.apiVersion ?: 1}) • $modeText",
+                                    text = stringResource(R.string.settings_server_line, "v" + uiState.endpointHealth.serverVersion, "v" + (uiState.endpointHealth.apiVersion ?: 1).toString(), modeText),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -842,7 +842,7 @@ fun SettingsScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Refresh,
-                                contentDescription = "Check API status",
+                                contentDescription = stringResource(R.string.settings_check_api_status),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -877,12 +877,12 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Changelog",
+                                text = stringResource(R.string.settings_changelog),
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = "What's new in Simsli",
+                                text = stringResource(R.string.settings_changelog_hint),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -923,12 +923,12 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Privacy Policy",
+                                text = stringResource(R.string.settings_privacy),
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = "How your data is handled & protected",
+                                text = stringResource(R.string.settings_privacy_hint),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -945,7 +945,7 @@ fun SettingsScreen(
 
             // --- Developer Section (Debug only) ---
             if (BuildConfig.DEBUG) {
-                SettingsSectionHeader(title = "DEVELOPER OPTIONS")
+                SettingsSectionHeader(stringResource(R.string.settings_section_dev_options))
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     shape = RoundedCornerShape(20.dp),
@@ -976,12 +976,12 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(
-                                text = "Seed Demo Data",
+                                text = stringResource(R.string.settings_seed_demo),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
-                                text = "Wipes local DB & loads sample household",
+                                text = stringResource(R.string.settings_seed_demo_hint),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -991,7 +991,7 @@ fun SettingsScreen(
                             enabled = !uiState.isBusy,
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("Seed")
+                            Text(stringResource(R.string.settings_seed_button))
                         }
                     }
                 }
@@ -1026,12 +1026,12 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(
-                                text = "Copy sync diagnostics",
+                                text = stringResource(R.string.settings_copy_diagnostics),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
-                                text = "Recent sync & realtime log lines (ids only, no content)",
+                                text = stringResource(R.string.settings_copy_diagnostics_hint),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1045,12 +1045,12 @@ fun SettingsScreen(
                                             viewModel.syncDiagnosticsSnapshot()
                                         ).toClipEntry()
                                     )
-                                    snackbarHostState.showSnackbar("Sync diagnostics copied to clipboard")
+                                    snackbarHostState.showSnackbar(context.getString(R.string.settings_diagnostics_copied))
                                 }
                             },
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("Copy")
+                            Text(stringResource(R.string.common_copy))
                         }
                     }
                 }
@@ -1064,7 +1064,7 @@ fun SettingsScreen(
 @Composable
 private fun SettingsSectionHeader(title: String) {
     Text(
-        text = title,
+        text = title.uppercase(),
         style = MaterialTheme.typography.labelMedium,
         fontWeight = FontWeight.Bold,
         letterSpacing = 1.sp,

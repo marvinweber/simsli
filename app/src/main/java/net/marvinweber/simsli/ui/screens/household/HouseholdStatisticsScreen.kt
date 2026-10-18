@@ -1,6 +1,9 @@
 package net.marvinweber.simsli.ui.screens.household
 
 import androidx.compose.animation.core.animateFloatAsState
+
+import androidx.compose.ui.res.stringResource
+import net.marvinweber.simsli.R
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -65,12 +68,12 @@ fun HouseholdStatisticsScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Statistics") },
+                title = { Text(stringResource(R.string.settings_statistics)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.common_back)
                         )
                     }
                 }
@@ -112,7 +115,7 @@ fun HouseholdStatisticsScreen(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Retry")
+                        Text(stringResource(R.string.common_retry))
                     }
                 }
             }
@@ -147,15 +150,15 @@ private fun StatisticsTimeline(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                LegendDot(color = MaterialTheme.colorScheme.primary, label = "Added")
-                LegendDot(color = MaterialTheme.colorScheme.tertiary, label = "Checked")
+                LegendDot(color = MaterialTheme.colorScheme.primary, label = stringResource(R.string.stats_legend_added))
+                LegendDot(color = MaterialTheme.colorScheme.tertiary, label = stringResource(R.string.stats_legend_checked))
             }
         }
 
         if (!uiState.hasAnyActivity) {
             item(key = "empty_hint") {
                 Text(
-                    text = "No activity recorded yet. Check off or add items while connected to start your household's statistics.",
+                    text = stringResource(R.string.stats_empty),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)

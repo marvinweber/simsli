@@ -109,10 +109,14 @@ object LinkUtils {
         }
     }
 
-    fun formatLinkTitle(context: Context, url: String, title: String?): String {
+    /** Chip label for a link: formatted title, falling back to a localized "Link" when host and title are blank. */
+    fun formatLinkLabel(context: Context, url: String, title: String?): String =
+        formatLinkTitle(url, title).ifBlank { context.getString(R.string.common_link) }
+
+    fun formatLinkTitle(url: String, title: String?): String {
         val host = getHost(url)
         if (title.isNullOrBlank()) {
-            return host.ifBlank { context.getString(R.string.common_link) }
+            return host
         }
         val truncatedTitle = if (title.trim().length > 30) {
             title.trim().take(27).trimEnd() + "..."
@@ -227,11 +231,11 @@ fun LinkChip(
 
     val chipLabel = remember(url, title, linkInfo.appIcon, linkInfo.label) {
         if (!title.isNullOrBlank()) {
-            LinkUtils.formatLinkTitle(context, url, title)
+            LinkUtils.formatLinkLabel(context, url, title)
         } else if (linkInfo.appIcon != null) {
             linkInfo.label
         } else {
-            LinkUtils.formatLinkTitle(context, url, null)
+            LinkUtils.formatLinkLabel(context, url, null)
         }
     }
 

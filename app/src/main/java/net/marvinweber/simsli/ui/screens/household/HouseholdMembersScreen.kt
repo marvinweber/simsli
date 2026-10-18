@@ -47,6 +47,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -90,11 +91,11 @@ fun HouseholdMembersScreen(
                     tint = MaterialTheme.colorScheme.error
                 )
             },
-            title = { Text("Remove member?") },
+            title = { Text(stringResource(R.string.hh_members_remove_title)) },
             text = {
                 val displayName = memberToRemove.name ?: memberToRemove.email ?: "this member"
                 Text(
-                    text = "Are you sure you want to remove $displayName from the household? They will immediately lose access to all household data.",
+                    text = stringResource(R.string.hh_members_remove_text, displayName),
                     style = MaterialTheme.typography.bodyMedium
                 )
             },
@@ -115,7 +116,7 @@ fun HouseholdMembersScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                     }
-                    Text("Remove")
+                    Text(stringResource(R.string.common_remove))
                 }
             },
             dismissButton = {
@@ -123,7 +124,7 @@ fun HouseholdMembersScreen(
                     onClick = viewModel::dismissRemoveMember,
                     enabled = !uiState.isRemoving
                 ) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             }
         )
@@ -133,7 +134,7 @@ fun HouseholdMembersScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Household members") },
+                title = { Text(stringResource(R.string.hh_members_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
@@ -146,7 +147,7 @@ fun HouseholdMembersScreen(
                     IconButton(onClick = viewModel::loadMembers) {
                         Icon(
                             imageVector = Icons.Outlined.Refresh,
-                            contentDescription = "Refresh"
+                            contentDescription = stringResource(R.string.common_refresh)
                         )
                     }
                 }
@@ -165,7 +166,7 @@ fun HouseholdMembersScreen(
                 }
                 uiState.members.isEmpty() -> {
                     Text(
-                        text = "No members found",
+                        text = stringResource(R.string.hh_members_empty),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.align(Alignment.Center)
@@ -190,7 +191,7 @@ fun HouseholdMembersScreen(
                             item {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "Only the household owner can remove members.",
+                                    text = stringResource(R.string.hh_members_only_owner_remove),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(horizontal = 8.dp)
@@ -319,7 +320,7 @@ private fun MemberCard(
                             color = MaterialTheme.colorScheme.tertiaryContainer
                         ) {
                             Text(
-                                text = "You",
+                                text = stringResource(R.string.hh_members_you),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onTertiaryContainer,
@@ -329,7 +330,7 @@ private fun MemberCard(
                     }
 
                     Text(
-                        text = "• Joined ${dateFormatter.format(member.joinedAt)}",
+                        text = stringResource(R.string.hh_members_joined, dateFormatter.format(member.joinedAt)),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -343,7 +344,7 @@ private fun MemberCard(
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.PersonRemove,
-                        contentDescription = "Remove member",
+                        contentDescription = stringResource(R.string.hh_members_remove_cd),
                         tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(20.dp)
                     )

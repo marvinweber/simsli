@@ -147,13 +147,13 @@ fun HouseholdScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.common_back)
                         )
                     }
                 },
                 title = {
                     SimsliTopAppBarTitle(
-                        title = "Household",
+                        title = stringResource(R.string.hh_title),
                         isSyncing = isSyncing,
                         isOffline = isOffline,
                         hasPendingWrites = hasPendingWrites
@@ -212,7 +212,7 @@ fun HouseholdScreen(
             AlertDialog(
                 onDismissRequest = viewModel::dismissRename,
                 icon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
-                title = { Text("Edit household") },
+                title = { Text(stringResource(R.string.hh_edit_title)) },
                 text = {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Row(
@@ -248,7 +248,7 @@ fun HouseholdScreen(
                             OutlinedTextField(
                                 value = renameValue,
                                 onValueChange = viewModel::onRenameChange,
-                                label = { Text("Household name") },
+                                label = { Text(stringResource(R.string.hh_name_label)) },
                                 singleLine = true,
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp)
@@ -269,7 +269,7 @@ fun HouseholdScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Currency",
+                                    text = stringResource(R.string.hh_currency),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = if (uiState.isOwner) {
                                         MaterialTheme.colorScheme.onSurface
@@ -295,12 +295,12 @@ fun HouseholdScreen(
                                         emoji != (currentIcon ?: "") ||
                                         currency != currentCurrency)
                     ) {
-                        Text("Save")
+                        Text(stringResource(R.string.common_save))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = viewModel::dismissRename) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.common_cancel))
                     }
                 }
             )
@@ -333,14 +333,14 @@ fun HouseholdScreen(
             AlertDialog(
                 onDismissRequest = viewModel::dismissInvite,
                 icon = { Icon(Icons.Outlined.PersonAdd, contentDescription = null) },
-                title = { Text("Invite to household") },
+                title = { Text(stringResource(R.string.hh_invite_title)) },
                 text = {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "Share this invite link or 8-character code. It works once and expires after 24 hours.",
+                            text = stringResource(R.string.hh_invite_hint),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -389,30 +389,34 @@ fun HouseholdScreen(
                             ) {
                                 Icon(Icons.Outlined.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Copy")
+                                Text(stringResource(R.string.common_copy))
                             }
                             Button(
                                 onClick = {
-                                    val shareText = "Join my household on Simsli: simsli://invite/$inviteCode (code: $inviteCode, valid for 24 hours)"
+                                    val shareText = context.getString(
+                                        R.string.hh_share_invite_text,
+                                        "simsli://invite/$inviteCode",
+                                        inviteCode
+                                    )
                                     val sendIntent = Intent(Intent.ACTION_SEND).apply {
                                         putExtra(Intent.EXTRA_TEXT, shareText)
                                         type = "text/plain"
                                     }
-                                    context.startActivity(Intent.createChooser(sendIntent, "Share invite link"))
+                                    context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.hh_share_invite_chooser)))
                                 },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
                                 Icon(Icons.Outlined.Share, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Share")
+                                Text(stringResource(R.string.common_share))
                             }
                         }
                     }
                 },
                 confirmButton = {
                     TextButton(onClick = viewModel::dismissInvite) {
-                        Text("Done")
+                        Text(stringResource(R.string.common_done))
                     }
                 }
             )
@@ -428,7 +432,7 @@ fun HouseholdScreen(
                         tint = MaterialTheme.colorScheme.primary
                     )
                 },
-                title = { Text("Full resync?") },
+                title = { Text(stringResource(R.string.hh_resync_title)) },
                 text = {
                     Text(
                         "Pending changes are uploaded first, then local data is wiped and everything is re-downloaded from the server. The server state wins."
@@ -436,12 +440,12 @@ fun HouseholdScreen(
                 },
                 confirmButton = {
                     TextButton(onClick = viewModel::confirmFullResync) {
-                        Text("Resync")
+                        Text(stringResource(R.string.common_resync))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = viewModel::dismissFullResync) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.common_cancel))
                     }
                 }
             )
@@ -457,18 +461,25 @@ fun HouseholdScreen(
                         tint = MaterialTheme.colorScheme.error
                     )
                 },
-                title = { Text("Join another household?") },
+                title = { Text(stringResource(R.string.hh_join_other_title)) },
                 text = {
-                    val householdName = uiState.householdName ?: "your current household"
-                    val codePrefix = uiState.pendingJoinCode?.let { "You are about to join another household with invite code $it.\n\n" }.orEmpty()
+                    val codePrefix = uiState.pendingJoinCode?.let {
+                        stringResource(R.string.hh_join_code_prefix, it)
+                    }.orEmpty()
                     val warningBody = if (uiState.isOwner) {
-                        "Warning: Joining another household will delete \"$householdName\" and all its data. This cannot be undone."
+                        stringResource(
+                            R.string.hh_join_warning_owner,
+                            uiState.householdName ?: stringResource(R.string.hh_current_household_nom)
+                        )
                     } else {
-                        "Warning: Joining another household will remove you from \"$householdName\". You will lose access to its list and items."
+                        stringResource(
+                            R.string.hh_join_warning_member,
+                            uiState.householdName ?: stringResource(R.string.hh_current_household_acc)
+                        )
                     }
-                    val question = "\n\nDo you want to continue?"
+                    val question = stringResource(R.string.hh_join_question)
                     Text(
-                        text = "$codePrefix$warningBody$question",
+                        text = codePrefix + warningBody + question,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 },
@@ -485,7 +496,7 @@ fun HouseholdScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = viewModel::dismissJoinWarning) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.common_cancel))
                     }
                 }
             )
@@ -496,11 +507,11 @@ fun HouseholdScreen(
             AlertDialog(
                 onDismissRequest = viewModel::dismissJoin,
                 icon = { Icon(Icons.Outlined.GroupAdd, contentDescription = null) },
-                title = { Text("Join household") },
+                title = { Text(stringResource(R.string.hh_join_title)) },
                 text = {
                     Column {
                         Text(
-                            text = "Enter the 8-character invite code to join an existing household.",
+                            text = stringResource(R.string.hh_join_enter_hint),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -508,8 +519,8 @@ fun HouseholdScreen(
                         OutlinedTextField(
                             value = joinValue,
                             onValueChange = { viewModel.onJoinChange(it.uppercase()) },
-                            label = { Text("Invite code") },
-                            placeholder = { Text("e.g. A2B3C4D5") },
+                            label = { Text(stringResource(R.string.hh_invite_code_label)) },
+                            placeholder = { Text(stringResource(R.string.hh_invite_code_placeholder)) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                             modifier = Modifier.fillMaxWidth(),
@@ -522,12 +533,12 @@ fun HouseholdScreen(
                         onClick = viewModel::confirmJoin,
                         enabled = joinValue.isNotBlank()
                     ) {
-                        Text("Join")
+                        Text(stringResource(R.string.common_join))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = viewModel::dismissJoin) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.common_cancel))
                     }
                 }
             )
@@ -583,14 +594,14 @@ fun HouseholdScreen(
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(
-                                text = uiState.householdName ?: "My Household",
+                                text = uiState.householdName ?: stringResource(R.string.hh_my_household),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
                             val statusLabel = when {
-                                !uiState.isSignedIn -> "Local household (offline)"
-                                uiState.isOwner -> "Shared household • Owner"
-                                else -> "Shared household • Member"
+                                !uiState.isSignedIn -> stringResource(R.string.hh_local_household_status)
+                                uiState.isOwner -> stringResource(R.string.hh_shared_owner_status)
+                                else -> stringResource(R.string.hh_shared_member_status)
                             }
                             Text(
                                 text = statusLabel,
@@ -614,7 +625,7 @@ fun HouseholdScreen(
                                         .padding(vertical = 2.dp)
                                 ) {
                                     Text(
-                                        text = "ID: ${uiState.householdId}",
+                                        text = stringResource(R.string.hh_id_label, uiState.householdId.orEmpty()),
                                         style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                                         maxLines = 1,
@@ -624,7 +635,7 @@ fun HouseholdScreen(
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Icon(
                                         imageVector = Icons.Outlined.ContentCopy,
-                                        contentDescription = "Copy household ID",
+                                        contentDescription = stringResource(R.string.hh_copy_id_cd),
                                         modifier = Modifier.size(12.dp),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                                     )
@@ -635,7 +646,7 @@ fun HouseholdScreen(
                             onClick = { viewModel.startRename(uiState.householdName) },
                             enabled = !uiState.isBusy && uiState.isOwner
                         ) {
-                            Icon(Icons.Outlined.Edit, contentDescription = "Edit household")
+                            Icon(Icons.Outlined.Edit, contentDescription = stringResource(R.string.hh_edit_title))
                         }
                     }
 
@@ -662,7 +673,7 @@ fun HouseholdScreen(
                             Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Household members",
+                                    text = stringResource(R.string.hh_members_title),
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -707,7 +718,7 @@ fun HouseholdScreen(
                             Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Invite someone",
+                                    text = stringResource(R.string.hh_invite_someone),
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontWeight = FontWeight.Medium,
                                     color = if (canInvite) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
@@ -738,7 +749,7 @@ fun HouseholdScreen(
             // --- Maintenance & Sync Recovery Card ---
             if (uiState.isSignedIn) {
                 Text(
-                    text = "MAINTENANCE & RECOVERY",
+                    text = stringResource(R.string.hh_section_maintenance).uppercase(),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
@@ -768,12 +779,12 @@ fun HouseholdScreen(
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(
-                                text = "Full resync",
+                                text = stringResource(R.string.hh_full_resync),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
-                                text = "Wipes local data and re-downloads everything from the server — recovery if the list ever looks wrong",
+                                text = stringResource(R.string.hh_full_resync_hint),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -784,7 +795,7 @@ fun HouseholdScreen(
                             enabled = !uiState.isBusy && !isSyncing,
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("Resync")
+                            Text(stringResource(R.string.common_resync))
                         }
                     }
                 }
@@ -792,7 +803,7 @@ fun HouseholdScreen(
 
             // --- Visually Separated: Join Another Household Card ---
             Text(
-                text = "SWITCH HOUSEHOLD",
+                text = stringResource(R.string.hh_section_switch).uppercase(),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp,
@@ -833,12 +844,12 @@ fun HouseholdScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "Join another household",
+                                text = stringResource(R.string.hh_join_another),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
-                                text = "Switch this device to a different household",
+                                text = stringResource(R.string.hh_join_another_hint_short),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -846,7 +857,7 @@ fun HouseholdScreen(
                     }
 
                     Text(
-                        text = "Joining another household will leave or delete your current household and replace local data with the joined household.",
+                        text = stringResource(R.string.hh_join_another_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -871,7 +882,7 @@ fun HouseholdScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (!uiState.isSignedIn) "Sign in first to join" else "Join with invite code"
+                            text = if (!uiState.isSignedIn) stringResource(R.string.hh_sign_in_first_join) else stringResource(R.string.hh_join_with_code)
                         )
                     }
 
