@@ -93,7 +93,7 @@ fun HouseholdMembersScreen(
             },
             title = { Text(stringResource(R.string.hh_members_remove_title)) },
             text = {
-                val displayName = memberToRemove.name ?: memberToRemove.email ?: "this member"
+                val displayName = memberToRemove.name ?: memberToRemove.email ?: stringResource(R.string.hh_members_fallback_name)
                 Text(
                     text = stringResource(R.string.hh_members_remove_text, displayName),
                     style = MaterialTheme.typography.bodyMedium
@@ -270,7 +270,7 @@ private fun MemberCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = member.name ?: member.email ?: "Unknown member",
+                        text = member.name ?: member.email ?: stringResource(R.string.hh_members_unknown),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,

@@ -402,4 +402,18 @@
     <string name="update_title">Please update Simsli</string>
     <string name="update_text">The server expects app version %1$s or newer, but this device is running %2$s. Continuing without updating may lead to unexpected behavior — syncing may not work reliably. Please update the app to keep everything running smoothly.</string>
     <string name="common_okay">Okay</string>
+    <string name="settings_stats_hint">Shopping activity over time</string>
+    <string name="settings_stats_hint_offline">Shopping activity over time (Requires server)</string>
+    <string name="settings_sync_hint">Changes sync automatically in realtime</string>
+    <string name="settings_sync_hint_offline">Offline mode (Sign in to sync)</string>
+    <string name="hh_view_members">View members</string>
+    <string name="hh_share_invite_hint">Share an invite code to add a member</string>
+    <plurals name="hh_member_count">
+        <item quantity="one">%1$d member</item>
+        <item quantity="other">%1$d members</item>
+    </plurals>
+    <string name="hh_members_fallback_name">this member</string>
+    <string name="hh_members_unknown">Unknown member</string>
+    <string name="dashboard_fewest_shops_desc">Calculates the minimum number of stores you need to visit to get everything currently on your list.</string>
+    <string name="dashboard_best_price_desc">Compares prices for items on your list across stores and shows you where each item is cheapest.</string>
 </resources>

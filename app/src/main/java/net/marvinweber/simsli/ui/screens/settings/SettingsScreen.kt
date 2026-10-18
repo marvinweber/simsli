@@ -595,7 +595,7 @@ fun SettingsScreen(
                                 color = if (canOpenStats) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                             )
                             Text(
-                                text = if (uiState.isSignedIn) "Shopping activity over time" else "Shopping activity over time (Requires server)",
+                                text = if (uiState.isSignedIn) stringResource(R.string.settings_stats_hint) else stringResource(R.string.settings_stats_hint_offline),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (canOpenStats) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                             )
@@ -639,7 +639,7 @@ fun SettingsScreen(
                                 color = if (uiState.isSignedIn) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                             )
                             Text(
-                                text = if (uiState.isSignedIn) "Changes sync automatically in realtime" else "Offline mode (Sign in to sync)",
+                                text = if (uiState.isSignedIn) stringResource(R.string.settings_sync_hint) else stringResource(R.string.settings_sync_hint_offline),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import net.marvinweber.simsli.R
 import net.marvinweber.simsli.domain.model.ItemType
 import net.marvinweber.simsli.ui.components.CategorySectionHeader
+import net.marvinweber.simsli.ui.components.unitPresetLabel
 import net.marvinweber.simsli.ui.components.LinkUtils
 import net.marvinweber.simsli.ui.components.SimsliSearchTopAppBar
 import androidx.compose.foundation.rememberScrollState
@@ -431,7 +432,7 @@ private fun CatalogItemRow(
                     )
                 } else if (!row.item.defaultUnit.isNullOrBlank()) {
                     Text(
-                        text = stringResource(R.string.catalog_default_unit, row.item.defaultUnit),
+                        text = stringResource(R.string.catalog_default_unit, unitPresetLabel(row.item.defaultUnit)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )

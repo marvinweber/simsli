@@ -642,7 +642,7 @@ private fun StoreEditDialog(
                                 Text(
                                     selectedGroupId?.let { id ->
                                         groupOptions.firstOrNull { it.id == id }?.name
-                                    } ?: "No group",
+                                    } ?: stringResource(R.string.stores_no_group),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -987,7 +987,7 @@ private fun StoreFormDialog(
                             Text(
                                 selectedGroupId?.let { id ->
                                     groupOptions.firstOrNull { it.id == id }?.name
-                                } ?: "No group",
+                                } ?: stringResource(R.string.stores_no_group),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )

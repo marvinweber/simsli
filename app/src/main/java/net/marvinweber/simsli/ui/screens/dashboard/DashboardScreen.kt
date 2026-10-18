@@ -168,7 +168,7 @@ fun DashboardScreen(
                 icon = Icons.Outlined.Storefront,
                 title = stringResource(R.string.dashboard_stores_to_visit),
                 subtitle = stringResource(R.string.dashboard_fewest_shops),
-                description = "Calculates the minimum number of stores you need to visit to get everything currently on your list."
+                description = stringResource(R.string.dashboard_fewest_shops_desc)
             )
 
             // Feature 2: Cheapest split
@@ -176,7 +176,7 @@ fun DashboardScreen(
                 icon = Icons.Outlined.Sell,
                 title = stringResource(R.string.dashboard_cheapest_split),
                 subtitle = stringResource(R.string.dashboard_best_price),
-                description = "Compares prices for items on your list across stores and shows you where each item is cheapest."
+                description = stringResource(R.string.dashboard_best_price_desc)
             )
 
             Spacer(modifier = Modifier.height(16.dp))

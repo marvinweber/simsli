@@ -60,6 +60,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -679,9 +680,9 @@ fun HouseholdScreen(
                                 )
                                 Text(
                                     text = if (uiState.memberCount > 0) {
-                                        "${uiState.memberCount} member" + if (uiState.memberCount != 1) "s" else ""
+                                        pluralStringResource(R.plurals.hh_member_count, uiState.memberCount, uiState.memberCount)
                                     } else {
-                                        "View members"
+                                        stringResource(R.string.hh_view_members)
                                     },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -725,7 +726,7 @@ fun HouseholdScreen(
                                 )
                                 Text(
                                     text = if (canInvite) {
-                                        "Share an invite code to add a member"
+                                        stringResource(R.string.hh_share_invite_hint)
                                     } else {
                                         uiState.inviteDisabledReason?.text() ?: stringResource(R.string.hh_invite_disabled_reason)
                                     },

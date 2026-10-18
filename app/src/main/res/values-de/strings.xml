@@ -403,4 +403,18 @@
     <string name="update_title">Bitte Simsli aktualisieren</string>
     <string name="update_text">Der Server erwartet App-Version %1$s oder neuer, dieses Gerät hat aber %2$s. Der Betrieb ohne Update kann zu unerwartetem Verhalten führen — die Synchronisierung funktioniert möglicherweise nicht zuverlässig. Bitte aktualisiere die App, damit alles weiterläuft.</string>
     <string name="common_okay">Okay</string>
+    <string name="settings_stats_hint">Einkaufsaktivität im Zeitverlauf</string>
+    <string name="settings_stats_hint_offline">Einkaufsaktivität im Zeitverlauf (erfordert Server)</string>
+    <string name="settings_sync_hint">Änderungen werden automatisch in Echtzeit synchronisiert</string>
+    <string name="settings_sync_hint_offline">Offline-Modus (zum Synchronisieren anmelden)</string>
+    <string name="hh_view_members">Mitglieder anzeigen</string>
+    <string name="hh_share_invite_hint">Teile einen Einladungscode, um jemanden einzuladen</string>
+    <plurals name="hh_member_count">
+        <item quantity="one">%1$d Mitglied</item>
+        <item quantity="other">%1$d Mitglieder</item>
+    </plurals>
+    <string name="hh_members_fallback_name">dieses Mitglied</string>
+    <string name="hh_members_unknown">Unbekanntes Mitglied</string>
+    <string name="dashboard_fewest_shops_desc">Berechnet, in wie wenigen Geschäften du alles einkaufen kannst, was gerade auf deiner Liste steht.</string>
+    <string name="dashboard_best_price_desc">Vergleicht die Preise der Artikel auf deiner Liste über Geschäfte hinweg und zeigt, wo jeder Artikel am günstigsten ist.</string>
 </resources>
