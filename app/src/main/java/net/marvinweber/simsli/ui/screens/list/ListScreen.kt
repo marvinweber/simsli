@@ -58,9 +58,14 @@ import net.marvinweber.simsli.ui.components.LinkUtils
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenu
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
@@ -1378,6 +1383,9 @@ private fun AddItemsSelectedContent(
     var commentText by remember(selection) { mutableStateOf("") }
     var saveToCatalog by remember(selection) { mutableStateOf(false) }
     var showTypeHelp by remember(selection) { mutableStateOf(false) }
+    var unitMenuExpanded by remember(selection) { mutableStateOf(false) }
+    var showCustomUnitDialog by remember(selection) { mutableStateOf(false) }
+    var customUnitInput by remember(selection) { mutableStateOf("") }
 
     val name = when (selection) {
         is AddSelection.Existing -> selection.item.name
@@ -1417,6 +1425,9 @@ private fun AddItemsSelectedContent(
             )
         }
 
+        // Quantity + unit as an exposed dropdown (same options as the item
+        // detail screen): the item's default unit preselected, presets,
+        // or a custom value via dialog
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1429,29 +1440,72 @@ private fun AddItemsSelectedContent(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.weight(1f)
             )
-            OutlinedTextField(
-                value = unitText,
-                onValueChange = { unitText = it },
-                label = { Text("Unit") },
-                placeholder = { Text("kg, pack …") },
-                singleLine = true,
+            ExposedDropdownMenuBox(
+                expanded = unitMenuExpanded,
+                onExpandedChange = { unitMenuExpanded = it },
                 modifier = Modifier.weight(1f)
-            )
-        }
-
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            UnitPresets.ALL.forEach { preset ->
-                val isSelected = unitText.equals(preset, ignoreCase = true)
-                FilterChip(
-                    selected = isSelected,
-                    onClick = {
-                        unitText = if (isSelected) "" else preset
+            ) {
+                OutlinedTextField(
+                    value = unitText,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Unit") },
+                    placeholder = { Text("kg, pack …") },
+                    singleLine = true,
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = unitMenuExpanded)
                     },
-                    label = { Text(preset) }
+                    modifier = Modifier
+                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                        .fillMaxWidth()
                 )
+                ExposedDropdownMenu(
+                    expanded = unitMenuExpanded,
+                    onDismissRequest = { unitMenuExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("None") },
+                        onClick = {
+                            unitText = ""
+                            unitMenuExpanded = false
+                        },
+                        leadingIcon = {
+                            if (unitText.isBlank()) {
+                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    )
+                    UnitPresets.ALL.forEach { preset ->
+                        DropdownMenuItem(
+                            text = { Text(preset) },
+                            onClick = {
+                                unitText = preset
+                                unitMenuExpanded = false
+                            },
+                            leadingIcon = {
+                                if (unitText.equals(preset, ignoreCase = true)) {
+                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        )
+                    }
+                    HorizontalDivider()
+                    val isPreset = UnitPresets.ALL.any { it.equals(unitText, ignoreCase = true) }
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                if (isPreset || unitText.isBlank()) "Custom…"
+                                else "Edit custom unit…"
+                            )
+                        },
+                        onClick = {
+                            // Prefill only when editing an existing custom value
+                            customUnitInput = if (isPreset || unitText.isBlank()) "" else unitText
+                            unitMenuExpanded = false
+                            showCustomUnitDialog = true
+                        }
+                    )
+                }
             }
         }
 
@@ -1532,6 +1586,39 @@ private fun AddItemsSelectedContent(
                 Text("Add & Close")
             }
         }
+    }
+
+    if (showCustomUnitDialog) {
+        AlertDialog(
+            onDismissRequest = { showCustomUnitDialog = false },
+            title = { Text("Custom unit") },
+            text = {
+                OutlinedTextField(
+                    value = customUnitInput,
+                    onValueChange = { customUnitInput = it },
+                    label = { Text("Unit") },
+                    placeholder = { Text("e.g. pcs, pack, kg, bottle …") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        unitText = customUnitInput.trim()
+                        showCustomUnitDialog = false
+                    },
+                    enabled = customUnitInput.isNotBlank()
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCustomUnitDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 

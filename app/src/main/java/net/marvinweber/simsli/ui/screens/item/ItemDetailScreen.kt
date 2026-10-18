@@ -51,7 +51,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -170,6 +169,9 @@ fun ItemDetailScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showStoreSelectionDialog by remember { mutableStateOf(false) }
     var categoryMenuExpanded by remember { mutableStateOf(false) }
+    var unitMenuExpanded by remember { mutableStateOf(false) }
+    var showCustomUnitDialog by remember { mutableStateOf(false) }
+    var customUnitInput by remember { mutableStateOf("") }
     var duplicateWarningName by rememberSaveable { mutableStateOf<String?>(null) }
     var duplicateWarningIsSimilar by rememberSaveable { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
@@ -466,37 +468,88 @@ fun ItemDetailScreen(
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                             )
 
-                            // Default unit (optional, ITEM-5)
+                            // Default unit (optional, ITEM-5): dropdown like category —
+                            // presets + "Custom…", which opens a free-text dialog
                             Column(
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                Text(
-                                    text = "Default unit (optional)",
-                                    style = MaterialTheme.typography.titleSmall
-                                )
-                                FlowRow(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    UnitPresets.ALL.forEach { preset ->
-                                        val isSelected = itemDefaultUnit.equals(preset, ignoreCase = true)
-                                        FilterChip(
-                                            selected = isSelected,
+                                Box {
+                                    val isPreset = UnitPresets.ALL.any { it.equals(itemDefaultUnit, ignoreCase = true) }
+                                    val unitLabel = when {
+                                        itemDefaultUnit.isBlank() -> "None"
+                                        isPreset -> UnitPresets.ALL.first { it.equals(itemDefaultUnit, ignoreCase = true) }
+                                        else -> itemDefaultUnit
+                                    }
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(MaterialTheme.shapes.small)
+                                            .clickable { unitMenuExpanded = true }
+                                            .padding(vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Unit",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Text(text = unitLabel, style = MaterialTheme.typography.bodyLarge)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Icon(
+                                            imageVector = Icons.Default.KeyboardArrowDown,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = unitMenuExpanded,
+                                        onDismissRequest = { unitMenuExpanded = false }
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("None") },
                                             onClick = {
-                                                itemDefaultUnit = if (isSelected) "" else preset
+                                                itemDefaultUnit = ""
+                                                unitMenuExpanded = false
                                             },
-                                            label = { Text(preset) }
+                                            leadingIcon = {
+                                                if (itemDefaultUnit.isBlank()) {
+                                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                                                }
+                                            }
+                                        )
+                                        UnitPresets.ALL.forEach { preset ->
+                                            DropdownMenuItem(
+                                                text = { Text(preset) },
+                                                onClick = {
+                                                    itemDefaultUnit = preset
+                                                    unitMenuExpanded = false
+                                                },
+                                                leadingIcon = {
+                                                    if (itemDefaultUnit.equals(preset, ignoreCase = true)) {
+                                                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                                                    }
+                                                }
+                                            )
+                                        }
+                                        HorizontalDivider()
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    if (isPreset || itemDefaultUnit.isBlank()) "Custom…"
+                                                    else "Edit custom unit…"
+                                                )
+                                            },
+                                            onClick = {
+                                                // Prefill only when editing an existing custom value
+                                                customUnitInput = if (isPreset || itemDefaultUnit.isBlank()) "" else itemDefaultUnit
+                                                unitMenuExpanded = false
+                                                showCustomUnitDialog = true
+                                            }
                                         )
                                     }
                                 }
-                                OutlinedTextField(
-                                    value = itemDefaultUnit,
-                                    onValueChange = { itemDefaultUnit = it },
-                                    label = { Text("Custom unit") },
-                                    placeholder = { Text("e.g. pcs, pack, kg, bottle …") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
                                 Text(
                                     text = "Preselected when adding this item to the shopping list.",
                                     style = MaterialTheme.typography.bodySmall,
@@ -819,6 +872,39 @@ fun ItemDetailScreen(
                 }
             }
         }
+    }
+
+    if (showCustomUnitDialog) {
+        AlertDialog(
+            onDismissRequest = { showCustomUnitDialog = false },
+            title = { Text("Custom unit") },
+            text = {
+                OutlinedTextField(
+                    value = customUnitInput,
+                    onValueChange = { customUnitInput = it },
+                    label = { Text("Unit") },
+                    placeholder = { Text("e.g. pcs, pack, kg, bottle …") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        itemDefaultUnit = customUnitInput.trim()
+                        showCustomUnitDialog = false
+                    },
+                    enabled = customUnitInput.isNotBlank()
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCustomUnitDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     if (showDiscardDialog) {
