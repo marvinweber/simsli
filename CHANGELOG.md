@@ -4,6 +4,11 @@ All notable changes to the Simsli shopping list app, Wear OS companion, and serv
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### ✨ New Features
+- **Store Prices** (ITEM-6 + STORE-6): Items gain an optional reference size ("1 l", "500 g") and per-store prices, edited on a new "Store prices" screen reachable from item detail. Prices are compared per store using the household currency with locale-aware formatting — no totals, no unit math. Prices ride the existing store-assignment sync, including the store-group rules (a price on an excluded store is preserved but hidden until the store is re-included).
+- **Server**: new migration 000008 adds `items.reference_size` and `item_stores.price_minor` (integer minor units).
+
 ## [0.5.1] - 2026-10-11
 ### 🐛 Bug Fixes (Server)
 - **Realtime Echo Suppression**: The server now excludes the originating device when broadcasting WebSocket sync events after a flush. This prevents devices from receiving their own changes as an echo, eliminating redundant follow-up sync runs and the double-flashing sync spinner animation.

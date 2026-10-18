@@ -27,12 +27,14 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
@@ -143,6 +145,7 @@ private val FormBaselineSaver = listSaver<FormBaseline, Any>(
 @Composable
 fun ItemDetailScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToItemPrices: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: ItemDetailViewModel = hiltViewModel()
 ) {
@@ -245,7 +248,17 @@ fun ItemDetailScreen(
         categoryId = selectedCategoryId,
         linkUrls = uiState.links.map { it.url }.toSet()
     )
-    val hasPendingChanges = baseline != current && !uiState.isSaving
+    // Pending changes also cover edits made on the Store prices screen: a price
+    // edit counts when it differs from the row's stored value, the reference size
+    // edit when it differs from the item's stored value.
+    val hasPriceEdits = uiState.priceEdits.prices.any { (storeId, minor) ->
+        minor != uiState.priceRows.firstOrNull { it.storeId == storeId }?.priceMinor
+    }
+    val hasReferenceSizeEdits = uiState.priceEdits.referenceSizeEdited &&
+        uiState.priceEdits.effectiveReferenceSize(uiState.existingItem?.referenceSize) !=
+        uiState.existingItem?.referenceSize
+    val hasPendingChanges =
+        (baseline != current || hasPriceEdits || hasReferenceSizeEdits) && !uiState.isSaving
 
     val requestBack = {
         if (hasPendingChanges) showDiscardDialog = true else viewModel.onBack()
@@ -585,6 +598,49 @@ fun ItemDetailScreen(
                                         }
                                     )
                                 }
+                            }
+                        }
+
+                        // Store prices (STORE-6): pushed screen with reference size + per-store prices
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onNavigateToItemPrices() },
+                            shape = MaterialTheme.shapes.medium,
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Payments,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Store prices",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Spacer(modifier = Modifier.weight(1f))
+                                uiState.priceEdits
+                                    .effectiveReferenceSize(uiState.existingItem?.referenceSize)
+                                    ?.let { refSize ->
+                                        Text(
+                                            text = refSize,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                    }
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
 

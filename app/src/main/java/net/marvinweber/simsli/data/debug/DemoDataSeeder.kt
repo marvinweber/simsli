@@ -85,8 +85,8 @@ class DemoDataSeeder @Inject constructor(
 
             // (id index, name, notes, type, category id, store ids, defaultUnit) — indices into id() keep the UUIDs fixed.
             val itemDefs = listOf(
-                ItemDef(1, "Milch", null, ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi), defaultUnit = "l", favorites = listOf(rewe)),
-                ItemDef(2, "Brot", null, ItemType.PERMANENT, backwaren, listOf(rewe, aldi), defaultUnit = "pcs", favorites = listOf(aldi)),
+                ItemDef(1, "Milch", null, ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi), defaultUnit = "l", favorites = listOf(rewe), referenceSize = "1 l", prices = mapOf(rewe to 119L, aldi to 109L)),
+                ItemDef(2, "Brot", null, ItemType.PERMANENT, backwaren, listOf(rewe, aldi), defaultUnit = "pcs", favorites = listOf(aldi), referenceSize = "750 g"),
                 ItemDef(3, "Butter", null, ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi), defaultUnit = "pack"),
                 ItemDef(4, "Haferdrink", "Barista-Edition", ItemType.PERMANENT, milchprodukte, listOf(rewe), defaultUnit = "l"),
                 ItemDef(5, "Käse", null, ItemType.PERMANENT, milchprodukte, listOf(rewe, aldi), defaultUnit = "g"),
@@ -97,7 +97,7 @@ class DemoDataSeeder @Inject constructor(
                 ItemDef(10, "Nudeln", null, ItemType.PERMANENT, grundnahrung, listOf(aldi), defaultUnit = "pack"),
                 ItemDef(11, "Tomatenpassata", null, ItemType.PERMANENT, grundnahrung, listOf(rewe, aldi), defaultUnit = "ml"),
                 // Spülmittel: Supermarkt selection with REWE excluded, DM explicit (STORE-7)
-                ItemDef(12, "Spülmittel", null, ItemType.PERMANENT, haushalt, listOf(dm), defaultUnit = "pcs"),
+                ItemDef(12, "Spülmittel", null, ItemType.PERMANENT, haushalt, listOf(dm), defaultUnit = "pcs", referenceSize = "500 ml"),
                 ItemDef(13, "Toilettenpapier", "dreilagig", ItemType.PERMANENT, haushalt, listOf(aldi, dm), defaultUnit = "pack"),
                 ItemDef(14, "Geburtstagskerzen", null, ItemType.ONE_TIME, sonstiges, listOf(dm)),
                 // Uncategorized on purpose — exercises the implicit "Uncategorized" group (LIST-6).
@@ -150,6 +150,7 @@ class DemoDataSeeder @Inject constructor(
                             type = def.type,
                             categoryId = def.categoryId,
                             defaultUnit = def.defaultUnit,
+                            referenceSize = def.referenceSize,
                             // Staggered like real usage: earlier catalog entries updated longer ago.
                             sortOrder = def.idIndex.toFloat(),
                             createdAt = daysAgo((20 - index).toLong()),
@@ -165,14 +166,15 @@ class DemoDataSeeder @Inject constructor(
                                 itemId = id(def.idIndex),
                                 storeId = storeId,
                                 favorite = storeId in def.favorites,
+                                priceMinor = def.prices[storeId],
                                 createdAt = daysAgo(12)
                             )
                         }
                     } + listOf(
-                        // Spülmittel: Supermarkt selection with REWE excluded
-                        DbItemStore(itemId = id(12), storeId = rewe, membership = "EXCLUDED", createdAt = daysAgo(12)),
+                        // Spülmittel: Supermarkt selection with REWE excluded (price stays dormant)
+                        DbItemStore(itemId = id(12), storeId = rewe, membership = "EXCLUDED", priceMinor = 129L, createdAt = daysAgo(12)),
                         // Bananen: group-covered favorite on REWE
-                        DbItemStore(itemId = id(8), storeId = rewe, membership = "METADATA", favorite = true, createdAt = daysAgo(12))
+                        DbItemStore(itemId = id(8), storeId = rewe, membership = "METADATA", favorite = true, priceMinor = 139L, createdAt = daysAgo(12))
                     )
                 )
 
@@ -259,7 +261,10 @@ class DemoDataSeeder @Inject constructor(
         val categoryId: String?,
         val storeIds: List<String>,
         val defaultUnit: String? = null,
-        val favorites: List<String> = emptyList()
+        val favorites: List<String> = emptyList(),
+        // (ITEM-6/STORE-6) informational reference size + per-store prices in minor units
+        val referenceSize: String? = null,
+        val prices: Map<String, Long> = emptyMap()
     )
 
     private data class EntryDef(
