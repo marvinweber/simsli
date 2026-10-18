@@ -54,6 +54,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -68,6 +69,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
+import net.marvinweber.simsli.R
 import net.marvinweber.simsli.domain.model.Category
 import net.marvinweber.simsli.domain.model.Store
 import net.marvinweber.simsli.domain.model.StoreGroup
@@ -170,8 +172,8 @@ fun StoresTabContent(
 
     if (showAddGroupDialog) {
         GroupDialog(
-            title = "Add Group",
-            confirmText = "Add",
+            title = stringResource(R.string.stores_add_group),
+            confirmText = stringResource(R.string.common_add),
             initialName = "",
             onDismiss = { showAddGroupDialog = false },
             onConfirm = { name ->
@@ -184,8 +186,8 @@ fun StoresTabContent(
     val editingGroup = uiState.storeGroups.firstOrNull { it.id == editingGroupId }
     if (editingGroup != null) {
         GroupDialog(
-            title = "Rename Group",
-            confirmText = "Save",
+            title = stringResource(R.string.stores_rename_group),
+            confirmText = stringResource(R.string.common_save),
             initialName = editingGroup.name,
             onDismiss = { editingGroupId = null },
             onConfirm = { name ->
@@ -199,7 +201,7 @@ fun StoresTabContent(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Add Store")
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.stores_add_store))
             }
         },
         modifier = modifier
@@ -409,7 +411,7 @@ private fun StoresList(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Add group")
+                    Text(stringResource(R.string.stores_add_group))
                 }
             }
         }
@@ -474,7 +476,7 @@ private fun GroupRow(
                 if (showDragHandle) {
                     Icon(
                         Icons.Default.DragHandle,
-                        contentDescription = "Reorder ${group.name}",
+                        contentDescription = stringResource(R.string.common_reorder_name, group.name),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -504,7 +506,7 @@ private fun GroupRow(
             ) {
                 Icon(
                     Icons.Default.Delete,
-                    contentDescription = "Delete group",
+                    contentDescription = stringResource(R.string.stores_delete_group_cd),
                     tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(20.dp)
                 )
@@ -554,7 +556,7 @@ private fun StoreRow(
             ) {
                 Icon(
                     Icons.Default.Delete,
-                    contentDescription = "Delete store",
+                    contentDescription = stringResource(R.string.stores_delete_store_cd),
                     tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(20.dp)
                 )
@@ -570,8 +572,8 @@ private fun AddStoreDialog(
     onConfirm: (String, String?) -> Unit
 ) {
     StoreFormDialog(
-        title = "Add Store",
-        confirmText = "Add",
+        title = stringResource(R.string.stores_add_store),
+        confirmText = stringResource(R.string.common_add),
         initialName = "",
         initialGroupId = null,
         groupOptions = groupOptions,
@@ -608,7 +610,7 @@ private fun StoreEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit Store") },
+        title = { Text(stringResource(R.string.stores_edit_store)) },
         text = {
             LazyColumn(
                 state = lazyListState,
@@ -620,7 +622,7 @@ private fun StoreEditDialog(
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
-                        label = { Text("Store name") },
+                        label = { Text(stringResource(R.string.stores_name_label)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -628,7 +630,7 @@ private fun StoreEditDialog(
                 item(key = "field:group") {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "Group",
+                        text = stringResource(R.string.stores_group_label),
                         style = MaterialTheme.typography.titleSmall
                     )
                     Spacer(modifier = Modifier.height(4.dp))
@@ -658,7 +660,7 @@ private fun StoreEditDialog(
                             onDismissRequest = { groupMenuExpanded = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("No group") },
+                                text = { Text(stringResource(R.string.stores_no_group)) },
                                 onClick = {
                                     selectedGroupId = null
                                     groupMenuExpanded = false
@@ -679,13 +681,13 @@ private fun StoreEditDialog(
                     HorizontalDivider()
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "Aisle Order",
+                        text = stringResource(R.string.stores_aisle_order),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Check categories to customize their order for this store. Drag to reorder. Unchecked categories appear after in default order.",
+                        text = stringResource(R.string.stores_aisle_order_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -695,7 +697,7 @@ private fun StoreEditDialog(
                 if (householdCategories.isEmpty()) {
                     item(key = "empty:categories") {
                         Text(
-                            text = "No categories yet. You can add categories in the Categories tab.",
+                            text = stringResource(R.string.stores_no_categories_hint),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 8.dp)
@@ -712,7 +714,7 @@ private fun StoreEditDialog(
                                     .padding(vertical = 4.dp)
                             ) {
                                 Text(
-                                    text = "All categories follow default order. Check categories below to set a custom aisle sequence.",
+                                    text = stringResource(R.string.stores_all_default_hint),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(12.dp)
@@ -815,7 +817,7 @@ private fun StoreEditDialog(
                         item(key = "header:unchecked") {
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = if (checkedCategories.isEmpty()) "Categories" else "Other categories (default order)",
+                                text = if (checkedCategories.isEmpty()) stringResource(R.string.stores_section_categories) else stringResource(R.string.stores_section_other_categories),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -841,12 +843,12 @@ private fun StoreEditDialog(
                 onClick = { onConfirm(name, selectedGroupId, checkedCategoryIds) },
                 enabled = name.isNotBlank()
             ) {
-                Text("Save")
+                Text(stringResource(R.string.common_save))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.common_cancel))
             }
         }
     )
@@ -904,7 +906,7 @@ private fun CheckedCategoryRow(
             )
             Icon(
                 imageVector = Icons.Default.DragHandle,
-                contentDescription = "Reorder ${category.name}",
+                contentDescription = stringResource(R.string.common_reorder_name, category.name),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = dragHandleModifier.padding(8.dp)
             )
@@ -968,12 +970,12 @@ private fun StoreFormDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Store name") },
+                    label = { Text(stringResource(R.string.stores_name_label)) },
                     singleLine = true
                 )
                 Spacer(modifier = Modifier.padding(top = 12.dp))
                 Text(
-                    text = "Group",
+                    text = stringResource(R.string.stores_group_label),
                     style = MaterialTheme.typography.titleSmall
                 )
                 Spacer(modifier = Modifier.padding(top = 4.dp))
@@ -1003,7 +1005,7 @@ private fun StoreFormDialog(
                         onDismissRequest = { groupMenuExpanded = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("No group") },
+                            text = { Text(stringResource(R.string.stores_no_group)) },
                             onClick = {
                                 selectedGroupId = null
                                 groupMenuExpanded = false
@@ -1032,7 +1034,7 @@ private fun StoreFormDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.common_cancel))
             }
         }
     )
@@ -1055,7 +1057,7 @@ private fun GroupDialog(
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
-                label = { Text("Group name") },
+                label = { Text(stringResource(R.string.stores_group_name_label)) },
                 singleLine = true
             )
         },
@@ -1069,7 +1071,7 @@ private fun GroupDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.common_cancel))
             }
         }
     )
@@ -1083,9 +1085,9 @@ private fun DeleteStoreDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Delete Store?") },
+        title = { Text(stringResource(R.string.stores_delete_store_title)) },
         text = {
-            Text("Delete \"$storeName\"? Items assigned only to this store will become unassigned.")
+            Text(stringResource(R.string.stores_delete_store_text, storeName))
         },
         confirmButton = {
             Button(
@@ -1094,12 +1096,12 @@ private fun DeleteStoreDialog(
                     containerColor = MaterialTheme.colorScheme.error
                 )
             ) {
-                Text("Delete")
+                Text(stringResource(R.string.common_delete))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.common_cancel))
             }
         }
     )
@@ -1113,12 +1115,9 @@ private fun DeleteGroupDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Delete Group?") },
+        title = { Text(stringResource(R.string.stores_delete_group_title)) },
         text = {
-            Text(
-                "Delete \"$groupName\"? Its stores become ungrouped (not deleted) and items " +
-                    "assigned via this group lose that coverage. Individual store exclusions stay."
-            )
+            Text(stringResource(R.string.stores_delete_group_text, groupName))
         },
         confirmButton = {
             Button(
@@ -1127,12 +1126,12 @@ private fun DeleteGroupDialog(
                     containerColor = MaterialTheme.colorScheme.error
                 )
             ) {
-                Text("Delete")
+                Text(stringResource(R.string.common_delete))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.common_cancel))
             }
         }
     )

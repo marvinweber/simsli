@@ -78,6 +78,7 @@
     <string name="common_url">URL</string>
     <string name="common_favorite">Favorit</string>
     <string name="common_favorite_store">Favoriten-Geschäft</string>
+    <string name="common_reorder_name">%1$s sortieren</string>
     <string name="common_copy">Kopieren</string>
     <string name="common_error_copied">Fehler in die Zwischenablage kopiert</string>
     <string name="common_error_update_failed">Aktualisierung fehlgeschlagen: %1$s</string>
@@ -237,4 +238,33 @@
     <string name="common_link">Link</string>
     <string name="common_could_not_open_link">Link konnte nicht geöffnet werden</string>
     <string name="common_simsli_logo">Simsli-Logo</string>
+    <!-- Geschäfte -->
+    <string name="stores_add_group">Gruppe hinzufügen</string>
+    <string name="stores_rename_group">Gruppe umbenennen</string>
+    <string name="stores_add_store">Geschäft hinzufügen</string>
+    <string name="stores_edit_store">Geschäft bearbeiten</string>
+    <string name="stores_delete_group_cd">Gruppe löschen</string>
+    <string name="stores_delete_store_cd">Geschäft löschen</string>
+    <string name="stores_name_label">Name des Geschäfts</string>
+    <string name="stores_group_label">Gruppe</string>
+    <string name="stores_group_name_label">Gruppenname</string>
+    <string name="stores_no_group">Keine Gruppe</string>
+    <string name="stores_aisle_order">Regal-Reihenfolge</string>
+    <string name="stores_aisle_order_hint">Aktiviere Kategorien, um ihre Reihenfolge für dieses Geschäft anzupassen. Zum Sortieren ziehen. Nicht aktivierte Kategorien erscheinen danach in Standard-Reihenfolge.</string>
+    <string name="stores_no_categories_hint">Noch keine Kategorien. Du kannst Kategorien im Kategorien-Tab hinzufügen.</string>
+    <string name="stores_all_default_hint">Alle Kategorien folgen der Standard-Reihenfolge. Aktiviere unten Kategorien, um eine eigene Regal-Reihenfolge festzulegen.</string>
+    <string name="stores_section_categories">Kategorien</string>
+    <string name="stores_section_other_categories">Weitere Kategorien (Standard-Reihenfolge)</string>
+    <string name="stores_delete_store_title">Geschäft löschen?</string>
+    <string name="stores_delete_store_text">„%1$s“ löschen? Artikel, die nur diesem Geschäft zugewiesen sind, werden nicht mehr zugeordnet.</string>
+    <string name="stores_delete_group_title">Gruppe löschen?</string>
+    <string name="stores_delete_group_text">„%1$s“ löschen? Die Geschäfte bleiben bestehen (nicht gelöscht), verlieren aber ihre Gruppierung, und Artikel, die über diese Gruppe zugewiesen sind, verlieren diese Abdeckung. Einzelne Geschäftsausschlüsse bleiben erhalten.</string>
+
+    <!-- Kategorien -->
+    <string name="categories_add">Kategorie hinzufügen</string>
+    <string name="categories_edit">Kategorie bearbeiten</string>
+    <string name="categories_delete_cd">Kategorie löschen</string>
+    <string name="categories_name_label">Kategoriename</string>
+    <string name="categories_delete_title">Kategorie löschen?</string>
+    <string name="categories_delete_text">„%1$s“ löschen? Artikel in dieser Kategorie werden ohne Kategorie.</string>
 </resources>

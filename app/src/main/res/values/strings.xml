@@ -40,6 +40,7 @@
     <string name="common_url">URL</string>
     <string name="common_favorite">Favorite</string>
     <string name="common_favorite_store">Favorite store</string>
+    <string name="common_reorder_name">Reorder %1$s</string>
     <string name="common_copy">Copy</string>
     <string name="common_error_copied">Error copied to clipboard</string>
     <string name="common_error_update_failed">Update failed: %1$s</string>
@@ -236,4 +237,33 @@
     <string name="common_link">Link</string>
     <string name="common_could_not_open_link">Could not open link</string>
     <string name="common_simsli_logo">Simsli logo</string>
+    <!-- Stores screen -->
+    <string name="stores_add_group">Add group</string>
+    <string name="stores_rename_group">Rename Group</string>
+    <string name="stores_add_store">Add Store</string>
+    <string name="stores_edit_store">Edit Store</string>
+    <string name="stores_delete_group_cd">Delete group</string>
+    <string name="stores_delete_store_cd">Delete store</string>
+    <string name="stores_name_label">Store name</string>
+    <string name="stores_group_label">Group</string>
+    <string name="stores_group_name_label">Group name</string>
+    <string name="stores_no_group">No group</string>
+    <string name="stores_aisle_order">Aisle Order</string>
+    <string name="stores_aisle_order_hint">Check categories to customize their order for this store. Drag to reorder. Unchecked categories appear after in default order.</string>
+    <string name="stores_no_categories_hint">No categories yet. You can add categories in the Categories tab.</string>
+    <string name="stores_all_default_hint">All categories follow default order. Check categories below to set a custom aisle sequence.</string>
+    <string name="stores_section_categories">Categories</string>
+    <string name="stores_section_other_categories">Other categories (default order)</string>
+    <string name="stores_delete_store_title">Delete Store?</string>
+    <string name="stores_delete_store_text">Delete \"%1$s\"? Items assigned only to this store will become unassigned.</string>
+    <string name="stores_delete_group_title">Delete Group?</string>
+    <string name="stores_delete_group_text">Delete \"%1$s\"? Its stores become ungrouped (not deleted) and items assigned via this group lose that coverage. Individual store exclusions stay.</string>
+
+    <!-- Categories screen -->
+    <string name="categories_add">Add Category</string>
+    <string name="categories_edit">Edit Category</string>
+    <string name="categories_delete_cd">Delete category</string>
+    <string name="categories_name_label">Category name</string>
+    <string name="categories_delete_title">Delete Category?</string>
+    <string name="categories_delete_text">Delete \"%1$s\"? Items in this category will become uncategorized.</string>
 </resources>

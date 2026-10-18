@@ -1,6 +1,9 @@
 package net.marvinweber.simsli.ui.screens.categories
 
 import androidx.compose.foundation.clickable
+
+import androidx.compose.ui.res.stringResource
+import net.marvinweber.simsli.R
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -101,8 +104,8 @@ fun CategoriesTabContent(
 
     if (showAddDialog) {
         CategoryDialog(
-            title = "Add Category",
-            confirmText = "Add",
+            title = stringResource(R.string.categories_add),
+            confirmText = stringResource(R.string.common_add),
             onDismiss = { showAddDialog = false },
             onConfirm = { name, emoji ->
                 viewModel.createCategory(name, emoji)
@@ -114,8 +117,8 @@ fun CategoriesTabContent(
     val editingCategory = uiState.categories.firstOrNull { it.id == editingCategoryId }
     if (editingCategory != null) {
         CategoryDialog(
-            title = "Edit Category",
-            confirmText = "Save",
+            title = stringResource(R.string.categories_edit),
+            confirmText = stringResource(R.string.common_save),
             initialName = editingCategory.name,
             initialEmoji = editingCategory.emoji,
             onDismiss = { editingCategoryId = null },
@@ -142,7 +145,7 @@ fun CategoriesTabContent(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Add Category")
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.categories_add))
             }
         },
         modifier = modifier
@@ -343,7 +346,7 @@ private fun CategoryRow(
                 if (showDragHandle) {
                     Icon(
                         Icons.Default.DragHandle,
-                        contentDescription = "Reorder ${category.name}",
+                        contentDescription = stringResource(R.string.common_reorder_name, category.name),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -374,7 +377,7 @@ private fun CategoryRow(
             ) {
                 Icon(
                     Icons.Default.Delete,
-                    contentDescription = "Delete category",
+                    contentDescription = stringResource(R.string.categories_delete_cd),
                     tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(20.dp)
                 )
@@ -444,7 +447,7 @@ private fun CategoryDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Category name") },
+                    label = { Text(stringResource(R.string.categories_name_label)) },
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
@@ -460,7 +463,7 @@ private fun CategoryDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.common_cancel))
             }
         }
     )
@@ -476,9 +479,9 @@ private fun DeleteCategoryDialog(
     val displayLabel = if (!categoryEmoji.isNullOrBlank()) "$categoryEmoji $categoryName" else categoryName
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Delete Category?") },
+        title = { Text(stringResource(R.string.categories_delete_title)) },
         text = {
-            Text("Delete \"$displayLabel\"? Items in this category will become uncategorized.")
+            Text(stringResource(R.string.categories_delete_text, displayLabel))
         },
         confirmButton = {
             Button(
@@ -487,12 +490,12 @@ private fun DeleteCategoryDialog(
                     containerColor = MaterialTheme.colorScheme.error
                 )
             ) {
-                Text("Delete")
+                Text(stringResource(R.string.common_delete))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.common_cancel))
             }
         }
     )
