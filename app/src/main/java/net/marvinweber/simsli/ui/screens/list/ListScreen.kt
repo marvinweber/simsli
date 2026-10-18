@@ -35,7 +35,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -122,7 +121,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -136,7 +134,7 @@ import net.marvinweber.simsli.domain.model.StoreGroup
 import net.marvinweber.simsli.domain.util.SearchFold
 import net.marvinweber.simsli.ui.components.CategorySectionHeader
 import net.marvinweber.simsli.ui.components.EntryDetailsSheet
-import net.marvinweber.simsli.ui.components.UnitDropdownField
+import net.marvinweber.simsli.ui.components.EntryFormFields
 import net.marvinweber.simsli.ui.components.formatQuantity
 
 /** Catalog suggestions shown per query in the quick-add sheet. */
@@ -1392,6 +1390,7 @@ private fun AddItemsSelectedContent(
         is AddSelection.Existing -> selection.item.name
         is AddSelection.New -> selection.name
     }
+    val existingItem = (selection as? AddSelection.Existing)?.item
 
     Column(
         modifier = Modifier
@@ -1454,34 +1453,17 @@ private fun AddItemsSelectedContent(
             }
         }
 
-        // Quantity + unit as the shared unit dropdown: the item's default
-        // unit preselected, presets, or a custom value via dialog
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OutlinedTextField(
-                value = quantityText,
-                onValueChange = { quantityText = it },
-                label = { Text("Quantity") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.weight(1f)
-            )
-            UnitDropdownField(
-                value = unitText,
-                onValueChange = { unitText = it },
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        OutlinedTextField(
-            value = commentText,
-            onValueChange = { commentText = it },
-            label = { Text("Comment (optional)") },
-            placeholder = { Text("e.g., get the organic one") },
-            modifier = Modifier.fillMaxWidth(),
-            maxLines = 3
+        // Quantity, unit and comment as the shared entry form: also surfaces
+        // the catalog note and link chips for catalog hits
+        EntryFormFields(
+            quantityText = quantityText,
+            onQuantityChange = { quantityText = it },
+            unitText = unitText,
+            onUnitChange = { unitText = it },
+            commentText = commentText,
+            onCommentChange = { commentText = it },
+            note = existingItem?.notes,
+            links = existingItem?.links ?: emptyList()
         )
 
         if (selection is AddSelection.New) {
