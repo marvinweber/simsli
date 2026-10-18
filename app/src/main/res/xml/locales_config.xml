@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Supported per-app locales (I18N-1): English default + German overlay.
+     Referenced from the manifest's android:localeConfig; enables the
+     Android 13+ system "App language" picker. -->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="en" />
+    <locale android:name="de" />
+</locale-config>
