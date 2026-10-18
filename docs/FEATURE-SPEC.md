@@ -28,7 +28,7 @@ Milestone tags are assignments, not promises — moving a feature between milest
 | 3.7 Sync (SYNC)          | SYNC-1–6, SYNC-8        | —                    | —                      | —              | SYNC-7       | —            | —         |
 | 3.8 Device data (DATA)   | DATA-1, DATA-3         | —                    | DATA-2                 | —              | DATA-4       | —            | DATA-5    |
 | 3.9 Screens (SCREENS)    | SCREENS-1–4, SCREENS-6, SCREENS-9 | SCREENS-8 | SCREENS-5              | —              | —            | —            | SCREENS-7 |
-| 3.10 Localization (I18N) | —                      | —                    | I18N-1                 | —              | —            | —            | —         |
+| 3.10 Localization (I18N) | I18N-1                  | —                    | —                      | —              | —            | —            | —         |
 | 3.11 Business (BIZ)      | BIZ-5, BIZ-6           | —                    | —                      | —              | BIZ-1        | BIZ-2, BIZ-3 | —         |
 | 3.12 Dashboard (DASH)    | —                      | —                    | —                      | DASH-1, DASH-2 | —            | —            | —         |
 | 3.13 Wear OS companion (WEAR) | WEAR-1, WEAR-2, WEAR-4, WEAR-6–8 | —                    | —                      | —              | WEAR-3, WEAR-5 | WEAR-9       | —         |
@@ -36,7 +36,7 @@ Milestone tags are assignments, not promises — moving a feature between milest
 
 Each feature appears once, under its current status; extensions tagged to later milestones (e.g. HH-2 admin role → v1.5, STORE-1 drag & drop → v1) stay tracked in the §3 entry. DATA-2 ships per path (removal with HH-5 in v0.1, leave/delete with HH-6/7 in v1). BIZ-4 is unlisted — its decision is open (OQ-1). **STORE-7 (store groups), STORE-5 (favorite stores) and STORE-6 (store prices) are implemented** — effective store set derived; favorites and prices configured on explicit and group-covered stores; favorites filtered via the LIST-5 star toggle.
 
-Last updated: 2026-10-17
+Last updated: 2026-10-18
 
 ---
 
@@ -167,7 +167,7 @@ Free forever: offline use, self-hosted unlimited. Hosted: free tier with limits,
 
 ### 3.10 Localization (I18N)
 
-- **I18N-1 EN default + DE overlay 📋 v0.1** — all UI strings live in string resources: `values/` (English, default/fallback) + `values-de/` (German). No hardcoded UI strings. User-entered content (item names, category names, custom units) is never translated; built-in content (unit presets, category presets, messages) ships in both languages. Numbers and dates render locale-aware.
+- **I18N-1 EN default + DE overlay ✅** — all UI strings live in string resources: `values/` (English, default/fallback) + `values-de/` (German). No hardcoded UI strings. User-entered content (item names, category names, custom units) is never translated; built-in content (unit presets, messages) ships in both languages. Numbers and dates render locale-aware (quantity uses the locale's decimal separator, ICU Collator sorting unchanged). Implementation notes: ViewModel-emit messages travel as `ui/UiMessage` (`@StringRes` + args, `isError` flag — ADR 0022), resolved only in the UI layer; unit presets store canonical DB values ("pcs", "pack") and resolve display labels at render time (`unitPresetLabel`); section headers store normal-case text and uppercase at render; the demo seeder stays German (debug-only user content mirroring the server seed). **Deferred:** server-seeded category names are user data synced as plain strings — their preset localization arrives with CAT-4/SCREENS-5 via a `nameRes`-style mapping; wear tile strings carry a DE overlay. Locale-neutral exceptions (kept as literals): URL placeholders/examples, clip-board labels. Verified end-to-end on the emulator with per-app locale `de-DE`.
 
 ### 3.11 Business model: limits, subscriptions, hosting (BIZ)
 
