@@ -1,20 +1,28 @@
 package net.marvinweber.simsli.ui.navigation
 
+import android.net.Uri
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import androidx.navigation.navigation
 import net.marvinweber.simsli.R
+import net.marvinweber.simsli.data.repository.HostingMode
 import net.marvinweber.simsli.ui.screens.home.HomeScreen
 import net.marvinweber.simsli.ui.screens.household.HouseholdMembersScreen
 import net.marvinweber.simsli.ui.screens.household.HouseholdScreen
@@ -22,6 +30,7 @@ import net.marvinweber.simsli.ui.screens.household.HouseholdStatisticsScreen
 import net.marvinweber.simsli.ui.screens.item.ItemDetailScreen
 import net.marvinweber.simsli.ui.screens.item.ItemPricesScreen
 import net.marvinweber.simsli.ui.screens.settings.SettingsScreen
+import net.marvinweber.simsli.ui.screens.signin.SignInScreen
 
 sealed class Screen(val route: String) {
     data object Home : Screen("home")
@@ -34,6 +43,10 @@ sealed class Screen(val route: String) {
     data object ItemPrices : Screen("item_prices")
     data object Onboarding : Screen("onboarding")
     data object Settings : Screen("settings")
+    data object SignIn : Screen("sign_in?host={host}") {
+        fun createRoute(host: String?): String =
+            if (host.isNullOrBlank()) "sign_in" else "sign_in?host=${Uri.encode(host)}"
+    }
     data object Household : Screen("household")
     data object HouseholdMembers : Screen("household_members")
     data object HouseholdStatistics : Screen("household_statistics")
@@ -60,13 +73,41 @@ fun SimsliNavHost(
                         inviteDeepLinkManager.consumeNavEvent()
                     }
                     is InviteNavTarget.SignIn -> {
-                        navController.navigate(Screen.Settings.route) {
+                        navController.navigate(Screen.SignIn.createRoute(target.host)) {
                             launchSingleTop = true
                         }
                         inviteDeepLinkManager.consumeNavEvent()
                     }
                 }
             }
+        }
+
+        // Cross-server invite (HH-3): warn before signing out + wiping + switching.
+        val serverSwitch by inviteDeepLinkManager.pendingServerSwitch.collectAsState()
+        serverSwitch?.let { request ->
+            AlertDialog(
+                onDismissRequest = inviteDeepLinkManager::dismissServerSwitch,
+                title = { Text(stringResource(R.string.invite_switch_server_title)) },
+                text = {
+                    Text(
+                        if (request.mode == HostingMode.CLOUD) {
+                            stringResource(R.string.invite_switch_server_body_cloud)
+                        } else {
+                            stringResource(R.string.invite_switch_server_body_selfhosted, request.host.orEmpty())
+                        }
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = inviteDeepLinkManager::confirmServerSwitch) {
+                        Text(stringResource(R.string.invite_switch_server_confirm))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = inviteDeepLinkManager::dismissServerSwitch) {
+                        Text(stringResource(R.string.common_cancel))
+                    }
+                }
+            )
         }
     }
 
@@ -121,6 +162,26 @@ fun SimsliNavHost(
                 },
                 onNavigateToHouseholdStatistics = {
                     navController.navigate(Screen.HouseholdStatistics.route)
+                },
+                onNavigateToSignIn = {
+                    navController.navigate(Screen.SignIn.createRoute(null))
+                }
+            )
+        }
+        composable(
+            Screen.SignIn.route,
+            arguments = listOf(navArgument("host") {
+                type = NavType.StringType
+                defaultValue = ""
+            })
+        ) {
+            SignInScreen(
+                onNavigateBack = {
+                    // With a pending invite code, the manager has already navigated on
+                    // to the Household screen — only pop while sign-in is still on top.
+                    if (navController.currentDestination?.route == Screen.SignIn.route) {
+                        navController.popBackStack()
+                    }
                 }
             )
         }

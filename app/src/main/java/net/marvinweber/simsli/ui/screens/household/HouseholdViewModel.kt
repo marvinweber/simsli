@@ -16,6 +16,7 @@ import kotlinx.coroutines.withContext
 import net.marvinweber.simsli.data.repository.AuthRepository
 import net.marvinweber.simsli.data.repository.AuthState
 import net.marvinweber.simsli.data.repository.HouseholdRepository
+import net.marvinweber.simsli.data.repository.ServerRepository
 import net.marvinweber.simsli.data.sync.SyncManager
 import net.marvinweber.simsli.di.IoDispatcher
 import net.marvinweber.simsli.domain.model.HouseholdMember
@@ -41,6 +42,7 @@ data class HouseholdUiState(
     val statusMessage: UiMessage? = null,
     val renameInput: String? = null,
     val inviteCode: String? = null,
+    val inviteDeepLink: String? = null,
     val showJoinWarning: Boolean = false,
     val joinInput: String? = null,
     val pendingJoinCode: String? = null,
@@ -52,6 +54,7 @@ class HouseholdViewModel @Inject constructor(
     private val householdRepository: HouseholdRepository,
     private val authRepository: AuthRepository,
     private val syncManager: SyncManager,
+    private val serverRepository: ServerRepository,
     private val inviteDeepLinkManager: net.marvinweber.simsli.ui.navigation.InviteDeepLinkManager,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ViewModel() {
@@ -60,6 +63,7 @@ class HouseholdViewModel @Inject constructor(
     private val statusMessage = MutableStateFlow<UiMessage?>(null)
     private val renameInput = MutableStateFlow<String?>(null)
     private val inviteCode = MutableStateFlow<String?>(null)
+    private val inviteDeepLink = MutableStateFlow<String?>(null)
     private val showJoinWarning = MutableStateFlow(false)
     private val joinInput = MutableStateFlow<String?>(null)
     private val pendingJoinCode = MutableStateFlow<String?>(null)
@@ -76,6 +80,7 @@ class HouseholdViewModel @Inject constructor(
 
     private data class DialogState(
         val inviteCode: String?,
+        val inviteDeepLink: String?,
         val showJoinWarning: Boolean,
         val joinInput: String?,
         val fullResyncConfirmOpen: Boolean,
@@ -97,9 +102,12 @@ class HouseholdViewModel @Inject constructor(
             isBusy,
             statusMessage,
             renameInput,
-            combine(inviteCode, showJoinWarning, joinInput, fullResyncConfirmOpen, pendingJoinCode) { invite, warning, join, resync, pending ->
-                DialogState(invite, warning, join, resync, pending)
-            },
+            combine(
+                combine(inviteCode, inviteDeepLink, showJoinWarning, joinInput, fullResyncConfirmOpen) { invite, link, warning, join, resync ->
+                    DialogState(invite, link, warning, join, resync, null)
+                },
+                pendingJoinCode
+            ) { dialogs, pending -> dialogs.copy(pendingJoinCode = pending) },
             ::LocalState
         )
     ) { authState, household, membersList, local ->
@@ -141,6 +149,7 @@ class HouseholdViewModel @Inject constructor(
             statusMessage = local.statusMessage,
             renameInput = local.renameInput,
             inviteCode = local.dialogs.inviteCode,
+            inviteDeepLink = local.dialogs.inviteDeepLink,
             showJoinWarning = local.dialogs.showJoinWarning,
             joinInput = local.dialogs.joinInput,
             pendingJoinCode = local.dialogs.pendingJoinCode,
@@ -245,7 +254,10 @@ class HouseholdViewModel @Inject constructor(
             }
             isBusy.value = false
             result.fold(
-                onSuccess = { inviteCode.value = it },
+                onSuccess = {
+                    inviteCode.value = it
+                    inviteDeepLink.value = serverRepository.inviteDeepLink(it)
+                },
                 onFailure = { error ->
                     statusMessage.value = UiMessage(R.string.hh_error_invite_create_failed, listOf(error.message.orEmpty()), isError = true)
                 }
@@ -255,6 +267,7 @@ class HouseholdViewModel @Inject constructor(
 
     fun dismissInvite() {
         inviteCode.value = null
+        inviteDeepLink.value = null
     }
 
     fun startJoinWithCode(code: String) {

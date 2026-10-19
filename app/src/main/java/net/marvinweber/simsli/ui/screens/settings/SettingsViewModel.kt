@@ -10,44 +10,23 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import net.marvinweber.simsli.BuildConfig
 import net.marvinweber.simsli.data.debug.DemoDataSeeder
-import net.marvinweber.simsli.data.local.AuthTokenStorage
-import net.marvinweber.simsli.data.remote.SimsliRemoteDataSource
 import net.marvinweber.simsli.data.repository.AuthRepository
 import net.marvinweber.simsli.data.repository.AuthState
+import net.marvinweber.simsli.data.repository.EndpointHealth
+import net.marvinweber.simsli.data.repository.EndpointStatus
 import net.marvinweber.simsli.data.repository.HouseholdRepository
+import net.marvinweber.simsli.data.repository.ServerRepository
+import net.marvinweber.simsli.data.repository.SignOutCoordinator
 import net.marvinweber.simsli.data.repository.SignOutResult
 import net.marvinweber.simsli.data.sync.SyncDiagnostics
 import net.marvinweber.simsli.data.sync.SyncManager
-import net.marvinweber.simsli.di.IoDispatcher
 import net.marvinweber.simsli.domain.model.HouseholdMember
 import net.marvinweber.simsli.R
 import net.marvinweber.simsli.domain.model.MemberRole
 import net.marvinweber.simsli.ui.UiMessage
 import javax.inject.Inject
-
-enum class EndpointStatus {
-    CHECKING,
-    ONLINE,
-    OFFLINE,
-    ERROR
-}
-
-data class EndpointHealth(
-    val url: String = BuildConfig.SERVER_URL,
-    val status: EndpointStatus = EndpointStatus.CHECKING,
-    val detail: UiMessage? = null,
-    val serverVersion: String? = null,
-    val apiVersion: Int? = null,
-    val serverMode: String? = null,
-    val isOutdatedServer: Boolean = false,
-    val isOutdatedApp: Boolean = false,
-    val warningMessage: UiMessage? = null
-)
 
 data class SettingsUiState(
     val isSignedIn: Boolean = false,
@@ -62,14 +41,12 @@ data class SettingsUiState(
     val inviteDisabledReason: UiMessage? = null,
     val canJoin: Boolean = true,
     val joinDisabledReason: UiMessage? = null,
-    val emailInput: String = "",
     val isBusy: Boolean = false,
     val statusMessage: UiMessage? = null,
     val renameInput: String? = null,  // non-null → edit-household dialog open, holds the name field content
     val inviteCode: String? = null,   // non-null → invite dialog open, shows the generated code
     val showJoinWarning: Boolean = false, // non-null / true → show warning before entering join code
     val joinInput: String? = null,    // non-null → join dialog open, holds the field content
-    val pendingInviteCode: String? = null,
     val showSeedConfirm: Boolean = false, // debug only: confirm before wiping + seeding
     val showSignOutConfirm: Boolean = false,
     val showFullResyncConfirm: Boolean = false,
@@ -82,14 +59,12 @@ class SettingsViewModel @Inject constructor(
     private val householdRepository: HouseholdRepository,
     private val syncManager: SyncManager,
     private val demoDataSeeder: DemoDataSeeder,
-    private val remoteDataSource: SimsliRemoteDataSource,
-    private val tokenStorage: AuthTokenStorage,
+    private val serverRepository: ServerRepository,
+    private val signOutCoordinator: SignOutCoordinator,
     private val syncDiagnostics: SyncDiagnostics,
-    private val inviteDeepLinkManager: net.marvinweber.simsli.ui.navigation.InviteDeepLinkManager,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    private val inviteDeepLinkManager: net.marvinweber.simsli.ui.navigation.InviteDeepLinkManager
 ) : ViewModel() {
 
-    private val emailInput = MutableStateFlow("")
     private val isBusy = MutableStateFlow(false)
     private val statusMessage = MutableStateFlow<UiMessage?>(null)
     private val renameInput = MutableStateFlow<String?>(null)
@@ -121,7 +96,6 @@ class SettingsViewModel @Inject constructor(
     )
 
     private data class FormInputs(
-        val emailInput: String,
         val isBusy: Boolean,
         val statusMessage: UiMessage?,
         val renameInput: String?
@@ -130,8 +104,7 @@ class SettingsViewModel @Inject constructor(
     /** Local-only inputs bundled so the outer combine stays within its arity limit. */
     private data class LocalInputs(
         val form: FormInputs,
-        val dialog: Pair<DialogInputs, Boolean>,
-        val pendingInviteCode: String?
+        val dialog: Pair<DialogInputs, Boolean>
     )
 
     val uiState: StateFlow<SettingsUiState> = combine(
@@ -140,12 +113,11 @@ class SettingsViewModel @Inject constructor(
         endpointHealth,
         members,
         combine(
-            combine(emailInput, isBusy, statusMessage, renameInput, ::FormInputs),
+            combine(isBusy, statusMessage, renameInput, ::FormInputs),
             combine(
                 combine(inviteCode, showJoinWarning, joinInput, seedConfirmOpen, signOutConfirmOpen, ::DialogInputs),
                 fullResyncConfirmOpen
             ) { dialog, fullResync -> dialog to fullResync },
-            inviteDeepLinkManager.pendingInviteCode,
             ::LocalInputs
         )
     ) { authState, household, health, membersList, inputs ->
@@ -186,7 +158,6 @@ class SettingsViewModel @Inject constructor(
             inviteDisabledReason = inviteDisabledReason,
             canJoin = canJoin,
             joinDisabledReason = joinDisabledReason,
-            emailInput = inputs.form.emailInput,
             isBusy = inputs.form.isBusy,
             statusMessage = inputs.form.statusMessage,
             renameInput = inputs.form.renameInput,
@@ -196,7 +167,6 @@ class SettingsViewModel @Inject constructor(
             inviteCode = inputs.dialog.first.inviteCode,
             showJoinWarning = inputs.dialog.first.showJoinWarning,
             joinInput = inputs.dialog.first.joinInput,
-            pendingInviteCode = inputs.pendingInviteCode,
             endpointHealth = health
         )
     }.stateIn(
@@ -240,78 +210,7 @@ class SettingsViewModel @Inject constructor(
                 status = EndpointStatus.CHECKING,
                 detail = null
             )
-            val result = withContext(ioDispatcher) {
-                probeEndpoint(tokenStorage.serverUrl)
-            }
-            endpointHealth.value = result
-        }
-    }
-
-    private suspend fun probeEndpoint(serverUrl: String): EndpointHealth {
-        if (serverUrl.isBlank()) {
-            return EndpointHealth(
-                url = "",
-                status = EndpointStatus.ERROR,
-                detail = UiMessage(R.string.settings_endpoint_url_missing)
-            )
-        }
-        val start = System.currentTimeMillis()
-        return try {
-            val info = remoteDataSource.getServerInfo(serverUrl)
-            val latency = System.currentTimeMillis() - start
-            val mismatch = hasMajorOrMinorMismatch(info.version, BuildConfig.VERSION_NAME)
-            val isOutdatedServer = mismatch < 0
-            val isOutdatedApp = mismatch > 0
-            val warning = when {
-                isOutdatedServer -> UiMessage(
-                    R.string.settings_endpoint_server_update_recommended,
-                    listOf("v" + info.version, "v" + BuildConfig.VERSION_NAME)
-                )
-                isOutdatedApp -> UiMessage(
-                    R.string.settings_endpoint_app_update_recommended,
-                    listOf("v" + BuildConfig.VERSION_NAME, "v" + info.version)
-                )
-                else -> null
-            }
-            EndpointHealth(
-                url = serverUrl,
-                status = EndpointStatus.ONLINE,
-                detail = UiMessage(R.string.settings_endpoint_online, listOf(latency.toString())),
-                serverVersion = info.version,
-                apiVersion = info.apiVersion,
-                serverMode = info.serverMode,
-                isOutdatedServer = isOutdatedServer,
-                isOutdatedApp = isOutdatedApp,
-                warningMessage = warning
-            )
-        } catch (e: Exception) {
-            EndpointHealth(
-                url = serverUrl,
-                status = EndpointStatus.OFFLINE,
-                detail = UiMessage(R.string.settings_endpoint_unreachable)
-            )
-        }
-    }
-
-    fun onEmailChange(email: String) {
-        emailInput.value = email
-    }
-
-    fun sendMagicLink() {
-        viewModelScope.launch {
-            val email = emailInput.value.trim()
-            if (!email.contains('@')) {
-                statusMessage.value = UiMessage(R.string.settings_error_invalid_email, isError = true)
-                return@launch
-            }
-            isBusy.value = true
-            authRepository.sendMagicLink(email)
-                .onSuccess {
-                    statusMessage.value = UiMessage(R.string.settings_magic_link_sent)
-                    emailInput.value = ""
-                }
-                .onFailure { statusMessage.value = UiMessage(R.string.settings_error_magic_link_failed, listOf(it.message.orEmpty()), isError = true) }
-            isBusy.value = false
+            endpointHealth.value = serverRepository.probe()
         }
     }
 
@@ -335,12 +234,8 @@ class SettingsViewModel @Inject constructor(
     fun signOut() {
         viewModelScope.launch {
             isBusy.value = true
-            authRepository.signOut()
+            signOutCoordinator.signOutAndWipe()
                 .onSuccess { result ->
-                    // The session is gone now, so pending syncs bail out on the missing
-                    // user id; the wipe itself waits on the sync mutex (DATA-1 — any
-                    // unsynced writes are lost, accepted by spec).
-                    syncManager.wipeLocalData()
                     statusMessage.value = when (result) {
                         is SignOutResult.Complete -> UiMessage(R.string.settings_signed_out_wiped)
                         is SignOutResult.LocalOnly ->
@@ -541,20 +436,6 @@ class SettingsViewModel @Inject constructor(
                 }
                 .onFailure { statusMessage.value = UiMessage(R.string.settings_error_join_failed, listOf(it.message.orEmpty()), isError = true) }
             isBusy.value = false
-        }
-    }
-
-    companion object {
-        fun hasMajorOrMinorMismatch(v1: String, v2: String): Int {
-            val p1 = v1.split('.').mapNotNull { it.toIntOrNull() }
-            val p2 = v2.split('.').mapNotNull { it.toIntOrNull() }
-            val major1 = p1.getOrElse(0) { 0 }
-            val major2 = p2.getOrElse(0) { 0 }
-            if (major1 != major2) return major1.compareTo(major2)
-            val minor1 = p1.getOrElse(1) { 0 }
-            val minor2 = p2.getOrElse(1) { 0 }
-            if (minor1 != minor2) return minor1.compareTo(minor2)
-            return 0
         }
     }
 }

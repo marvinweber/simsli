@@ -126,7 +126,6 @@
     <string name="settings_error_join_failed">Beitritt fehlgeschlagen: %1$s</string>
     <string name="settings_demo_seeded">Demodaten eingespielt — lokale Daten wurden zurückgesetzt</string>
     <string name="settings_error_seed_failed">Einspielen der Demodaten fehlgeschlagen: %1$s</string>
-    <string name="settings_endpoint_url_missing">URL fehlt</string>
     <string name="settings_endpoint_online">Online (%1$s ms)</string>
     <string name="settings_endpoint_unreachable">Nicht erreichbar</string>
     <string name="settings_endpoint_server_update_recommended">Server-Update empfohlen (%1$s → %2$s)</string>
@@ -417,4 +416,24 @@
     <string name="hh_members_unknown">Unbekanntes Mitglied</string>
     <string name="dashboard_fewest_shops_desc">Berechnet, in wie wenigen Geschäften du alles einkaufen kannst, was gerade auf deiner Liste steht.</string>
     <string name="dashboard_best_price_desc">Vergleicht die Preise der Artikel auf deiner Liste über Geschäfte hinweg und zeigt, wo jeder Artikel am günstigsten ist.</string>
+    <!-- Sign-in screen (AUTH-5): hosting choice -->
+    <string name="sign_in_title">Anmelden</string>
+    <string name="sign_in_hosting_cloud">Cloud (geschlossene Beta)</string>
+    <string name="sign_in_hosting_selfhosted">Selbst gehostet</string>
+    <string name="sign_in_cloud_beta_note">Simsli Cloud ist bezahlte Synchronisierung, derzeit in einer geschlossenen Beta. Die Anmeldung funktioniert nur mit eingeladener E-Mail-Adresse — oder du betreibst deinen eigenen Server.</string>
+    <string name="sign_in_cloud_endpoint">Endpunkt: %1$s</string>
+    <string name="sign_in_selfhosted_hint">Betreibe deinen eigenen Simsli-Server und verbinde dich hier mit ihm. Deine Daten bleiben auf deiner Hardware.</string>
+    <string name="sign_in_server_url_label">Server-URL</string>
+    <string name="sign_in_check_server">Server prüfen</string>
+    <string name="sign_in_docs_link">Self-Hosting-Dokumentation</string>
+    <string name="sign_in_registration_open">Offen für alle E-Mail-Adressen</string>
+    <string name="sign_in_registration_invite_only">Nur mit Einladung</string>
+    <string name="sign_in_error_invite_only">Dieser Server ist derzeit nur mit Einladung erreichbar. Fordere eine Einladung an oder verwende deinen eigenen Server.</string>
+    <string name="sign_in_error_server_unreachable">Server nicht erreichbar — prüfe die URL.</string>
+    <string name="sign_in_error_invalid_url">Gib eine gültige URL ein, die mit http:// oder https:// beginnt</string>
+    <!-- Cross-server invite switch (HH-3) -->
+    <string name="invite_switch_server_title">Server wechseln?</string>
+    <string name="invite_switch_server_body_cloud">Diese Einladung ist für Simsli Cloud. Du wirst abgemeldet — lokale Daten auf diesem Gerät werden gelöscht — und zu Cloud gewechselt.</string>
+    <string name="invite_switch_server_body_selfhosted">Diese Einladung ist für den selbst gehosteten Server %1$s. Du wirst abgemeldet — lokale Daten auf diesem Gerät werden gelöscht — und zu diesem Server gewechselt.</string>
+    <string name="invite_switch_server_confirm">Abmelden und wechseln</string>
 </resources>

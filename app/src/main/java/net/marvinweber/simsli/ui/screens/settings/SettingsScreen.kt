@@ -97,6 +97,7 @@ import kotlinx.coroutines.launch
 import net.marvinweber.simsli.BuildConfig
 import androidx.compose.ui.res.stringResource
 import net.marvinweber.simsli.R
+import net.marvinweber.simsli.data.repository.EndpointStatus
 import net.marvinweber.simsli.ui.components.SimsliTopAppBarTitle
 import net.marvinweber.simsli.ui.resolve
 import net.marvinweber.simsli.ui.text
@@ -113,6 +114,7 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToHousehold: () -> Unit,
     onNavigateToHouseholdStatistics: () -> Unit,
+    onNavigateToSignIn: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -392,105 +394,18 @@ fun SettingsScreen(
                             }
                         }
 
-                        if (uiState.pendingInviteCode != null) {
-                            Surface(
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.Outlined.GroupAdd,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
-                                        Text(
-                                            text = stringResource(R.string.hh_join_title),
-                                            style = MaterialTheme.typography.titleSmall,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                        Text(
-                                            text = stringResource(R.string.settings_join_invite_hint, uiState.pendingInviteCode.orEmpty()),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
                         Text(
                             text = stringResource(R.string.settings_sign_in_hint),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
-                        OutlinedTextField(
-                            value = uiState.emailInput,
-                            onValueChange = viewModel::onEmailChange,
-                            label = { Text(stringResource(R.string.settings_email_label)) },
-                            placeholder = { Text(stringResource(R.string.settings_email_placeholder)) },
-                            leadingIcon = {
-                                Icon(Icons.Outlined.Email, contentDescription = null)
-                            },
-                            trailingIcon = {
-                                if (uiState.emailInput.isNotEmpty()) {
-                                    IconButton(onClick = { viewModel.onEmailChange("") }) {
-                                        Icon(Icons.Outlined.Clear, contentDescription = stringResource(R.string.common_clear))
-                                    }
-                                }
-                            },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Email,
-                                imeAction = ImeAction.Send
-                            ),
-                            keyboardActions = KeyboardActions(
-                                onSend = {
-                                    if (!uiState.isBusy && uiState.emailInput.isNotBlank()) {
-                                        keyboardController?.hide()
-                                        viewModel.sendMagicLink()
-                                    }
-                                }
-                            ),
-                            enabled = !uiState.isBusy,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp)
-                        )
-
                         Button(
-                            onClick = {
-                                keyboardController?.hide()
-                                viewModel.sendMagicLink()
-                            },
-                            enabled = !uiState.isBusy && uiState.emailInput.isNotBlank(),
+                            onClick = onNavigateToSignIn,
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp)
                         ) {
-                            if (uiState.isBusy) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.onPrimary
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(stringResource(R.string.settings_sending_magic_link))
-                            } else {
-                                Icon(
-                                    Icons.AutoMirrored.Outlined.Send,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(stringResource(R.string.settings_send_magic_link))
-                            }
+                            Text(stringResource(R.string.settings_sign_in_magic))
                         }
 
                         Text(

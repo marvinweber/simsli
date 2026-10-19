@@ -330,6 +330,7 @@ fun HouseholdScreen(
         }
 
         val inviteCode = uiState.inviteCode
+        val inviteDeepLink = uiState.inviteDeepLink ?: "simsli://invite/$inviteCode"
         if (inviteCode != null) {
             AlertDialog(
                 onDismissRequest = viewModel::dismissInvite,
@@ -365,7 +366,7 @@ fun HouseholdScreen(
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = "simsli://invite/$inviteCode",
+                                    text = inviteDeepLink,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -396,7 +397,7 @@ fun HouseholdScreen(
                                 onClick = {
                                     val shareText = context.getString(
                                         R.string.hh_share_invite_text,
-                                        "simsli://invite/$inviteCode",
+                                        inviteDeepLink,
                                         inviteCode
                                     )
                                     val sendIntent = Intent(Intent.ACTION_SEND).apply {

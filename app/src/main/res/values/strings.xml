@@ -88,7 +88,6 @@
     <string name="settings_error_join_failed">Join failed: %1$s</string>
     <string name="settings_demo_seeded">Demo data seeded — local data was reset</string>
     <string name="settings_error_seed_failed">Seeding failed: %1$s</string>
-    <string name="settings_endpoint_url_missing">URL is missing</string>
     <string name="settings_endpoint_online">Online (%1$s ms)</string>
     <string name="settings_endpoint_unreachable">Unreachable</string>
     <string name="settings_endpoint_server_update_recommended">Server update recommended (%1$s → %2$s)</string>
@@ -416,4 +415,24 @@
     <string name="hh_members_unknown">Unknown member</string>
     <string name="dashboard_fewest_shops_desc">Calculates the minimum number of stores you need to visit to get everything currently on your list.</string>
     <string name="dashboard_best_price_desc">Compares prices for items on your list across stores and shows you where each item is cheapest.</string>
+    <!-- Sign-in screen (AUTH-5): hosting choice -->
+    <string name="sign_in_title">Sign in</string>
+    <string name="sign_in_hosting_cloud">Cloud (closed beta)</string>
+    <string name="sign_in_hosting_selfhosted">Self-Hosted</string>
+    <string name="sign_in_cloud_beta_note">Simsli Cloud is paid sync, currently in an invite-only closed beta. You can only sign in if your email has been invited — or self-host your own server.</string>
+    <string name="sign_in_cloud_endpoint">Endpoint: %1$s</string>
+    <string name="sign_in_selfhosted_hint">Run your own Simsli server and connect to it here. Your data stays on your hardware.</string>
+    <string name="sign_in_server_url_label">Server URL</string>
+    <string name="sign_in_check_server">Check server</string>
+    <string name="sign_in_docs_link">Self-hosting documentation</string>
+    <string name="sign_in_registration_open">Open to all emails</string>
+    <string name="sign_in_registration_invite_only">Invite-only</string>
+    <string name="sign_in_error_invite_only">This server is currently invite-only. Ask for an invite or use your own self-hosted server.</string>
+    <string name="sign_in_error_server_unreachable">Server not reachable — check the URL.</string>
+    <string name="sign_in_error_invalid_url">Enter a valid URL starting with http:// or https://</string>
+    <!-- Cross-server invite switch (HH-3) -->
+    <string name="invite_switch_server_title">Switch server?</string>
+    <string name="invite_switch_server_body_cloud">This invite is for Simsli Cloud. You will be signed out — local data on this device is wiped — and switched to Cloud.</string>
+    <string name="invite_switch_server_body_selfhosted">This invite is for the self-hosted server %1$s. You will be signed out — local data on this device is wiped — and switched to that server.</string>
+    <string name="invite_switch_server_confirm">Sign out and switch</string>
 </resources>

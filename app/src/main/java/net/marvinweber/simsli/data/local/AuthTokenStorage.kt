@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import net.marvinweber.simsli.BuildConfig
 import net.marvinweber.simsli.data.repository.AuthState
+import net.marvinweber.simsli.data.repository.HostingMode
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -21,11 +22,50 @@ class AuthTokenStorage @Inject constructor(
     private val _authState = MutableStateFlow(computeAuthState())
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
+    /**
+     * Hosting choice (AUTH-5). Cloud pins the endpoint to the build default;
+     * self-hosted reads the stored custom URL. Survives sign-out on purpose —
+     * a pending invite for the same server must still resolve after AUTH-2's wipe.
+     */
+    var hostingMode: HostingMode
+        get() = if (prefs.getString(KEY_HOSTING_MODE, null) == SELF_HOSTED_VALUE) {
+            HostingMode.SELF_HOSTED
+        } else {
+            HostingMode.CLOUD
+        }
+        set(value) {
+            prefs.edit()
+                .putString(KEY_HOSTING_MODE, if (value == HostingMode.SELF_HOSTED) SELF_HOSTED_VALUE else "cloud")
+                .apply()
+        }
+
     var serverUrl: String
-        get() = prefs.getString(KEY_SERVER_URL, null) ?: BuildConfig.SERVER_URL
+        get() = if (hostingMode == HostingMode.SELF_HOSTED) {
+            prefs.getString(KEY_SERVER_URL, null) ?: BuildConfig.SERVER_URL
+        } else {
+            BuildConfig.SERVER_URL
+        }
         set(value) {
             prefs.edit().putString(KEY_SERVER_URL, value.trimEnd('/')).apply()
         }
+
+    /**
+     * Applies a hosting choice atomically: self-hosted stores the custom URL,
+     * cloud clears it so the build default endpoint applies again.
+     */
+    fun setHosting(mode: HostingMode, customUrl: String?) {
+        val editor = prefs.edit()
+        if (mode == HostingMode.SELF_HOSTED) {
+            editor.putString(KEY_HOSTING_MODE, SELF_HOSTED_VALUE)
+            if (!customUrl.isNullOrBlank()) {
+                editor.putString(KEY_SERVER_URL, customUrl.trim().trimEnd('/'))
+            }
+        } else {
+            editor.putString(KEY_HOSTING_MODE, "cloud")
+            editor.remove(KEY_SERVER_URL)
+        }
+        editor.apply()
+    }
 
     /**
      * Install-stable identifier for sync diagnostics (never cleared by sign-out).
@@ -93,6 +133,8 @@ class AuthTokenStorage @Inject constructor(
     companion object {
         private const val PREFS_NAME = "simsli_auth_prefs"
         private const val KEY_SERVER_URL = "simsli_server_url"
+        private const val KEY_HOSTING_MODE = "simsli_hosting_mode"
+        private const val SELF_HOSTED_VALUE = "selfhosted"
         private const val KEY_DEVICE_ID = "simsli_device_id"
         private const val KEY_ACCESS_TOKEN = "simsli_access_token"
         private const val KEY_REFRESH_TOKEN = "simsli_refresh_token"
