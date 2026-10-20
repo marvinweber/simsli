@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Email
@@ -57,6 +58,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.annotation.StringRes
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,12 +67,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.toClipEntry
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import net.marvinweber.simsli.BuildConfig
 import net.marvinweber.simsli.R
@@ -247,20 +251,39 @@ fun SignInScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    // Selection shown by primary colors only — no check icon (the
+                    // badge beneath the label already makes both segments two rows).
+                    val selectedColors = SegmentedButtonDefaults.colors(
+                        activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        activeBorderColor = MaterialTheme.colorScheme.primary
+                    )
                     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                         SegmentedButton(
                             selected = uiState.hostingMode == HostingMode.CLOUD,
                             onClick = { viewModel.onHostingModeChange(HostingMode.CLOUD) },
-                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                            colors = selectedColors,
+                            icon = { }
                         ) {
-                            Text(stringResource(R.string.sign_in_hosting_cloud))
+                            HostingSegmentContent(
+                                icon = Icons.Outlined.Cloud,
+                                labelRes = R.string.sign_in_hosting_cloud,
+                                badgeRes = R.string.sign_in_beta_badge
+                            )
                         }
                         SegmentedButton(
                             selected = uiState.hostingMode == HostingMode.SELF_HOSTED,
                             onClick = { viewModel.onHostingModeChange(HostingMode.SELF_HOSTED) },
-                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                            colors = selectedColors,
+                            icon = { }
                         ) {
-                            Text(stringResource(R.string.sign_in_hosting_selfhosted))
+                            HostingSegmentContent(
+                                icon = Icons.Outlined.Dns,
+                                labelRes = R.string.sign_in_hosting_selfhosted,
+                                badgeRes = R.string.sign_in_selfhosted_badge
+                            )
                         }
                     }
 
@@ -402,6 +425,38 @@ fun SignInScreen(
                 text = stringResource(R.string.settings_no_password_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/** Icon + label with a small, muted badge chip beneath (cloud: closed beta, self-hosted: open). */
+@Composable
+private fun HostingSegmentContent(icon: ImageVector, @StringRes labelRes: Int, @StringRes badgeRes: Int) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.padding(vertical = 8.dp)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
+            Text(
+                stringResource(labelRes),
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp)
+            )
+        }
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Text(
+                text = stringResource(badgeRes),
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
             )
         }
     }

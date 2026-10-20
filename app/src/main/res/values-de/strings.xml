@@ -417,8 +417,10 @@
     <string name="dashboard_best_price_desc">Vergleicht die Preise der Artikel auf deiner Liste über Geschäfte hinweg und zeigt, wo jeder Artikel am günstigsten ist.</string>
     <!-- Sign-in screen (AUTH-5): hosting choice -->
     <string name="sign_in_title">Anmelden</string>
-    <string name="sign_in_hosting_cloud">Cloud (geschlossene Beta)</string>
-    <string name="sign_in_hosting_selfhosted">Selbst gehostet</string>
+    <string name="sign_in_hosting_cloud">Cloud</string>
+    <string name="sign_in_beta_badge">Closed Beta</string>
+    <string name="sign_in_hosting_selfhosted">Self-Hosted</string>
+    <string name="sign_in_selfhosted_badge">Open</string>
     <string name="sign_in_cloud_beta_note">Simsli Cloud ist bezahlte Synchronisierung, derzeit in einer geschlossenen Beta. Die Anmeldung funktioniert nur mit eingeladener E-Mail-Adresse — oder du betreibst deinen eigenen Server.</string>
     <string name="sign_in_cloud_endpoint">Endpunkt: %1$s</string>
     <string name="sign_in_selfhosted_hint">Betreibe deinen eigenen Simsli-Server und verbinde dich hier mit ihm. Deine Daten bleiben auf deiner Hardware.</string>
