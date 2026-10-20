@@ -385,7 +385,6 @@
     <string name="dashboard_best_price">Bester Preis pro Geschäft</string>
 
     <!-- Sonstiges -->
-    <string name="onboarding_placeholder">Onboarding</string>
     <string name="hh_choose_currency">Währung wählen</string>
     <string name="common_selected">Ausgewählt</string>
     <string name="common_choose_icon">Symbol wählen</string>
@@ -436,4 +435,47 @@
     <string name="invite_switch_server_body_cloud">Diese Einladung ist für Simsli Cloud. Du wirst abgemeldet — lokale Daten auf diesem Gerät werden gelöscht — und zu Cloud gewechselt.</string>
     <string name="invite_switch_server_body_selfhosted">Diese Einladung ist für den selbst gehosteten Server %1$s. Du wirst abgemeldet — lokale Daten auf diesem Gerät werden gelöscht — und zu diesem Server gewechselt.</string>
     <string name="invite_switch_server_confirm">Abmelden und wechseln</string>
+    <!-- Onboarding (SCREENS-5) -->
+    <string name="onboarding_welcome_title">Willkommen bei Simsli</string>
+    <string name="onboarding_welcome_subtitle">Deine gemeinsame Einkaufsliste – funktioniert offline, synchronisiert, wenn du online bist.</string>
+    <string name="onboarding_get_started">Loslegen</string>
+    <string name="onboarding_next">Weiter</string>
+    <string name="onboarding_lets_go">Los geht\'s</string>
+    <string name="onboarding_skip">Überspringen</string>
+    <string name="onboarding_concepts_1_title">Alles in deinem Katalog</string>
+    <string name="onboarding_concepts_1_body">Lege die Artikel, die du kaufst, einmal an – mit eigenen Notizen, Einheiten und Preisen.</string>
+    <string name="onboarding_concepts_2_title">Jeden Artikel einmal einrichten</string>
+    <string name="onboarding_concepts_2_body">Lege pro Artikel fest, in welchen Geschäften du ihn kaufst – mit Geschäftsgruppen, wenn du magst.</string>
+    <string name="onboarding_concepts_3_title">Einkaufen nach Geschäft</string>
+    <string name="onboarding_concepts_3_body">Wähle das Geschäft, in dem du gerade bist, und sieh genau, was du dort holst.</string>
+    <string name="onboarding_concepts_4_title">Gemeinsam erst recht</string>
+    <string name="onboarding_concepts_4_body">Lade deinen Haushalt per Code oder Link ein – Änderungen erscheinen bei allen in Echtzeit.</string>
+    <string name="onboarding_create_or_join_title">Richte deinen Haushalt ein</string>
+    <string name="onboarding_create_household">Neuen Haushalt erstellen</string>
+    <string name="onboarding_create_household_hint">Lokal und offline – kein Konto nötig.</string>
+    <string name="onboarding_join_household">Bestehendem Haushalt beitreten</string>
+    <string name="onboarding_join_household_hint">Anmelden und Einladungscode eingeben.</string>
+    <string name="onboarding_household_name_label">Haushaltsname</string>
+    <string name="onboarding_household_name_default">Mein Haushalt</string>
+    <string name="onboarding_use_preset_categories">Mit vorgeschlagenen Kategorien starten</string>
+    <string name="onboarding_create_sign_in_note">Kein Konto nötig. Anmeldung und Synchronisierung kannst du später in den Einstellungen ergänzen.</string>
+    <string name="onboarding_create_button">Haushalt erstellen</string>
+    <string name="onboarding_join_title">Einem Haushalt beitreten</string>
+    <string name="onboarding_join_code_label">Einladungscode</string>
+    <string name="onboarding_join_link_hint">Oder öffne den erhaltenen Einladungslink.</string>
+    <string name="onboarding_join_button">Haushalt beitreten</string>
+    <string name="onboarding_error_setup_failed">Einrichten fehlgeschlagen: %1$s</string>
+    <!-- Category presets (CAT-4) -->
+    <string name="cat_preset_produce">Obst &amp; Gemüse</string>
+    <string name="cat_preset_bakery">Backwaren</string>
+    <string name="cat_preset_dairy">Milchprodukte</string>
+    <string name="cat_preset_meat">Fleisch &amp; Fisch</string>
+    <string name="cat_preset_pantry">Grundnahrungsmittel</string>
+    <string name="cat_preset_frozen">Tiefkühl</string>
+    <string name="cat_preset_drinks">Getränke</string>
+    <string name="cat_preset_snacks">Snacks</string>
+    <string name="cat_preset_household">Haushalt</string>
+    <string name="cat_preset_personal_care">Drogerie</string>
+    <string name="cat_preset_other">Sonstiges</string>
+    <string name="settings_show_guide_again">Anleitung erneut ansehen</string>
 </resources>

@@ -29,6 +29,7 @@ import net.marvinweber.simsli.ui.screens.household.HouseholdScreen
 import net.marvinweber.simsli.ui.screens.household.HouseholdStatisticsScreen
 import net.marvinweber.simsli.ui.screens.item.ItemDetailScreen
 import net.marvinweber.simsli.ui.screens.item.ItemPricesScreen
+import net.marvinweber.simsli.ui.screens.onboarding.OnboardingScreen
 import net.marvinweber.simsli.ui.screens.settings.SettingsScreen
 import net.marvinweber.simsli.ui.screens.signin.SignInScreen
 
@@ -41,7 +42,10 @@ sealed class Screen(val route: String) {
     }
     data object ItemDetail : Screen("item_detail")
     data object ItemPrices : Screen("item_prices")
-    data object Onboarding : Screen("onboarding")
+    data object Onboarding : Screen("onboarding?mode={mode}") {
+        fun createRoute(mode: String? = null): String =
+            if (mode.isNullOrBlank()) "onboarding" else "onboarding?mode=$mode"
+    }
     data object Settings : Screen("settings")
     data object SignIn : Screen("sign_in?host={host}") {
         fun createRoute(host: String?): String =
@@ -60,6 +64,7 @@ sealed class Screen(val route: String) {
 fun SimsliNavHost(
     navController: NavHostController,
     inviteDeepLinkManager: InviteDeepLinkManager? = null,
+    startDestination: String = Screen.Home.route,
     modifier: Modifier = Modifier
 ) {
     if (inviteDeepLinkManager != null) {
@@ -67,8 +72,14 @@ fun SimsliNavHost(
             inviteDeepLinkManager.navEvents.collect { target ->
                 when (target) {
                     is InviteNavTarget.JoinHousehold -> {
+                        // Joined out of onboarding (deep-link join path): pop the
+                        // whole onboarding stack so back doesn't return to it.
+                        val fromOnboarding = navController.currentBackStack.value.any {
+                            it.destination.route == Screen.Onboarding.route
+                        }
                         navController.navigate(Screen.Household.route) {
                             launchSingleTop = true
+                            if (fromOnboarding) popUpTo(0) { inclusive = true }
                         }
                         inviteDeepLinkManager.consumeNavEvent()
                     }
@@ -113,7 +124,7 @@ fun SimsliNavHost(
 
     NavHost(
         navController = navController,
-        startDestination = Screen.Home.route,
+        startDestination = startDestination,
         modifier = modifier,
         enterTransition = {
             slideIntoContainer(
@@ -165,6 +176,9 @@ fun SimsliNavHost(
                 },
                 onNavigateToSignIn = {
                     navController.navigate(Screen.SignIn.createRoute(null))
+                },
+                onNavigateToGuide = {
+                    navController.navigate(Screen.Onboarding.createRoute("replay"))
                 }
             )
         }
@@ -198,8 +212,26 @@ fun SimsliNavHost(
                 }
             )
         }
-        composable(Screen.Onboarding.route) {
-            Text(stringResource(R.string.onboarding_placeholder))
+        composable(
+            Screen.Onboarding.route,
+            arguments = listOf(navArgument("mode") {
+                type = NavType.StringType
+                defaultValue = "first"
+            })
+        ) {
+            OnboardingScreen(
+                onNavigateToSignIn = {
+                    navController.navigate(Screen.SignIn.createRoute(null))
+                },
+                onNavigateHome = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                onClose = {
+                    navController.popBackStack()
+                }
+            )
         }
         // Item detail + Store prices live in one nested graph so both share a
         // graph-scoped ItemDetailViewModel: the prices screen edits pending

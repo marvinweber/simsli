@@ -184,6 +184,41 @@ func TestInviteFlow(t *testing.T) {
 	}
 }
 
+func TestJoinDeletesSoleOwnedHousehold(t *testing.T) {
+	svc, _ := setupTestService(t)
+	ctx := context.Background()
+
+	owner, _ := svc.AdminCreateUser(ctx, "owner@simsli.de")
+	joiner, _ := svc.AdminCreateUser(ctx, "joiner@simsli.de")
+
+	targetHH, _ := svc.CreateHousehold(ctx, owner.ID, "hh-target", "Target")
+
+	// The joiner first created their own household (e.g. via the offline-adoption
+	// path) before deciding to join someone else's.
+	ownHH, _ := svc.CreateHousehold(ctx, joiner.ID, "hh-own", "My household")
+
+	invite, err := svc.CreateInvite(ctx, owner.ID, targetHH.ID)
+	if err != nil {
+		t.Fatalf("create invite failed: %v", err)
+	}
+
+	if _, err := svc.AcceptInvite(ctx, joiner.ID, invite.Token); err != nil {
+		t.Fatalf("accept invite failed: %v", err)
+	}
+
+	// Sole-owned household is gone; the joiner is a member of exactly one household.
+	if _, err := svc.GetHousehold(ctx, joiner.ID, ownHH.ID); err == nil {
+		t.Errorf("expected sole-owned household %q to be deleted after joining", ownHH.ID)
+	}
+	memberships, err := svc.GetUserMemberships(ctx, joiner.ID)
+	if err != nil {
+		t.Fatalf("get memberships failed: %v", err)
+	}
+	if len(memberships) != 1 || memberships[0].HouseholdID != targetHH.ID {
+		t.Errorf("expected exactly one membership in %q, got %+v", targetHH.ID, memberships)
+	}
+}
+
 func TestHouseholdIconFlushAndOwnerGate(t *testing.T) {
 	svc, _ := setupTestService(t)
 	ctx := context.Background()

@@ -626,7 +626,27 @@ func (r *Repository) AcceptInvite(ctx context.Context, token, userID string) (st
 		return "", err
 	}
 
-	// 3. Add to new household as member
+	// 3. Delete the caller's current household if they are its sole owner (HH-4:
+	// "join deletes a sole-owned current household, leaves a shared one"). The
+	// ON DELETE CASCADE removes memberships and all household data with it.
+	var soleOwnedHousehold sql.NullString
+	err = tx.QueryRowContext(ctx,
+		"SELECT hm.household_id FROM household_members hm "+
+			"WHERE hm.user_id = ? AND hm.role = 'owner' "+
+			"AND (SELECT COUNT(*) FROM household_members WHERE household_id = hm.household_id) = 1",
+		userID,
+	).Scan(&soleOwnedHousehold)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return "", err
+	}
+	if soleOwnedHousehold.Valid {
+		_, err = tx.ExecContext(ctx, "DELETE FROM households WHERE id = ?", soleOwnedHousehold.String)
+		if err != nil {
+			return "", fmt.Errorf("failed to delete previous household: %w", err)
+		}
+	}
+
+	// 4. Add to new household as member
 	memberID := uuid.NewString()
 	_, err = tx.ExecContext(ctx,
 		"INSERT INTO household_members (id, household_id, user_id, role, joined_at, updated_at) VALUES (?, ?, ?, 'member', ?, ?) ON CONFLICT(household_id, user_id) DO NOTHING",

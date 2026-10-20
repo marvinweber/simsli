@@ -13,8 +13,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import net.marvinweber.simsli.data.local.OnboardingStorage
 import net.marvinweber.simsli.data.repository.AuthRepository
+import net.marvinweber.simsli.data.repository.AuthState
 import net.marvinweber.simsli.ui.components.AppUpdateDialog
+import net.marvinweber.simsli.ui.navigation.Screen
 import net.marvinweber.simsli.ui.navigation.SimsliNavHost
 import net.marvinweber.simsli.ui.theme.SimsliTheme
 import javax.inject.Inject
@@ -24,6 +27,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var authRepository: AuthRepository
+
+    @Inject
+    lateinit var onboardingStorage: OnboardingStorage
 
     @Inject
     lateinit var quickActionManager: net.marvinweber.simsli.ui.navigation.QuickActionManager
@@ -37,6 +43,14 @@ class MainActivity : ComponentActivity() {
         handleAuthDeepLink(intent)
         handleQuickAction(intent)
         handleInviteDeepLink(intent)
+        // Fresh install, signed out, onboarding not yet completed → start into
+        // the onboarding flow (SCREENS-5). Signed-in always skips it.
+        val startDestination =
+            if (!onboardingStorage.isDone && authRepository.currentAuthState is AuthState.SignedOut) {
+                Screen.Onboarding.route
+            } else {
+                Screen.Home.route
+            }
         setContent {
             SimsliTheme {
                 Surface(
@@ -46,7 +60,8 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
                     SimsliNavHost(
                         navController = navController,
-                        inviteDeepLinkManager = inviteDeepLinkManager
+                        inviteDeepLinkManager = inviteDeepLinkManager,
+                        startDestination = startDestination
                     )
                     AppUpdateDialog()
                 }

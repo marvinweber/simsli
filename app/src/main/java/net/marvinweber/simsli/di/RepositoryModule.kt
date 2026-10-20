@@ -10,9 +10,12 @@ import net.marvinweber.simsli.data.repository.CategoryRepository
 import net.marvinweber.simsli.data.repository.ItemRepository
 import net.marvinweber.simsli.data.repository.ItemStoreRepository
 import net.marvinweber.simsli.data.repository.ListEntryRepository
+import net.marvinweber.simsli.data.repository.PostJoinSyncer
 import net.marvinweber.simsli.data.repository.SeenListEntryRepository
 import net.marvinweber.simsli.data.repository.ServerRepository
 import net.marvinweber.simsli.data.repository.SignOutCoordinator
+import net.marvinweber.simsli.data.local.OnboardingStorage
+import net.marvinweber.simsli.data.local.OnboardingStorageImpl
 import net.marvinweber.simsli.data.repository.StoreGroupRepository
 import net.marvinweber.simsli.data.repository.StoreRepository
 import net.marvinweber.simsli.data.repository.impl.AuthRepositoryImpl
@@ -21,6 +24,7 @@ import net.marvinweber.simsli.data.repository.impl.HouseholdRepositoryImpl
 import net.marvinweber.simsli.data.repository.impl.ItemRepositoryImpl
 import net.marvinweber.simsli.data.repository.impl.ItemStoreRepositoryImpl
 import net.marvinweber.simsli.data.repository.impl.ListEntryRepositoryImpl
+import net.marvinweber.simsli.data.repository.impl.PostJoinSyncerImpl
 import net.marvinweber.simsli.data.repository.impl.SeenListEntryRepositoryImpl
 import net.marvinweber.simsli.data.repository.impl.ServerRepositoryImpl
 import net.marvinweber.simsli.data.repository.impl.SignOutCoordinatorImpl
@@ -85,4 +89,14 @@ abstract class RepositoryModule {
     abstract fun bindSignOutCoordinator(
         impl: SignOutCoordinatorImpl
     ): SignOutCoordinator
+
+    @Binds
+    abstract fun bindPostJoinSyncer(
+        impl: PostJoinSyncerImpl
+    ): PostJoinSyncer
+
+    @Binds
+    abstract fun bindOnboardingStorage(
+        impl: OnboardingStorageImpl
+    ): OnboardingStorage
 }

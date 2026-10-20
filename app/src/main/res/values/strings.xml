@@ -384,7 +384,6 @@
     <string name="dashboard_best_price">Best price per store</string>
 
     <!-- Misc -->
-    <string name="onboarding_placeholder">Onboarding</string>
     <string name="hh_choose_currency">Choose currency</string>
     <string name="common_selected">Selected</string>
     <string name="common_choose_icon">Choose Icon</string>
@@ -435,4 +434,47 @@
     <string name="invite_switch_server_body_cloud">This invite is for Simsli Cloud. You will be signed out — local data on this device is wiped — and switched to Cloud.</string>
     <string name="invite_switch_server_body_selfhosted">This invite is for the self-hosted server %1$s. You will be signed out — local data on this device is wiped — and switched to that server.</string>
     <string name="invite_switch_server_confirm">Sign out and switch</string>
+    <!-- Onboarding (SCREENS-5) -->
+    <string name="onboarding_welcome_title">Welcome to Simsli</string>
+    <string name="onboarding_welcome_subtitle">Your shared shopping list — works offline, syncs when you\'re online.</string>
+    <string name="onboarding_get_started">Get started</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_lets_go">Let\'s go</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_concepts_1_title">Everything in your catalog</string>
+    <string name="onboarding_concepts_1_body">Save the items you buy once — with your own notes, units and prices.</string>
+    <string name="onboarding_concepts_2_title">Configure each item once</string>
+    <string name="onboarding_concepts_2_body">Assign each item the stores where you can buy it — grouped into store groups if you like.</string>
+    <string name="onboarding_concepts_3_title">Shop by store</string>
+    <string name="onboarding_concepts_3_body">Pick the store you\'re in and see exactly what to grab there.</string>
+    <string name="onboarding_concepts_4_title">Better together</string>
+    <string name="onboarding_concepts_4_body">Share your household via invite code or link — changes appear for everyone in real time.</string>
+    <string name="onboarding_create_or_join_title">Set up your household</string>
+    <string name="onboarding_create_household">Create new household</string>
+    <string name="onboarding_create_household_hint">Local and offline — no account needed.</string>
+    <string name="onboarding_join_household">Join existing household</string>
+    <string name="onboarding_join_household_hint">Sign in and enter an invite code.</string>
+    <string name="onboarding_household_name_label">Household name</string>
+    <string name="onboarding_household_name_default">My household</string>
+    <string name="onboarding_use_preset_categories">Start with suggested categories</string>
+    <string name="onboarding_create_sign_in_note">No account needed. You can add sign-in and sync later in Settings.</string>
+    <string name="onboarding_create_button">Create household</string>
+    <string name="onboarding_join_title">Join a household</string>
+    <string name="onboarding_join_code_label">Invite code</string>
+    <string name="onboarding_join_link_hint">Or open the invite link you received.</string>
+    <string name="onboarding_join_button">Join household</string>
+    <string name="onboarding_error_setup_failed">Setup failed: %1$s</string>
+    <!-- Category presets (CAT-4) -->
+    <string name="cat_preset_produce">Produce</string>
+    <string name="cat_preset_bakery">Bakery</string>
+    <string name="cat_preset_dairy">Dairy</string>
+    <string name="cat_preset_meat">Meat &amp; Fish</string>
+    <string name="cat_preset_pantry">Pantry</string>
+    <string name="cat_preset_frozen">Frozen</string>
+    <string name="cat_preset_drinks">Drinks</string>
+    <string name="cat_preset_snacks">Snacks</string>
+    <string name="cat_preset_household">Household</string>
+    <string name="cat_preset_personal_care">Personal Care</string>
+    <string name="cat_preset_other">Other</string>
+    <string name="settings_show_guide_again">Show the guide again</string>
 </resources>
