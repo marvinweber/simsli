@@ -4,10 +4,24 @@ All notable changes to the Simsli shopping list app, Wear OS companion, and serv
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-### ✨ New Features
-- **Store Prices** (ITEM-6 + STORE-6): Items gain an optional reference size ("1 l", "500 g") and per-store prices, edited on a new "Store prices" screen reachable from item detail. Prices are compared per store using the household currency with locale-aware formatting — no totals, no unit math. Prices ride the existing store-assignment sync, including the store-group rules (a price on an excluded store is preserved but hidden until the store is re-included).
-- **Server**: new migration 000008 adds `items.reference_size` and `item_stores.price_minor` (integer minor units).
+## [0.6.0] - 2026-10-20
+### 🚀 What's New
+- **Fresh start, guided**: a full onboarding — welcome, key concepts, and create-or-join a household with ready-made category presets.
+- **Self-hosting support**: you can now use a self-hosted Simsli instance, selectable at sign-in; invite links carry the correct host automatically.
+- **Store Prices** (ITEM-6 + STORE-6): Items gain an optional reference size ("1 l", "500 g") and per-store prices, edited on a new "Store prices" screen reachable from item detail. Prices are compared per store using the household currency with locale-aware formatting — no totals, no unit math. Prices ride the existing store-assignment sync, including the store-group rules (a price on an excluded store is preserved but hidden until the store is re-included). Server: new migration 000008 adds `items.reference_size` and `item_stores.price_minor` (integer minor units).
+- **Now in your language**: fully localized (English & German) with a per-app language setting.
+- **Household currency**: pick the currency shown alongside prices.
+
+### ✨ Improvements
+- Mark stores as favorites per item; the ★ toggle filters the list to them.
+- Rearrange category aisle order per store.
+- Items sort alphabetically within their category groups.
+- See sync health at a glance: offline and pending-write indicators in the top bar; new entries from others carry a dot.
+- Item detail redesigned as clean, grouped cards — with unsaved-changes protection and a default-unit dropdown.
+
+### 🐛 Bug Fixes
+- Store prices are now correctly scoped to their item.
+- A handful of missed German translations.
 
 ## [0.5.1] - 2026-10-11
 ### 🐛 Bug Fixes (Server)

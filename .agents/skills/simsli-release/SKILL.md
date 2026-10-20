@@ -40,7 +40,7 @@ Check the output for:
 - ✅ Java runtime configured (`JAVA_HOME`)
 - ⚠️ Release keystore configured in `local.properties` or environment:
   - If keystore credentials are configured, automated CLI builds can sign artifacts directly.
-  - If **no keystore is configured**, Gradle outputs unsigned artifacts (`app-foss-release-unsigned.apk`). In this scenario, alert the user and ask if they prefer to build/sign the APKs and bundles in Android Studio (`Build -> Generate Signed App Bundle / APK`) before distribution.
+  - If **no keystore is configured**, do **not** ask about signing now — just note it and continue with the workflow. The user builds/signs the artifacts themselves; hand over to them only when Step 4 (build) is reached.
 - ✅ Server `MinAppVersion` requirement displayed
 - ✅ App `MIN_SERVER_API_VERSION` requirement displayed
 - Review any pending uncommitted changes in git.
@@ -99,7 +99,7 @@ Check the output for:
 ### Step 4: Build & Verify Release Artifacts
 
 > [!NOTE]
-> If no release keystore is configured in `local.properties`, ask the user to build and sign the release artifacts (Play Bundles and FOSS APK) via Android Studio (`Build -> Generate Signed App Bundle / APK`) before distribution. Alternatively, run the CLI build helper:
+> If no release keystore is configured in `local.properties`, **stop here and hand over to the user** — they build and sign the release artifacts (Play Bundles and FOSS APK) themselves via Android Studio (`Build -> Generate Signed App Bundle / APK`). Do not ask which option they prefer (that was decided once — user builds when no keystore is configured); just tell them it's build time and pause until they confirm the artifacts are ready. Only if the user explicitly asks for it, run the CLI build helper (which produces unsigned artifacts):
 
 Run the build helper:
 ```bash
